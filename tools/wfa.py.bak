@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+import argparse
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import SGDClassifier
+from sklearn.metrics import accuracy_score,f1_score,precision_score,recall_score,roc_auc_score
+from tools.lr_safe import SafeLogistic as LogisticRegression
+
+def _logreg_pipeline() -> Pipeline:
+    return Pipeline([
+        ("scaler", StandardScaler(with_mean=True)),
+        ("clf", LogisticRegression()),
+    ])
+
+def _sgd_pipeline() -> Pipeline:
+    return Pipeline([
+        ("scaler", StandardScaler(with_mean=True)),
+        ("clf", SGDClassifier(loss="log_loss", max_iter=3000, tol=1e-3, early_stopping=True,
+                              n_iter_no_change=10, random_state=42)),
+    ])
+
+def selftest():
+    rng = np.random.RandomState(0)
+    X = rng.randn(200,5)
+    y = (rng.rand(200)>0.5).astype(int)
+    pipe = _logreg_pipeline()
+    pipe.fit(X,y)
+    yhat = pipe.predict(X)
+    phat = pipe.predict_proba(X)[:,1]
+    metrics = dict(
+        acc=float(accuracy_score(y,yhat)),
+        f1=float(f1_score(y,yhat)),
+        prec=float(precision_score(y,yhat)),
+        rec=float(recall_score(y,yhat)),
+        auc=float(roc_auc_score(y,phat)),
+    )
+    print("WFA used: logistic(saga)")
+    print("Metrics:",metrics)
+
+if __name__=="__main__":
+    ap=argparse.ArgumentParser()
+    ap.add_argument("--selftest",action="store_true")
+    args=ap.parse_args()
+    if args.selftest:
+        selftest()
+        print("✅ Selftest OK")

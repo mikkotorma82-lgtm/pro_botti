@@ -1,0 +1,76 @@
+import argparse, json, yaml
+from pathlib import Path
+import pandas as pd
+import numpy as np
+from joblib import load
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+
+from core.features import make_features
+
+def load_cfg(path: Path) -> dict:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def latest_signal(symbol: str, tf: str) -> dict:
+    # data
+    p = DATA_DIR / f"{symbol}_{tf}.csv"
+    df = pd.read_csv(p).sort_values("time").reset_index(drop=True); $'DROP_TIME=["time","date","datetime","timestamp","open_time","close_time"]
+df.drop(columns=[c for c in DROP_TIME if c in df.columns], inplace=True, errors="ignore")
+df = df.select_dtypes(include="number")'
+
+    # model + meta
+    model_p = MODEL_DIR / f"pro_{symbol}_{tf}.joblib"
+    meta_p  = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    if not (model_p.exists() and meta_p.exists()):
+        raise FileNotFoundError("Model/meta missing, train first.")
+
+    payload = load(model_p)
+    clf = payload["pipeline"]
+    with open(meta_p, "r") as f:
+        meta = json.load(f)
+    feats_cfg = meta.get("features")
+
+    # features (täsmäyttää treenin kanssa)
+    df_feat, feats_default = make_features(df)
+    feats = feats_cfg or feats_default
+    feats = [f for f in feats if f in df_feat.columns]
+    X = df_feat[feats].values
+
+    # pred viimeiseltä riviltä
+    x_last = X[-1:].copy()
+    yhat = clf.predict(x_last)[0]
+    proba = None
+    try:
+        proba = clf.predict_proba(x_last)[0].tolist()
+    except Exception:
+        pass
+
+    out = {
+        "symbol": symbol,
+        "tf": tf,
+        "time": str(df_feat.iloc[-1]["time"]) if "time" in df_feat.columns else None,
+        "price": float(df_feat.iloc[-1]["close"]),
+        "signal": int(yhat),   # 1=long, -1=short, 0=flat
+        "proba": proba,
+        "features_used": feats
+    }
+    return out
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="config.yaml")
+    ap.add_argument("--symbols", nargs="*", required=True)
+    ap.add_argument("--tf", required=True)
+    args = ap.parse_args()
+
+    cfg = load_cfg(Path(args.config))  # ei vielä käytössä mutta jätetään
+    outs = []
+    for s in args.symbols:
+        outs.append(latest_signal(s, args.tf))
+    print(json.dumps(outs, indent=2))
+
+if __name__ == "__main__":
+    main()

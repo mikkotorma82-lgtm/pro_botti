@@ -1,0 +1,93 @@
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from joblib import load
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+OUT_DIR = ROOT / "data" / "backtests"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+from core.features import make_features
+
+def load_cfg(path: Path) -> dict:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def run_bt_one(symbol: str, tf: str, cfg: dict) -> dict:
+    # data
+    p = DATA_DIR / f"{symbol}_{tf}.csv"
+    df = pd.read_csv(p).sort_values("time").reset_index(drop=True); $'DROP_TIME=["time","date","datetime","timestamp","open_time","close_time"]
+df.drop(columns=[c for c in DROP_TIME if c in df.columns], inplace=True, errors="ignore")
+df = df.select_dtypes(include="number")'
+
+    # model/meta
+    model_p = MODEL_DIR / f"pro_{symbol}_{tf}.joblib"
+    meta_p  = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    if not (model_p.exists() and meta_p.exists()):
+        raise FileNotFoundError("Model/meta missing, train first.")
+
+    payload = load(model_p)
+    clf = payload["pipeline"]
+    with open(meta_p, "r") as f:
+        meta = json.load(f)
+    horizon = int(meta.get("horizon", 1))
+    feats_cfg = meta.get("features")
+
+    df_feat, feats_default = make_features(df)
+    feats = feats_cfg or feats_default
+    feats = [f for f in feats if f in df_feat.columns]
+    X = df_feat[feats].values
+    close = df_feat["close"].values
+
+    # “one-bar-ahead” simulation (no lookahead): signaali t-> toteutus t+1
+    yhat = []
+    for i in range(len(X)-1):
+        yhat.append(int(clf.predict(X[i:i+1])[0]))
+    yhat = np.array(yhat)
+    # position: -1/0/1
+    pos = yhat
+
+    # tuotto: pos(t) * (close(t+1)/close(t)-1)
+    ret = np.zeros_like(pos, dtype=float)
+    ret = pos * (close[1:len(pos)+1] / close[:len(pos)] - 1.0)
+
+    eq = (1.0 + ret).cumprod()
+    pnl = float(eq[-1] - 1.0) if len(eq) else 0.0
+    hitrate = float(np.mean(ret > 0)) if len(ret) else 0.0
+    dd = 0.0
+    if len(eq):
+        peak = np.maximum.accumulate(eq)
+        dd = float(np.max((peak - eq) / peak))
+
+    out = {
+        "symbol": symbol, "tf": tf,
+        "bars": int(len(ret)),
+        "pnl": pnl,
+        "hitrate": hitrate,
+        "max_dd": dd,
+    }
+    out_p = OUT_DIR / f"bt_{symbol}_{tf}.json"
+    with open(out_p, "w") as f: json.dump(out, f, indent=2)
+    print(f"[BT] {out_p}  PnL={pnl:.3f}  HR={hitrate:.2%}  DD={dd:.2%}")
+    return out
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="config.yaml")
+    ap.add_argument("--symbols", nargs="*", required=True)
+    ap.add_argument("--tfs", nargs="*", required=True)
+    args = ap.parse_args()
+
+    cfg = load_cfg(Path(args.config))
+    for s in args.symbols:
+        for tf in args.tfs:
+            try:
+                run_bt_one(s, tf, cfg)
+            except Exception as e:
+                print(f"[BT FAIL] {s} {tf}: {e}")
+
+if __name__ == "__main__":
+    main()

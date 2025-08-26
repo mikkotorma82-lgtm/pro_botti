@@ -1,0 +1,105 @@
+general:
+  project_name: pro_botti
+  data_dir: ./data
+  model_dir: ./models
+  log_level: INFO
+  seed: 42
+market:
+  timeframe: 15m
+  exchange_tz: UTC
+poll_seconds:
+  1m: 10
+  5m: 20
+  15m: 30
+  1h: 120
+  4h: 300
+features:
+  ta_features:
+  - name: rsi
+    window: 14
+  - name: stoch_k
+    window: 14
+    smooth_k: 3
+  - name: willr
+    window: 14
+  - name: sma
+    window: 20
+  - name: ema
+    window: 50
+  - name: bbands
+    window: 20
+    ndev: 2.0
+  - name: atr
+    window: 14
+labels:
+  scheme: forward_return
+  forward_horizon: 12
+  threshold_bp: 5
+  barrier:
+    tp_bp: 50
+    sl_bp: 50
+    max_horizon: 48
+model:
+  type: random_forest
+  params:
+    n_estimators: 400
+    max_depth: 6
+    min_samples_leaf: 5
+    n_jobs: -1
+cv:
+  type: walk_forward
+  n_splits: 5
+  purge: 1
+  embargo: 0
+execution:
+  broker: paper
+  risk:
+    max_leverage: 1.0
+    risk_per_trade_bp: 25
+    volatility_target_annual: 0.2
+    max_positions: 5
+    max_symbol_weight: 0.5
+  sizing:
+    method: vol_target
+    fixed_fraction: 0.01
+  slippage_bp: 1.0
+  fees_bp: 1.0
+broker:
+  capital:
+    api_key: ${CAPITAL_API_KEY}
+    username: ${CAPITAL_LOGIN}
+    password: ${CAPITAL_PASSWORD}
+    demo: true
+backtest:
+  initial_cash: 100000.0
+  commission_bp: 1.0
+  timeframes_by_symbol: &id003
+    XRPUSDT: &id001
+    - 15m
+    - 1h
+    - 4h
+    ETHUSDT: *id001
+    BTCUSDT: *id001
+    ADAUSDT: *id001
+    SOLUSDT: *id001
+    US100: &id002
+    - 1h
+    - 4h
+    US500: *id002
+    EURUSD: *id002
+    GBPUSD: *id002
+    TSLA: *id002
+    AAPL: *id002
+    NVDA: *id002
+data: {}
+train:
+  timeframes_by_symbol: *id003
+live:
+  timeframes:
+  - 15m
+  - 1h
+  - 4h
+  symbols:
+  - BTCUSDT
+  - ETHUSDT
+models: {}

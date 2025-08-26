@@ -1,0 +1,23 @@
+
+account:
+  base_ccy: USD
+  starting_balance: 10000.0
+
+risk:
+  basis: equity             # vaihtoehdot: equity | balance | free_margin
+  risk_per_trade_pct: 0.5   # % valitusta basisista per signaali
+  day_loss_limit_pct: 2.0   # kill-switch jos päivän realisoitu tappio >= tämä %
+  cooldown_minutes: 60      # kill-switchin jäähy
+  leverage_max: 3.0         # vipukatto
+  stop_dist_pct: 1.0        # fallback jos ATR ei saatavilla (1% hinnasta)
+  atr_k: 2.0                # jos ATR on, käytä kertoimella
+  min_units: 0.001          # pienin kaupan yksikkö
+  fee_bps: 2                # kulut basis points (2 bps = 0.02%)
+
+symbols:
+  US500:
+    multiplier: 1.0         # PnL = (price - avg) * units * multiplier
+  EURUSD:
+    multiplier: 1.0
+  GBPUSD:
+    multiplier: 1.0

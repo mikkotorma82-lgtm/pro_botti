@@ -1,0 +1,219 @@
+import os, sys, math, time, yaml, datetime as dt
+import pandas as pd
+import numpy as np
+
+# deps
+import ccxt
+import yfinance as yf
+
+
+# Yahoo-tickeri ↔ oma nimi -mäppäys
+MAP_YF = {
+    "US500": "^GSPC",   # S&P 500
+    "US100": "^NDX",    # Nasdaq 100
+    "EURUSD": "EURUSD=X",
+    "GBPUSD": "GBPUSD=X",
+}
+
+def map_yf_symbol(sym: str) -> str:
+    return MAP_YF.get(sym, sym)
+
+def norm_filename(sym: str) -> str:
+    # Tiedostonimeen käytetään omaa symbolia (ennen mäppäystä)
+    # Sallitaan A-Z, 0-9 ja _
+    import re
+    s = re.sub(r'[^A-Za-z0-9_]+', '', sym.upper())
+    return s
+
+CFG_PATH = os.environ.get("CFG", "config.yaml")
+
+# ---- helpers ----
+def load_cfg(path=CFG_PATH):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def ensure_cols(df):
+    # Rename to expected columns and enforce dtypes
+    df = df[["timestamp","open","high","low","close","volume"]].copy()
+    df["timestamp"] = df["timestamp"].astype("int64")
+    for c in ["open","high","low","close","volume"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.dropna().reset_index(drop=True)
+    return df
+
+def save_csv(sym, tf, df):
+    os.makedirs("data", exist_ok=True)
+    out = f"data/{sym}_{tf}.csv"
+    df = ensure_cols(df)
+    df.to_csv(out, index=False)
+    print(f"[OK] wrote {out} rows={len(df)}")
+
+# ---- sources & symbol maps ----
+CRYPTO = {"XRPUSDT","ETHUSDT","BTCUSDT","ADAUSDT","SOLUSDT"}
+YF_MAP = {
+    "US500": "^GSPC",
+    "US100": "^NDX",
+    "EURUSD": "EURUSD=X",
+    "GBPUSD": "GBPUSD=X",
+    "TSLA": "TSLA",
+    "AAPL": "AAPL",
+    "NVDA": "NVDA",
+}
+
+def to_ccxt_symbol(sym):
+    if sym.endswith("USDT"):
+        base = sym[:-4]
+        return f"{base}/USDT"
+    raise ValueError(f"Unsupported crypto symbol '{sym}'")
+
+CCXT_TF = {"15m":"15m","1h":"1h","4h":"4h"}  # binance supports all
+YF_TF = {"15m":"15m","1h":"60m"}             # 4h hand-made from 60m
+
+# yfinance intraday ranges are limited; default last 60d for <=60m intervals.
+
+def yf_download(symbol: str, interval: str, period: str):
+    import pandas as pd
+    import yfinance as yf
+    df = yf.download(symbol, interval=interval, period=period, progress=False, auto_adjust=False)
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["timestamp","open","high","low","close","volume"])
+    idx = df.index
+    try:
+        # tee indexistä UTC ns -> sekunnit
+        if getattr(idx, "tz", None) is None:
+            idx = idx.tz_localize("UTC")
+        else:
+            idx = idx.tz_convert("UTC")
+        epoch = (idx.asi8 // 10**9)
+    except Exception:
+        epoch = pd.to_datetime(idx, utc=True).view("int64") // 10**9
+
+    vol = df["Volume"] if "Volume" in df.columns else pd.Series([0]*len(df), index=df.index)
+    out = pd.DataFrame({
+        "timestamp": epoch,
+        "open": df["Open"].to_numpy(),
+        "high": df["High"].to_numpy(),
+        "low": df["Low"].to_numpy(),
+        "close": df["Close"].to_numpy(),
+        "volume": vol.to_numpy()
+    })
+    return out
+
+def yf_resample_4h(df_1h):
+    if df_1h.empty: return df_1h
+    s = pd.to_datetime(df_1h["timestamp"], unit="s", utc=True)
+    x = df_1h.set_index(s)
+    agg = {
+        "open":"first","high":"max","low":"min","close":"last","volume":"sum"
+    }
+    r = x[["open","high","low","close","volume"]].resample("4h").agg(agg).dropna()
+    r["timestamp"] = (r.index.astype("int64") // 10**9).astype("int64")
+    return r.reset_index(drop=True)[["timestamp","open","high","low","close","volume"]]
+
+def ccxt_fetch_ohlcv_all(exchange, symbol, timeframe, since_ms, until_ms=None, limit=1000, sleep_ms=350):
+    """
+    Hakee OHLCV:t paloissa alkaen since_ms -> until_ms (tai nykyhetki), kunnes data loppuu.
+    Palauttaa listan [ms, open, high, low, close, volume].
+    """
+    import time
+    all_rows = []
+    cursor = int(since_ms) if since_ms is not None else None
+    # Binance vaatii markettien latauksen ainakin kerran
+    try:
+        exchange.load_markets()
+    except Exception:
+        pass
+
+    while True:
+        rows = exchange.fetch_ohlcv(symbol, timeframe=timeframe, since=cursor, limit=limit)
+        if not rows:
+            break
+        # suojataan duplikaateilta/loopilta
+        if all_rows and rows[0][0] <= all_rows[-1][0]:
+            cursor = all_rows[-1][0] + 1
+            time.sleep(sleep_ms/1000.0)
+            continue
+
+        all_rows.extend(rows)
+        cursor = rows[-1][0] + 1
+
+        if until_ms is not None and rows[-1][0] >= until_ms:
+            break
+
+        time.sleep(sleep_ms/1000.0)
+
+    return all_rows
+def first_available_ts_ms(days_back=60):
+    # default start = now - days_back (avoid "no hardcode": allow env override)
+    # export HISTORY_DAYS=365 to change.
+    try:
+        days_back = int(os.environ.get("HISTORY_DAYS", days_back))
+    except Exception:
+        pass
+    return int((pd.Timestamp.utcnow() - pd.Timedelta(days=days_back)).timestamp() * 1000)
+
+def main():
+    cfg = load_cfg()
+    # symbols & TF-kartta
+    syms = cfg.get("live",{}).get("symbols") or cfg.get("symbols") or []
+    tf_map = cfg.get("live",{}).get("timeframes_by_symbol") or {}
+    if not syms:
+        print("No symbols found in config.yaml", file=sys.stderr); sys.exit(1)
+
+    # CCXT binance (public)
+    binance = ccxt.binance({'enableRateLimit': True})
+
+    for sym in syms:
+        tfs = tf_map.get(sym) or cfg.get("train",{}).get("timeframes") or ["15m","1h","4h"]
+        # dedupe keep order
+        seen=set(); tfs=[x for x in tfs if not (x in seen or seen.add(x))]
+        if sym in CRYPTO:
+            ccxt_sym = to_ccxt_symbol(sym)
+            for tf in tfs:
+                tf_ccxt = CCXT_TF.get(tf)
+                if not tf_ccxt: 
+                    print(f"[SKIP] {sym} tf={tf} not supported on CCXT"); continue
+                since = first_available_ts_ms()  # env HISTORY_DAYS ohjaa
+                try:
+                    df = ccxt_fetch_ohlcv(binance, ccxt_sym, tf_ccxt, since_ms=since, limit=1000)
+                except Exception as e:
+                    print(f"[ERR] CCXT {sym} {tf}: {e}")
+                    continue
+                if df.empty:
+                    print(f"[WARN] no data {sym} {tf} from CCXT")
+                    continue
+                save_csv(sym, tf, df)
+        else:
+            yf_sym = YF_MAP.get(sym)
+            if not yf_sym:
+                print(f"[SKIP] no Yahoo symbol mapping for {sym}")
+                continue
+            # Intraday period: env YF_PERIOD (default 60d)
+            period = os.environ.get("YF_PERIOD","60d")
+            for tf in tfs:
+                if tf == "4h":
+                    # 4h = resample 1h
+                    df1h = yf_download(yf_sym, interval=YF_TF["1h"], period=period)
+                    df = yf_resample_4h(df1h)
+                else:
+                    interval = YF_TF.get(tf)
+                    if not interval:
+                        print(f"[SKIP] yfinance interval not supported for tf={tf}")
+                        continue
+                    df = yf_download(yf_sym, interval=interval, period=period)
+                if df.empty:
+                    print(f"[WARN] no data {sym} {tf} from Yahoo")
+                    continue
+                save_csv(sym, tf, df)
+
+if __name__ == "__main__":
+    main()
+
+
+def tf_to_yf_interval(tf: str) -> str:
+    tf = tf.lower()
+    if tf == "1h": return "60m"
+    if tf == "4h": return "240m"
+    if tf == "15m": return "15m"
+    if tf == "1d": return "1d"
+    raise ValueError(f"Unsupported tf for Yahoo: {tf}")

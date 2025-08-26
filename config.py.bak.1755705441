@@ -1,0 +1,69 @@
+import os
+import yaml
+import dataclasses
+from dataclasses import dataclass, field
+
+# ---------- General ----------
+@dataclass
+class GeneralCfg:
+    log_level: str = "INFO"
+
+# ---------- Backtest ----------
+@dataclass
+class BacktestCfg:
+    initial_cash: float = 10000.0
+    commission_bp: float = 1.0  # basis points, esim. 1.0 = 0.01%
+
+# ---------- Market ----------
+@dataclass
+class MarketCfg:
+    timeframe: str = "1h"
+
+# ---------- Live ----------
+@dataclass
+class LiveCfg:
+    symbols: list[str] = field(default_factory=list)
+    timeframes: list[str] = field(default_factory=lambda: ["15m", "1h", "4h"])
+    poll_seconds: int = 30
+
+# ---------- Root ----------
+@dataclass
+class RootCfg:
+    data_dir: str = "data"
+    model_dir: str = "models"
+    general: GeneralCfg = field(default_factory=GeneralCfg)
+    backtest: BacktestCfg = field(default_factory=BacktestCfg)
+    market: MarketCfg = field(default_factory=MarketCfg)
+    live: LiveCfg = field(default_factory=LiveCfg)
+
+# ---------- Safe-mapper joka pudottaa ylimääräiset YAML-avaimet ----------
+def map_dc_safe(dc_cls, raw):
+    if raw is None:
+        raw = {}
+    try:
+        fields = {f.name for f in dataclasses.fields(dc_cls)}
+        kwargs = {k: v for k, v in (raw or {}).items() if k in fields}
+        return dc_cls(**kwargs)
+    except Exception:
+        # Fallback: yritä suoraan
+        return dc_cls(**(raw or {}))
+
+# ---------- Lataus ----------
+def load_config(path: str = "config.yaml") -> RootCfg:
+    with open(path, "r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f) or {}
+
+    # Salli myös vanhat top-level avaimet (log_level jne.)
+    general_raw = raw.get("general", {})
+    if not general_raw and "log_level" in raw:
+        general_raw = {"log_level": raw.get("log_level")}
+
+    cfg = RootCfg(
+        data_dir=raw.get("data_dir", "data"),
+        model_dir=raw.get("model_dir", "models"),
+        general=map_dc_safe(GeneralCfg, general_raw),
+        backtest=map_dc_safe(BacktestCfg, raw.get("backtest", {})),
+        market=map_dc_safe(MarketCfg, raw.get("market", {})),
+        live=map_dc_safe(LiveCfg, raw.get("live", {})),
+    )
+    return cfg

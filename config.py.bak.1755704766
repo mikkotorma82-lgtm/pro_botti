@@ -1,0 +1,46 @@
+import os
+import yaml
+import dataclasses
+from dataclasses import dataclass, field
+
+# ---------- General ----------
+@dataclass
+class GeneralCfg:
+    log_level: str = "INFO"
+
+# ---------- Live ----------
+@dataclass
+class LiveCfg:
+    symbols: list[str] = field(default_factory=list)
+    timeframes: list[str] = field(default_factory=lambda: ["15m", "1h", "4h"])
+    poll_seconds: int = 30
+
+# ---------- Root ----------
+@dataclass
+class RootCfg:
+    data_dir: str = "data"
+    model_dir: str = "models"
+    general: GeneralCfg = field(default_factory=GeneralCfg)
+    live: LiveCfg | None = None
+
+def map_dc_safe(dc_cls, raw):
+    if raw is None:
+        raw = {}
+    try:
+        fields = {f.name for f in dataclasses.fields(dc_cls)}
+        kwargs = {k: v for k, v in raw.items() if k in fields}
+        return dc_cls(**kwargs)
+    except Exception:
+        return dc_cls(**(raw or {}))
+
+def load_config(path: str = "config.yaml") -> RootCfg:
+    if not os.path.exists(path):
+        return RootCfg()
+    with open(path, "r") as f:
+        raw = yaml.safe_load(f) or {}
+    return RootCfg(
+        data_dir=raw.get("data_dir", "data"),
+        model_dir=raw.get("model_dir", "models"),
+        general=map_dc_safe(GeneralCfg, raw.get("general", {"log_level": raw.get("log_level", "INFO")})),
+        live=map_dc_safe(LiveCfg, raw.get("live", {})),
+    )

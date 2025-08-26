@@ -1,0 +1,138 @@
+import os, sys, time, argparse, pathlib
+from datetime import datetime, timedelta, timezone
+from typing import List, Tuple
+import pandas as pd
+
+# Lisää projektijuuri sys.pathiin
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from history.history_utils import DEFAULT_TARGET_DAYS, tf_to_seconds
+
+import ccxt
+import yfinance as yf
+
+DATA_DIR = os.environ.get("DATA_DIR", "data")
+HIST_DIR = os.path.join(DATA_DIR, "history")
+os.makedirs(HIST_DIR, exist_ok=True)
+
+YF_MAP = {
+    "EURUSD": "EURUSD=X",
+    "GBPUSD": "GBPUSD=X",
+    "US500": "^GSPC",
+    "US100": "^NDX",
+    "TSLA": "TSLA",
+    "AAPL": "AAPL",
+    "NVDA": "NVDA",
+}
+YF_CRYPTO_FALLBACK = {
+    "BTCUSDT": "BTC-USD",
+    "ETHUSDT": "ETH-USD",
+    "XRPUSDT": "XRP-USD",
+    "SOLUSDT": "SOL-USD",
+    "ADAUSDT": "ADA-USD",
+}
+BINANCE_TF = {"15m": "15m", "1h": "1h", "4h": "4h"}
+
+def is_crypto(symbol: str) -> bool:
+    return symbol.upper().endswith("USDT")
+
+def to_binance_market(symbol: str) -> str:
+    s = symbol.upper()
+    if s.endswith("USDT"):
+        base = s[:-4]
+        return f"{base}/USDT"
+    return s
+
+def clamp_days_for_yf(tf: str, target_days: int) -> int:
+    if tf == "15m":
+        return min(target_days, 60)
+    if tf == "1h":
+        return min(target_days, 730)
+    if tf == "4h":
+        return min(target_days, 3650)
+    return target_days
+
+def save_csv(symbol: str, tf: str, rows: List[Tuple[int,float,float,float,float,float]]):
+    if not rows:
+        print(f"[FAIL] {symbol} {tf}: empty")
+        return False
+    rows.sort(key=lambda r: r[0])
+    df = pd.DataFrame(rows, columns=["time","open","high","low","close","volume"])
+    outp = os.path.join(HIST_DIR, f"{symbol}_{tf}.csv")
+    df.to_csv(outp, index=False)
+    print(f"[OK] Wrote {outp} rows={len(df)} first={df.iloc[0]['time']} last={df.iloc[-1]['time']}")
+    return True
+
+def fetch_crypto_binance(symbol: str, tf: str, days: int) -> List[Tuple[int,float,float,float,float,float]]:
+    ex = ccxt.binance()
+    market = to_binance_market(symbol)
+    limit = 1000
+    since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp()*1000)
+    out: List[List[float]] = []
+    timeframe = BINANCE_TF[tf]
+    while True:
+        batch = ex.fetch_ohlcv(market, timeframe=timeframe, since=since_ms, limit=limit)
+        if not batch:
+            break
+        out.extend(batch)
+        if len(batch) < limit:
+            break
+        since_ms = batch[-1][0] + tf_to_seconds(tf)*1000
+        if len(out) > 1_500_000:
+            break
+        time.sleep(0.1)
+    return [(int(t/1000), float(o), float(h), float(l), float(c), float(v)) for (t,o,h,l,c,v) in out]
+
+def fetch_yf(symbol: str, tf: str, days: int) -> List[Tuple[int,float,float,float,float,float]]:
+    yf_symbol = YF_MAP.get(symbol, YF_CRYPTO_FALLBACK.get(symbol, symbol))
+    period = f"{days}d"
+    interval = {"15m":"15m", "1h":"60m", "4h":"240m"}[tf]
+    try:
+        df = yf.download(yf_symbol, period=period, interval=interval, auto_adjust=False, progress=False)
+    except Exception as e:
+        print(f"[WARN] yfinance fail {symbol} {tf}: {e}")
+        return []
+    if df is None or df.empty:
+        return []
+    df = df.rename(columns={"Open":"open","High":"high","Low":"low","Close":"close","Volume":"volume"})
+    df = df.dropna(subset=["open","high","low","close"])
+    rows: List[Tuple[int,float,float,float,float,float]] = []
+    for idx, row in df.iterrows():
+        ts = int(pd.Timestamp(idx).tz_localize(None).timestamp())
+        rows.append((ts, float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"]), float(row.get("volume", 0.0) or 0.0)))
+    return rows
+
+def fetch_one(symbol: str, tf: str, target_days: int) -> bool:
+    if is_crypto(symbol):
+        rows = fetch_crypto_binance(symbol, tf, target_days)
+        if not rows:
+            rows = fetch_yf(symbol, tf, clamp_days_for_yf(tf, target_days))
+    else:
+        rows = fetch_yf(symbol, tf, clamp_days_for_yf(tf, target_days))
+    return save_csv(symbol, tf, rows)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--symbols", nargs="*", default=[
+        "BTCUSDT","ETHUSDT","XRPUSDT","SOLUSDT","ADAUSDT",
+        "EURUSD","GBPUSD","US500","US100","TSLA","AAPL","NVDA"
+    ])
+    ap.add_argument("--tfs", nargs="*", default=["15m","1h","4h"])
+    ap.add_argument("--days-15m", type=int, default=DEFAULT_TARGET_DAYS["15m"])
+    ap.add_argument("--days-1h",  type=int, default=DEFAULT_TARGET_DAYS["1h"])
+    ap.add_argument("--days-4h",  type=int, default=DEFAULT_TARGET_DAYS["4h"])
+    args = ap.parse_args()
+
+    tf_days = {"15m": args.days_15m, "1h": args.days_1h, "4h": args.days_4h}
+    ok_all = True
+    for s in args.symbols:
+        for tf in args.tfs:
+            ok = fetch_one(s, tf, tf_days.get(tf, 365))
+            ok_all = ok_all and ok
+    if not ok_all:
+        sys.exit(2)
+
+if __name__ == "__main__":
+    main()

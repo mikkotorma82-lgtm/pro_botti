@@ -1,0 +1,61 @@
+import yaml
+import dataclasses
+from dataclasses import dataclass, field
+
+# ---------- General ----------
+@dataclass
+class GeneralCfg:
+    log_level: str = "INFO"
+
+# ---------- Live ----------
+@dataclass
+class LiveCfg:
+    symbols: list[str] = field(default_factory=list)
+    timeframes: list[str] = field(default_factory=lambda: ["15m", "1h", "4h"])
+
+# ---------- Root ----------
+@dataclass
+class RootCfg:
+    data_dir: str = "data"
+    model_dir: str = "models"
+    # HUOM: live_trader odottaa juuritason poll_seconds-sanakirjaa
+    poll_seconds: dict[str, int] = field(default_factory=lambda: {"15m": 20, "1h": 30, "4h": 60})
+    general: GeneralCfg = field(default_factory=GeneralCfg)
+    live: LiveCfg = field(default_factory=LiveCfg)
+
+# --- SAFE mapper: pudottaa ylimääräiset avaimet dataclassille ---
+def map_dc_safe(dc_cls, raw):
+    if raw is None:
+        raw = {}
+    try:
+        fields = {f.name for f in dataclasses.fields(dc_cls)}
+        kwargs = {k: v for k, v in (raw or {}).items() if k in fields}
+        return dc_cls(**kwargs)
+    except Exception:
+        return dc_cls(**(raw or {}))
+
+def load_config(path: str) -> RootCfg:
+    raw = yaml.safe_load(open(path)) or {}
+
+    gen = map_dc_safe(GeneralCfg, raw.get("general", {}))
+    live = map_dc_safe(LiveCfg, raw.get("live", {}))
+
+    # Salli sekä root.poll_seconds että legacy live.poll_seconds (int tai dict)
+    poll = raw.get("poll_seconds")
+    if poll is None:
+        lp = (raw.get("live") or {}).get("poll_seconds")
+        if isinstance(lp, int):
+            # johda järkevät oletukset
+            poll = {"15m": max(5, lp), "1h": max(10, lp * 3), "4h": max(20, lp * 6)}
+        elif isinstance(lp, dict):
+            poll = lp
+    if not isinstance(poll, dict):
+        poll = {"15m": 20, "1h": 30, "4h": 60}
+
+    return RootCfg(
+        data_dir=raw.get("data_dir", "data"),
+        model_dir=raw.get("model_dir", "models"),
+        poll_seconds=poll,
+        general=gen,
+        live=live,
+    )

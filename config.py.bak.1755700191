@@ -1,0 +1,135 @@
+
+from __future__ import annotations
+from dataclasses import dataclass, field
+from typing import List, Dict, Any, Optional
+import os, yaml
+
+@dataclass
+class RiskCfg:
+    max_leverage: float = 1.0
+    risk_per_trade_bp: float = 25.0
+    volatility_target_annual: float = 0.20
+    max_positions: int = 5
+    max_symbol_weight: float = 0.50
+
+@dataclass
+class SizingCfg:
+    method: str = "vol_target"  # fixed_fraction | vol_target | kelly_fraction
+    fixed_fraction: float = 0.01
+
+@dataclass
+class ExecutionCfg:
+    broker: str = "paper"
+    risk: RiskCfg = field(default_factory=RiskCfg)
+    sizing: SizingCfg = field(default_factory=SizingCfg)
+    slippage_bp: float = 1.0
+    fees_bp: float = 1.0
+
+@dataclass
+class ModelCfg:
+    type: str = "random_forest"
+    params: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class CvCfg:
+    type: str = "walk_forward"
+    n_splits: int = 5
+    purge: int = 1
+    embargo: int = 0
+
+@dataclass
+class LabelsCfg:
+    scheme: str = "forward_return"
+    forward_horizon: int = 12
+    threshold_bp: float = 5.0
+    barrier: Dict[str, Any] = field(default_factory=lambda: {"tp_bp":50, "sl_bp":50, "max_horizon":48})
+
+@dataclass
+class FeaturesCfg:
+    ta_features: List[Dict[str, Any]] = field(default_factory=list)
+
+@dataclass
+class BrokerCapitalCfg:
+    api_key: str = ""
+    username: str = ""
+    password: str = ""
+    demo: bool = True
+
+@dataclass
+class BrokerCfg:
+    capital: BrokerCapitalCfg = field(default_factory=BrokerCapitalCfg)
+
+@dataclass
+class MarketCfg:
+    symbols: List[str] = field(default_factory=list)
+    timeframe: str = "15m"
+    exchange_tz: str = "UTC"
+
+@dataclass
+class GeneralCfg:
+    project_name: str = "pro_botti"
+    data_dir: str = "./data"
+    model_dir: str = "./models"
+    log_level: str = "INFO"
+    seed: int = 42
+
+@dataclass
+class BacktestCfg:
+    initial_cash: float = 100000.0
+    commission_bp: float = 1.0
+
+@dataclass
+class RootCfg:
+    general: GeneralCfg = field(default_factory=GeneralCfg)
+    market: MarketCfg = field(default_factory=MarketCfg)
+    poll_seconds: Dict[str, int] = field(default_factory=dict)
+    features: FeaturesCfg = field(default_factory=FeaturesCfg)
+    labels: LabelsCfg = field(default_factory=LabelsCfg)
+    model: ModelCfg = field(default_factory=ModelCfg)
+    cv: CvCfg = field(default_factory=CvCfg)
+    execution: ExecutionCfg = field(default_factory=ExecutionCfg)
+    broker: BrokerCfg = field(default_factory=BrokerCfg)
+    backtest: BacktestCfg = field(default_factory=BacktestCfg)
+
+def load_config(path: str) -> RootCfg:
+    with open(path, "r", encoding="utf-8") as f:
+        raw = yaml.safe_load(f)
+    # Simple env substitution for ${VAR}
+    def _subst(x):
+        if isinstance(x, str):
+            import re
+            def repl(m): return os.environ.get(m.group(1), "")
+            return re.sub(r"\$\{([A-Z0-9_]+)\}", repl, x)
+        if isinstance(x, list):
+            return [_subst(v) for v in x]
+        if isinstance(x, dict):
+            return {k:_subst(v) for k,v in x.items()}
+        return x
+    raw = _subst(raw)
+    # map dicts to dataclasses
+    def map_dc(dc_cls, d):
+        if isinstance(d, dict):
+            # recursively map nested structures
+            fields = {f.name:f.type for f in dc_cls.__dataclass_fields__.values()}
+            kwargs = {}
+            for k,v in d.items():
+                if k in fields and hasattr(fields[k], "__dataclass_fields__"):
+                    kwargs[k] = map_dc(fields[k], v)
+                else:
+                    kwargs[k] = v
+            # set defaults for missing
+            return dc_cls(**kwargs)
+        return dc_cls()
+    cfg = RootCfg(
+        general=map_dc(GeneralCfg, raw.get("general", {})),
+        market=map_dc(MarketCfg, raw.get("market", {})),
+        poll_seconds=raw.get("poll_seconds", {}),
+        features=map_dc(FeaturesCfg, raw.get("features", {})),
+        labels=map_dc(LabelsCfg, raw.get("labels", {})),
+        model=map_dc(ModelCfg, raw.get("model", {})),
+        cv=map_dc(CvCfg, raw.get("cv", {})),
+        execution=map_dc(ExecutionCfg, raw.get("execution", {})),
+        broker=map_dc(BrokerCfg, raw.get("broker", {})),
+        backtest=map_dc(BacktestCfg, raw.get("backtest", {})),
+    )
+    return cfg

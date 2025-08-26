@@ -1,0 +1,48 @@
+data_dir: data
+model_dir: models
+
+poll_seconds:
+  "15m": 20
+  "1h": 30
+  "4h": 60
+
+general:
+  log_level: INFO
+
+market:
+  timeframe: "1h"
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+    - XRPUSDT
+    - SOLUSDT
+    - ADAUSDT
+    - EURUSD
+    - GBPUSD
+    - US500
+    - US100
+    - TSLA
+    - AAPL
+    - NVDA
+
+backtest:
+  initial_cash: 10000
+  commission_bp: 1
+
+live:
+  timeframes: ["15m", "1h", "4h"]
+  symbols: []
+
+# ---------- Training ----------
+train:
+  # käytetään markkinan symboleita jos --symbols ei anneta
+  timeframes: ["15m", "1h", "4h"]
+  horizon_bars: 1            # 1 bar eteen -> paljon treidejä
+  n_splits: 5                # walk-forward splitit
+  model: "logreg"            # kevyt, nopea baseline
+  prob_threshold_long: 0.52  # aggressiivinen -> paljon kauppoja
+  prob_threshold_short: 0.52
+  risk:
+    sl_pct: 0.006            # 0.6% stop
+    tp_pct: 0.012            # 1.2% take profit
+  use_openai: false          # true = lisää LLM-kommentit treideihin jos API key

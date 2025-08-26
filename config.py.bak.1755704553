@@ -1,0 +1,43 @@
+import os
+import yaml
+import dataclasses
+from dataclasses import dataclass, field
+
+# --- 1) Live-kokoonpano ---
+@dataclass
+class LiveCfg:
+    symbols: list[str] = field(default_factory=list)
+    timeframes: list[str] = field(default_factory=lambda: ["15m", "1h", "4h"])
+    poll_seconds: int = 30
+
+# --- 2) Root-config ---
+@dataclass
+class RootCfg:
+    data_dir: str = "data"
+    model_dir: str = "models"
+    log_level: str = "INFO"
+    live: LiveCfg | None = None
+
+# --- 3) Mapper joka pudottaa ylimääräiset avaimet ---
+def map_dc_safe(dc_cls, raw):
+    if raw is None:
+        raw = {}
+    try:
+        fields = {f.name for f in dataclasses.fields(dc_cls)}
+        kwargs = {k: v for k, v in raw.items() if k in fields}
+        return dc_cls(**kwargs)
+    except Exception:
+        return dc_cls(**(raw or {}))
+
+# --- 4) Lataus YAML:sta ---
+def load_config(path: str = "config.yaml") -> RootCfg:
+    if not os.path.exists(path):
+        return RootCfg()
+    with open(path, "r") as f:
+        raw = yaml.safe_load(f) or {}
+    return RootCfg(
+        data_dir=raw.get("data_dir", "data"),
+        model_dir=raw.get("model_dir", "models"),
+        log_level=raw.get("log_level", "INFO"),
+        live=map_dc_safe(LiveCfg, raw.get("live", {})),
+    )
