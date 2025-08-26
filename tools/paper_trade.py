@@ -1,61 +1,87 @@
-import argparse, json, os
+#!/usr/bin/env python3
+# tools/paper_trade.py — kevyt skeleton, yhteensopiva CLI:n kanssa
+
+import argparse
+import json
+import os
 import pandas as pd
+
 
 def atr(high, low, close, period=14):
     high = pd.Series(high).astype(float)
-    low  = pd.Series(low).astype(float)
-    close= pd.Series(close).astype(float)
+    low = pd.Series(low).astype(float)
+    close = pd.Series(close).astype(float)
     prev_close = close.shift(1)
-    tr = pd.concat([
-        (high - low).abs(),
-        (high - prev_close).abs(),
-        (low  - prev_close).abs()
-    ], axis=1).max(axis=1)
-    return tr.ewm(alpha=1/period, adjust=False).mean()
 
-def ensure_atr(df, period=14):
-    cols = {c.lower(): c for c in df.columns}
-    hi = cols.get('high') or cols.get('h') or cols.get('high_price')
-    lo = cols.get('low')  or cols.get('l') or cols.get('low_price')
-    cl = cols.get('close') or cols.get('c') or cols.get('close_price') or cols.get('price')
-    if hi and lo and cl and 'ATR' not in df.columns:
-        df['ATR'] = atr(df[hi], df[lo], df[cl], period)
+    tr = pd.concat(
+        [
+            (high - low).abs(),
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    ).max(axis=1)
+
+    return tr.ewm(alpha=1 / period, adjust=False).mean()
+
+
+def ensure_atr(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
+    # Kolumnien case-insensitive haku & aliakset
+    lc = {c.lower(): c for c in df.columns}
+
+    def pick(*names):
+        for n in names:
+            if n in lc:
+                return lc[n]
+        return None
+
+    hi = pick("high", "h")
+    lo = pick("low", "l")
+    cl = pick("close", "c")
+
+    missing = [n for n, c in [("high", hi), ("low", lo), ("close", cl)] if c is None]
+    if missing:
+        raise ValueError(f"CSV:lta puuttuu kolumnit: {', '.join(missing)}")
+
+    if "ATR" not in df.columns:
+        df["ATR"] = atr(df[hi], df[lo], df[cl], period=int(period))
+
     return df
+
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)   # säilytetään rajapinta
-    ap.add_argument("--csv", required=True)
-    ap.add_argument("--thr", required=True, type=float)
-    ap.add_argument("--equity0", type=float, default=10000.0)
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--model", required=True, help="Path to trained model (unused in smoketest)")
+    ap.add_argument("--csv", required=True, help="Historical OHLCV CSV")
+    ap.add_argument("--thr", required=True, type=float, help="Decision threshold (echoed to output)")
+    ap.add_argument("--equity0", default=10000.0, type=float, help="Starting equity (echoed)")
+    ap.add_argument("--out", default="results/paper_smoke.json", help="Output JSON path")
     args = ap.parse_args()
 
-    # Lue data
     df = pd.read_csv(args.csv)
-    # Normalisoi sarake-nimet
-    df.columns = [str(c).strip() for c in df.columns]
-    # Joissain CSV:issä on 'time' eikä 'timestamp' — ei väliä savutestille
-    # Laske ATR jos puuttuu
-    df = ensure_atr(df, period=14)
 
-    # Koosteraportti savutestiin
-    res = {
+    # Yhdenmukaista 'timestamp' → 'time' jos tarpeen
+    if "timestamp" in df.columns and "time" not in df.columns:
+        df = df.rename(columns={"timestamp": "time"})
+
+    # ATR-periodi: env tai oletus
+    atr_period = int(os.environ.get("ATR_PERIOD", "14"))
+    df = ensure_atr(df, period=atr_period)
+
+    out = {
         "rows": int(len(df)),
-        "has_ATR": bool('ATR' in df.columns),
-        "atr_na": int(df['ATR'].isna().sum()) if 'ATR' in df.columns else None,
-        "thr": args.thr,
-        "equity0": args.equity0,
+        "has_ATR": "ATR" in df.columns,
+        "atr_na": int(df["ATR"].isna().sum()),
+        "thr": float(args.thr),
+        "equity0": float(args.equity0),
         "csv": os.path.basename(args.csv),
-        "ok": True
+        "ok": True,
     }
 
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
-        json.dump(res, f, indent=2)
+        json.dump(out, f, indent=2)
 
-    # Tulosta yksi rivi stdoutiin (hiljainen tila preliveä varten)
-    print("paper_trade smoketest OK")
 
 if __name__ == "__main__":
     main()
