@@ -237,66 +237,7 @@ def resolve_epic(symbol: str) -> str:
 # TEMPFIX             return None
 # TEMPFIX 
 # TEMPFIX         # symbolin mapitus (USDT -> USD)
-# TEMPFIX 
-# TEMPFIX         try:
-# TEMPFIX 
-# TEMPFIX             sym = map_symbol_for_capital(symbol)
-# TEMPFIX 
-# TEMPFIX         except Exception:
-# TEMPFIX 
-# TEMPFIX             sym = (symbol or "").upper()
-# TEMPFIX 
-# TEMPFIX         # EPIC-resoluutio (env override sallittu)
-# TEMPFIX 
-# TEMPFIX         try:
-# TEMPFIX 
-# TEMPFIX             epic = _capital_resolve_epic(self.cli, sym)
-# TEMPFIX 
-# TEMPFIX         except Exception:
-# TEMPFIX 
-# TEMPFIX             epic = sym
-# TEMPFIX 
-# TEMPFIX         sess = self.cli.session
 
-        hdr  = dict(getattr(sess, "headers", {}))
-
-        hdr.setdefault("Accept", "application/json")
-
-        hdr.setdefault("Content-Type", "application/json")
-
-        hdr["VERSION"] = "3"
-
-        url = f"{base.rstrip('/')}/api/v1/prices/{epic}?resolution=MINUTE&max=1"
-
-        try:
-
-            r = sess.get(url, headers=hdr, timeout=10)
-
-            r.raise_for_status()
-
-            js = r.json() or {}
-
-            arr = js.get("prices") or js.get("content") or []
-
-            if not arr:
-
-                return None
-
-            p = arr[-1]
-
-            # closePrice/openPrice/highPrice/lowPrice voivat olla muotoa {'bid': x, 'ask': y}
-
-            def mid_from(d):
-
-                if isinstance(d, dict):
-
-                    bid = d.get("bid"); ask = d.get("ask")
-
-                    if isinstance(bid,(int,float)) and isinstance(ask,(int,float)):
-
-                        return (bid+ask)/2.0
-
-                return None
 
             for key in ("closePrice","openPrice","highPrice","lowPrice"):
 
@@ -1596,3 +1537,21 @@ def capital_get_bidask(symbol, sess=None, base=None, ttl=3.0):
             print("[PRICE] REST fallback error:", e)
         return (None, None)
 
+def get_bid_ask(symbol: str, sess=None, base=None):
+    """
+    Palauttaa (bid, ask) Capital.comista annetulle symbolille.
+    Käyttää tools.epic_resolver.resolve_epic ja rest_bid_ask.
+    """
+    from tools.epic_resolver import resolve_epic, rest_bid_ask
+    # hae sess/base jos ei annettu
+    if sess is None or base is None:
+        try:
+            s, b = capital_rest_login(force=False)
+        except Exception:
+            s = b = None
+        sess = sess or s
+        base = base or b
+    if not sess or not base:
+        return (None, None)
+    epic = resolve_epic(symbol)
+    return rest_bid_ask(sess, base, epic)
