@@ -1,27 +1,18 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
 *.egg-info/
-
-# Venv
+.env
+.env.*
 venv/
+.venv/
 
-# Mallit ja data
-models/
-data/
-
-# Tulokset ja lokit
-results/
-logs/
+# Project
+secrets.env
+state/
+_dump/
+exec/
+*.bak*
+*.BAK*
+*.orig
 *.log
-
-# Jupyter/IDE
-.ipynb_checkpoints/
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
