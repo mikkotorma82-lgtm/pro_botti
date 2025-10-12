@@ -229,94 +229,6 @@ def resolve_epic(symbol: str) -> str:
         pass
     return s
 
-
-# TEMPFIX base = getattr(self.cli, "base", None) or os.getenv("CAPITAL_API_BASE")
-# TEMPFIX 
-# TEMPFIX         if not base:
-# TEMPFIX 
-# TEMPFIX             return None
-# TEMPFIX 
-# TEMPFIX         # symbolin mapitus (USDT -> USD)
-
-
-            for key in ("closePrice","openPrice","highPrice","lowPrice"):
-
-                v = p.get(key)
-
-                m = mid_from(v)
-
-                if isinstance(m,(int,float)):
-
-                    return float(m)
-
-            # joskus bid/ask voi olla suoraan juuritasolla
-
-            bid = p.get("bid"); ask = p.get("ask")
-
-            if isinstance(bid,(int,float)) and isinstance(ask,(int,float)):
-
-                return (bid+ask)/2.0
-
-            return None
-
-        except Exception as e:
-            import traceback
-            log(f"[AIGATE-ERR] {e!r}")
-            log(traceback.format_exc())
-
-            # ei kaadeta daemonia: logitus hoituu ylemmällä tasolla
-
-            return None
-
-    def place_order(self, side: str, symbol: str, size: float, meta: Dict[str, Any]) -> bool:
-        """Lähetä markkinatoimeksianto (best effort). Palauttaa True jos 'onnistui'."""
-        dry = os.getenv("DRY_RUN", "0") == "1"
-        if dry or not self.logged_in or self.cli is None:
-            log(f"[TRADE] DRY side={side} symbol={symbol} size={size} notional≈{meta.get('notional'):.4f}")
-            return True
-
-        try:
-            if hasattr(self.cli, "place_market"):
-                self.cli.place_market(symbol=symbol, side=side, size=size)
-            elif hasattr(self.cli, "place_order"):
-                self.cli.place_order(symbol=symbol, side=side, size=size, order_type="MARKET")
-            else:
-                log("[ERROR] CapitalClient ei tunne place_market/place_order – skip")
-                return False
-
-            log(f"[TRADE] LIVE side={side} symbol={symbol} size={size}")
-            return True
-        except Exception as e:
-            log(f"[ERROR] Order epäonnistui: side={side} symbol={symbol} size={size} err={e}")
-            return False
-
-
-
-
-    def place_order(self, side: str, symbol: str, size: float, meta: Dict[str, Any]) -> bool:
-        """Lähetä markkinatoimeksianto (best effort). Palauttaa True jos 'onnistui'."""
-        dry = os.getenv("DRY_RUN", "0") == "1"
-        if dry or not self.logged_in or self.cli is None:
-            log(f"[TRADE] DRY side={side} symbol={symbol} size={size} notional≈{meta.get('notional'):.4f}")
-            return True
-
-        try:
-            if hasattr(self.cli, "place_market"):
-                self.cli.place_market(symbol=symbol, side=side, size=size)
-            elif hasattr(self.cli, "place_order"):
-                self.cli.place_order(symbol=symbol, side=side, size=size, order_type="MARKET")
-            else:
-                log("[ERROR] CapitalClient ei tunne place_market/place_order – skip")
-                return False
-
-            log(f"[TRADE] LIVE side={side} symbol={symbol} size={size}")
-            return True
-        except Exception as e:
-            log(f"[ERROR] Order epäonnistui: side={side} symbol={symbol} size={size} err={e}")
-            return False
-
-
-
 def map_symbol_for_capital(sym: str) -> str:
     sym = (sym or "").upper()
     return sym[:-4] + "USD" if sym.endswith("USDT") else sym
@@ -402,15 +314,6 @@ def resolve_epic(symbol: str) -> str:
 
 def _cap_get(cli, url, version: int, timeout=10):
     sess = cli.session
-    hdr = dict(sess.headers)
-    hdr.setdefault("Accept","application/json")
-    hdr.setdefault("Content-Type","application/json")
-    hdr["VERSION"] = str(version)
-    r = sess.get(url, headers=hdr, timeout=timeout)
-    r.raise_for_status()
-    return r
-
-
 def _broker_last_price(self, symbol: str) -> float:
     """Palauta viimeisin hinta Capitalista.
     Järjestys:
@@ -489,40 +392,6 @@ def resolve_epic(symbol: str) -> str:
             if '_cap_get' in globals():
                 r = _cap_get(self.cli, url, 3, timeout=10)
             else:
-                hdr = dict(getattr(sess, "headers", {}))
-                hdr.setdefault("Accept", "application/json")
-                hdr.setdefault("Content-Type", "application/json")
-                hdr["VERSION"] = "3"
-                r = sess.get(url, headers=hdr, timeout=10)
-                r.raise_for_status()
-
-            js = r.json() or {}
-            arr = js.get("prices") or js.get("content") or []
-            if arr:
-                p = arr[-1]
-                # closePrice.bid/ask -> mid (paras reaali-läheinen)
-                cp = p.get("closePrice") or {}
-                bid, ask = cp.get("bid"), cp.get("ask")
-                mid = _mid({"bid": bid, "ask": ask})
-                if isinstance(mid, (int, float)):
-                    os.environ[f"LASTPX_{sym}"] = str(mid)
-                    return float(mid)
-                # fallback muihin
-                op = p.get("openPrice") or {}
-                mid2 = _mid(op) or _mid(cp) or _mid(p.get("highPrice") or {}) or _mid(p.get("lowPrice") or {})
-                if isinstance(mid2, (int, float)):
-                    os.environ[f"LASTPX_{sym}"] = str(mid2)
-                    return float(mid2)
-    except Exception:
-        pass
-
-    # 3) ENV-fallback
-    try:
-        return float(os.getenv(f"LASTPX_{sym}", "0") or 0)
-    except Exception:
-        return 0.0
-
-# Sido luokan metodiksi vain jos puuttuu
 try:
     Broker  # varmista että luokka on olemassa
     if not hasattr(Broker, "last_price"):
@@ -743,73 +612,6 @@ def capital_ensure_tokens(cli) -> bool:
         return _capital_rest_login(cli)
     except Exception:
         return False
-def get_bid_ask(*args, **kwargs):
-    """Unified getter: (symbol) TAI (broker, symbol).
-    1) REST-first (CAPITAL): /api/v1/markets/{epic} snapshot -> bid/ask
-    2) Legacy fallback (/api/v1/prices) tai muu aiempi polku.
-    """
-    # pure symbol vs legacy (broker, symbol)
-    if len(args) == 1:
-        symbol = args[0]; broker = None
-    elif len(args) >= 2:
-        broker, symbol = args[0], args[1]
-    else:
-        return (None, None)
-
-    symU = (symbol or "").upper()
-
-    # Capital REST: sess + base
-    try:
-        sess, base = capital_rest_login(force=False)
-    except Exception:
-        sess, base = None, None
-
-    # 1) REST snapshot /markets/{epic}
-    if sess and base:
-        epic = resolve_epic(symU)
-        try:
-            b, a = rest_bid_ask(sess, base, epic)
-            if b is not None and a is not None:
-                print(f"[PRICE] {symU} -> {epic} bid={b} ask={a}")
-                return (b, a)
-            else:
-                print(f"[PRICE] {symU} -> {epic} (no bid/ask via markets/{epic})")
-        except Exception as e:
-            print(f"[ERR] snapshot fetch failed for {symU}: {e}")
-
-    # 2) Legacy fallback (jos sellainen on tässä moduulissa)
-    try:
-        if broker is None:
-            # jos on olemassa aiempi polku symbolille:
-            pass
-        else:
-            # aiempi legacy-signature
-            pass
-    except Exception:
-        pass
-
-    # 3) Viimeinen yritys: CAPITAL candles /prices -> päättele midpoint (heikompi)
-    if sess and base:
-        import urllib.parse as _up
-        url = f"{base}/api/v1/prices/{_up.quote(resolve_epic(symU))}?resolution=MINUTE&max=1"
-        try:
-            r = sess.get(url, timeout=8)
-            if r.status_code == 200:
-                js = r.json() or {}
-                prices = js.get("prices") or []
-                if prices:
-                    p = prices[-1]
-                    # yritä ottaa mid: (open+close)/2 jos bid/offer ei saatavilla
-                    o, c = p.get("openPrice",{}).get("bid"), p.get("closePrice",{}).get("bid")
-                    if o is None: o = p.get("openPrice",{}).get("ask")
-                    if c is None: c = p.get("closePrice",{}).get("ask")
-                    if o is not None and c is not None:
-                        mid = (float(o)+float(c))/2.0
-                        return (mid, mid)
-        except Exception:
-            pass
-
-    return (None, None)
 
 def _pick_exec_price(side: str, bid: float, ask: float) -> float:
     side = (side or "").upper()
@@ -1539,19 +1341,66 @@ def capital_get_bidask(symbol, sess=None, base=None, ttl=3.0):
 
 def get_bid_ask(symbol: str, sess=None, base=None):
     """
-    Palauttaa (bid, ask) Capital.comista annetulle symbolille.
-    Käyttää tools.epic_resolver.resolve_epic ja rest_bid_ask.
+    Palauta (bid, ask) Capital.comista annetulle symbolille.
+    - EPIC ratkaistaan tools.epic_resolver.resolve_epic(symbol) ja CAPITAL_EPIC_<SYMBOL> env:llä.
+    - Jos sess/base puuttuu, haetaan ne capital_rest_login():lla.
+    - Palauttaa tuple (bid, ask) tai (None, None).
     """
-    from tools.epic_resolver import resolve_epic, rest_bid_ask
-    # hae sess/base jos ei annettu
+    try:
+        from tools import epic_resolver
+        from tools import live_daemon as _ld  # itse moduuli (cap login)
+    except Exception:
+        return (None, None)
+
+    # Session & base
     if sess is None or base is None:
         try:
-            s, b = capital_rest_login(force=False)
+            sess, base = _ld.capital_rest_login(force=False)
         except Exception:
-            s = b = None
-        sess = sess or s
-        base = base or b
+            return (None, None)
     if not sess or not base:
         return (None, None)
-    epic = resolve_epic(symbol)
-    return rest_bid_ask(sess, base, epic)
+
+    # EPIC
+    try:
+        epic = epic_resolver.resolve_epic(symbol)
+    except Exception:
+        epic = (symbol or '').upper()
+
+    # Rakennetaan pyyntö
+    try:
+        hdr = dict(getattr(sess, "headers", {}))
+        hdr.setdefault("Accept", "application/json")
+        hdr.setdefault("Content-Type", "application/json")
+        hdr["VERSION"] = "3"
+        url = f"{base.rstrip('/')}/api/v1/prices/{epic}?resolution=MINUTE&max=1"
+        r = sess.get(url, headers=hdr, timeout=10)
+        r.raise_for_status()
+        js = r.json() or {}
+        arr = js.get("prices") or js.get("content") or []
+        if not arr:
+            return (None, None)
+        p = arr[-1]
+
+        # Capitalin muodot: closePrice/openPrice/etc = {'bid': x, 'ask': y}
+        def _pick_bid_ask(d):
+            if isinstance(d, dict):
+                b = d.get("bid"); a = d.get("ask")
+                if isinstance(b,(int,float)) and isinstance(a,(int,float)):
+                    return (b, a)
+            return (None, None)
+
+        # Yritä yleisimmät kentät
+        for key in ("closePrice","openPrice","highPrice","lowPrice"):
+            b,a = _pick_bid_ask(p.get(key) or {})
+            if b is not None and a is not None:
+                return (b, a)
+
+        # Fallback: jos taso on suoraan p['bid'], p['ask']
+        b = p.get("bid"); a = p.get("ask")
+        if isinstance(b,(int,float)) and isinstance(a,(int,float)):
+            return (b, a)
+
+        return (None, None)
+    except Exception:
+        return (None, None)
