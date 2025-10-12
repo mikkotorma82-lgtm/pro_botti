@@ -389,9 +389,9 @@ def resolve_epic(symbol: str) -> str:
                 epic = sym
             url = f"{base.rstrip('/')}/api/v1/prices/{epic}?resolution=MINUTE&max=1"
             # käytä _cap_get jos olemassa (asettaa VERSION-headerin oikein)
-            if '_cap_get' in globals():
-                r = _cap_get(self.cli, url, 3, timeout=10)
-            else:
+            # unified request using _cap_get if present, else plain session.get
+            r = (_cap_get(self.cli, url, 3, timeout=10) if "_cap_get" in globals() else sess.get(url, headers=hdr, timeout=10))
+                    r = sess.get(url, headers=hdr, timeout=10)
 try:
     Broker  # varmista että luokka on olemassa
     if not hasattr(Broker, "last_price"):
