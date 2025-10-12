@@ -1,0 +1,8 @@
+{
+  "symbol": "TSLA",
+  "tf": "1h",
+  "n": 5070,
+  "avg_cv_accuracy": 0.5053254437869822,
+  "model_path": "/root/pro_botti/models/ml_TSLA_1h.joblib",
+  "meta_path": "/root/pro_botti/models/ml_TSLA_1h.json"
+}

@@ -1,0 +1,18 @@
+{
+  "AAPL":    1,
+  "NVDA":    1,
+  "TSLA":    1,
+
+  "EURUSD":  1000,
+  "GBPUSD":  1000,
+  "US100":   1,
+  "US500":   1,
+
+  "BTCUSD":  0.01,
+  "BTCUSDT": 0.01,
+  "ETHUSD":  0.1,
+  "ETHUSDT": 0.1,
+  "ADAUSDT": 100,
+  "SOLUSDT": 1,
+  "XRPUSDT": 50
+}

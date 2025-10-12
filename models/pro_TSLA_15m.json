@@ -1,0 +1,16 @@
+{
+  "symbol": "TSLA",
+  "tf": "15m",
+  "horizon": 1,
+  "features": 9,
+  "samples": 1542,
+  "win_rate": 0.5041666666666667,
+  "pf": 0.8189049374675941,
+  "pnl_approx": -0.36021513426433227,
+  "leverage_used": 5.0,
+  "ts": "2025-09-02T04:13:12.872532+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}

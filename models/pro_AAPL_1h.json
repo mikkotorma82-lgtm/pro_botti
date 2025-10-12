@@ -1,0 +1,16 @@
+{
+  "symbol": "AAPL",
+  "tf": "1h",
+  "horizon": 1,
+  "features": 9,
+  "samples": 5076,
+  "win_rate": 0.48,
+  "pf": 1.0013029858493396,
+  "pnl_approx": 0.010759517836982924,
+  "leverage_used": 5.0,
+  "ts": "2025-09-02T04:09:21.113572+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}

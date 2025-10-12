@@ -1,0 +1,100 @@
+from __future__ import annotations
+import argparse, json, yaml, time
+from pathlib import Path
+import numpy as np, pandas as pd
+from joblib import load
+from core.io import load_history
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+
+DEFAULT_FEATS = ["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]
+
+def load_cfg(p: Path) -> dict:
+    with open(p,"r") as f: 
+        return yaml.safe_load(f)
+
+def load_model(symbol: str, tf: str):
+    clf = load(MODEL_DIR / f"pro_{symbol}_{tf}.joblib")
+    feats = DEFAULT_FEATS
+    meta_p = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    if meta_p.exists():
+        meta = json.load(open(meta_p))
+        feats = meta.get("feats") or feats
+    return clf, feats
+
+def ensure_features(df: pd.DataFrame) -> pd.DataFrame:
+    z = df.copy()
+    if "ret1" not in z:  z["ret1"] = z["close"].pct_change()
+    if "ret5" not in z:  z["ret5"] = z["close"].pct_change(5)
+    if "vol5" not in z:  z["vol5"] = z["ret1"].rolling(5).std().fillna(0.0)
+    if "ema12" not in z: z["ema12"] = z["close"].ewm(span=12, adjust=False).mean()
+    if "ema26" not in z: z["ema26"] = z["close"].ewm(span=26, adjust=False).mean()
+    if "macd" not in z:  z["macd"] = z["ema12"] - z["ema26"]
+    if "rsi14" not in z:
+        diff = z["close"].diff()
+        up = diff.clip(lower=0).rolling(14).mean()
+        dn = (-diff.clip(upper=0)).rolling(14).mean()
+        rs = up / dn.replace(0, np.nan)
+        z["rsi14"] = 100 - (100 / (1 + rs))
+    if "atr14" not in z:
+        if {"high","low","close"}.issubset(z.columns):
+            tr = np.maximum(z["high"]-z["low"], np.maximum((z["high"]-z["close"].shift()).abs(), (z["low"]-z["close"].shift()).abs()))
+            z["atr14"] = tr.rolling(14).mean()
+        else:
+            z["atr14"] = 0.0
+    if "ema_gap" not in z: z["ema_gap"] = (z["close"] - z["ema12"]) / z["ema12"]
+    return z
+
+def proba_triplet(clf, X: np.ndarray) -> np.ndarray:
+    P = clf.predict_proba(X)
+    out = np.zeros((P.shape[0], 3), dtype=float)
+    cls = getattr(clf, "classes_", [-1,0,1])
+    pos = {-1:0, 0:1, 1:2}
+    for j, c in enumerate(cls):
+        out[:, pos[int(c)]] = P[:, j]
+    return out
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", required=True)
+    ap.add_argument("--symbols", nargs="+", required=True)
+    ap.add_argument("--tf", required=True)
+    ap.add_argument("--fee_bps", type=float, default=None)
+    args = ap.parse_args()
+    cfg = load_cfg(Path(args.config))
+    out = []
+    for s in args.symbols:
+        try:
+            clf, feats = load_model(s, args.tf)
+            df = ensure_features(load_history(DATA_DIR, s, args.tf)).reset_index(drop=True)
+            X = df[feats].astype(float).fillna(0.0).values
+            p3 = proba_triplet(clf, X)
+            p_last = p3[-1]
+            thr = (0.05, 0.05)
+            try:
+                tfile = ROOT / "data" / "backtests" / "thresholds.json"
+                if tfile.exists():
+                    tdict = json.load(open(tfile))
+                    k = f"{s}_{args.tf}"
+                    if k in tdict: thr = (float(tdict[k]["thr_buy"]), float(tdict[k]["thr_sell"]))
+            except Exception:
+                pass
+            signal = 1 if p_last[2] >= thr[0] else (-1 if p_last[0] >= thr[1] else 0)
+            ts = int(time.time())
+            price = float(df["close"].iloc[-1]) if "close" in df else None
+            out.append({
+                "symbol": s,
+                "tf": args.tf,
+                "time": str(ts),
+                "price": price,
+                "signal": int(signal),
+                "proba": {"-1": float(p_last[0]), "0": float(p_last[1]), "1": float(p_last[2])},
+                "features_used": feats
+            })
+        except Exception as e:
+            out.append({"symbol": s, "tf": args.tf, "error": str(e)})
+    print(json.dumps(out, indent=2))
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,13 @@
+{
+  "PnL": 17.045297499193435,
+  "HitRate": 88.97435897435896,
+  "MaxDD": 0.7403559106445453,
+  "Sharpe": 2.410084788866742,
+  "ProfitFactor": 152.7966695618453,
+  "oos_windows": 2,
+  "avg_thr_long": 0.06,
+  "avg_thr_short": 0.06,
+  "fee_bps": 1.2,
+  "symbol": "EURUSD",
+  "tf": "4h"
+}

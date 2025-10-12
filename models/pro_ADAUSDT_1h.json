@@ -1,0 +1,16 @@
+{
+  "symbol": "ADAUSDT",
+  "tf": "1h",
+  "horizon": 1,
+  "features": 9,
+  "samples": 35060,
+  "win_rate": 0.533129904097646,
+  "pf": 1.0801641787061298,
+  "pnl_approx": 1.5592025695605578,
+  "leverage_used": 2.0,
+  "ts": "2025-09-02T04:09:23.993690+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}

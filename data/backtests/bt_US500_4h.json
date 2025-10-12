@@ -1,0 +1,14 @@
+{
+  "PnL": 234.45324502834438,
+  "HitRate": 90.0,
+  "MaxDD": 5.210812069524408,
+  "Sharpe": 3.818567580352368,
+  "ProfitFactor": 12.693066815551077,
+  "trades": 260,
+  "n_points": 1440,
+  "symbol": "US500",
+  "tf": "4h",
+  "thr_long": 0.02,
+  "thr_short": 0.1,
+  "fee_bps": 1.7
+}

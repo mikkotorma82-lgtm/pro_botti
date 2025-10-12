@@ -1,0 +1,8 @@
+{
+  "symbol": "US500",
+  "tf": "15m",
+  "n": 1536,
+  "avg_cv_accuracy": 0.50859375,
+  "model_path": "/root/pro_botti/models/ml_US500_15m.joblib",
+  "meta_path": "/root/pro_botti/models/ml_US500_15m.json"
+}

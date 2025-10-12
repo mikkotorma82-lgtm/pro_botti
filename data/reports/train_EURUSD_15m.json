@@ -1,0 +1,8 @@
+{
+  "symbol": "EURUSD",
+  "tf": "15m",
+  "n": 5663,
+  "avg_cv_accuracy": 0.43647932131495226,
+  "model_path": "/root/pro_botti/models/ml_EURUSD_15m.joblib",
+  "meta_path": "/root/pro_botti/models/ml_EURUSD_15m.json"
+}

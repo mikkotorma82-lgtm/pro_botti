@@ -1,0 +1,16 @@
+{
+  "symbol": "SOLUSDT",
+  "tf": "15m",
+  "horizon": 1,
+  "features": 9,
+  "samples": 176924,
+  "win_rate": 0.5313878520529352,
+  "pf": 1.0662082418062742,
+  "pnl_approx": 1.419450482450326,
+  "leverage_used": 2.0,
+  "ts": "2025-09-02T04:13:11.673441+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}

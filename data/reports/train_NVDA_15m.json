@@ -1,0 +1,8 @@
+{
+  "symbol": "NVDA",
+  "tf": "15m",
+  "n": 1536,
+  "avg_cv_accuracy": 0.47265625,
+  "model_path": "/root/pro_botti/models/ml_NVDA_15m.joblib",
+  "meta_path": "/root/pro_botti/models/ml_NVDA_15m.json"
+}

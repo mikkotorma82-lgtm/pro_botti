@@ -1,0 +1,16 @@
+{
+  "symbol": "US500",
+  "tf": "1h",
+  "horizon": 1,
+  "features": 9,
+  "samples": 5076,
+  "win_rate": 0.5045161290322581,
+  "pf": 1.1180627525315296,
+  "pnl_approx": 2.362555129626853,
+  "leverage_used": 20.0,
+  "ts": "2025-09-02T04:13:14.431634+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}

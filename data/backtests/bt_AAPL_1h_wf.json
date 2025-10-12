@@ -1,0 +1,13 @@
+{
+  "PnL": 173.192604373782,
+  "HitRate": 86.38943606660972,
+  "MaxDD": 6.667342499724138,
+  "Sharpe": 7.291729601374943,
+  "ProfitFactor": Infinity,
+  "oos_windows": 3,
+  "avg_thr_long": 0.02,
+  "avg_thr_short": 0.006666666666666667,
+  "fee_bps": 2.0,
+  "symbol": "AAPL",
+  "tf": "1h"
+}

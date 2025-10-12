@@ -1,0 +1,107 @@
+[
+  {
+    "sym": "BTCUSDT",
+    "tf": "4h",
+    "status": "OK",
+    "auc": 0.5383,
+    "n": 17567
+  },
+  {
+    "sym": "BTCUSDT",
+    "tf": "1h",
+    "status": "OK",
+    "auc": 0.5272,
+    "n": 35041
+  },
+  {
+    "sym": "ETHUSDT",
+    "tf": "1h",
+    "status": "OK",
+    "auc": 0.5325,
+    "n": 35042
+  },
+  {
+    "sym": "ETHUSDT",
+    "tf": "4h",
+    "status": "OK",
+    "auc": 0.5283,
+    "n": 17568
+  },
+  {
+    "sym": "ETHUSDT",
+    "tf": "15m",
+    "status": "OK",
+    "auc": 0.535,
+    "n": 70107
+  },
+  {
+    "sym": "BTCUSDT",
+    "tf": "15m",
+    "status": "OK",
+    "auc": 0.5223,
+    "n": 70109
+  },
+  {
+    "sym": "ADAUSDT",
+    "tf": "1h",
+    "status": "OK",
+    "auc": 0.5358,
+    "n": 35041
+  },
+  {
+    "sym": "ADAUSDT",
+    "tf": "4h",
+    "status": "OK",
+    "auc": 0.5224,
+    "n": 16117
+  },
+  {
+    "sym": "SOLUSDT",
+    "tf": "4h",
+    "status": "OK",
+    "auc": 0.5293,
+    "n": 11044
+  },
+  {
+    "sym": "SOLUSDT",
+    "tf": "1h",
+    "status": "OK",
+    "auc": 0.5264,
+    "n": 35042
+  },
+  {
+    "sym": "ADAUSDT",
+    "tf": "15m",
+    "status": "OK",
+    "auc": 0.528,
+    "n": 70109
+  },
+  {
+    "sym": "XRPUSDT",
+    "tf": "4h",
+    "status": "OK",
+    "auc": 0.5406,
+    "n": 16014
+  },
+  {
+    "sym": "XRPUSDT",
+    "tf": "1h",
+    "status": "OK",
+    "auc": 0.5349,
+    "n": 35041
+  },
+  {
+    "sym": "SOLUSDT",
+    "tf": "15m",
+    "status": "OK",
+    "auc": 0.5286,
+    "n": 70110
+  },
+  {
+    "sym": "XRPUSDT",
+    "tf": "15m",
+    "status": "OK",
+    "auc": 0.5293,
+    "n": 70109
+  }
+]

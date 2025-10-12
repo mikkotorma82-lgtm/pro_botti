@@ -1,0 +1,8 @@
+{
+  "config": "config/risk.yaml",
+  "model": "models/current.joblib",
+  "thr": 0.48,
+  "equity0": 10000.0,
+  "mode": "LIVE",
+  "ok": true
+}

@@ -1,0 +1,13 @@
+{
+  "PnL": 147.16679079720586,
+  "HitRate": 96.007326007326,
+  "MaxDD": 6.512851399384839,
+  "Sharpe": 3.8460365022490177,
+  "ProfitFactor": 121.16798304536668,
+  "oos_windows": 2,
+  "avg_thr_long": 0.09,
+  "avg_thr_short": 0.12,
+  "fee_bps": 2.2,
+  "symbol": "TSLA",
+  "tf": "4h"
+}

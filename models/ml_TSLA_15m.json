@@ -1,0 +1,20 @@
+{
+  "features": [
+    "time",
+    "open",
+    "high",
+    "low",
+    "volume",
+    "ret1",
+    "ret5",
+    "vol5",
+    "ema12",
+    "ema26",
+    "macd",
+    "rsi14",
+    "atr14",
+    "ema_gap"
+  ],
+  "horizon": 1,
+  "cut": 1534
+}

@@ -1,0 +1,16 @@
+{
+  "symbol": "BTCUSD",
+  "tf": "4h",
+  "horizon": 1,
+  "features": 9,
+  "samples": 907,
+  "win_rate": 0.4817073170731707,
+  "pf": 1.0854704983105792,
+  "pnl_approx": 0.06684138224087821,
+  "leverage_used": 2.0,
+  "ts": "2025-09-02T04:09:27.519413+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}

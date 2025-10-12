@@ -1,0 +1,107 @@
+{
+  "EURUSD": {
+    "epic": "EURUSD",
+    "displayName": "EUR/USD",
+    "min_trade_size": 100.0,
+    "margin_factor": 3.333333,
+    "leverage": null
+  },
+  "GBPUSD": {
+    "epic": "GBPUSD",
+    "displayName": "GBP/USD",
+    "min_trade_size": 100.0,
+    "margin_factor": 3.333333,
+    "leverage": null
+  },
+  "US500": {
+    "epic": "US500",
+    "displayName": "US 500",
+    "min_trade_size": 0.01,
+    "margin_factor": 5.0,
+    "leverage": null
+  },
+  "US100": {
+    "epic": "US100",
+    "displayName": "US Tech 100",
+    "min_trade_size": 0.001,
+    "margin_factor": 5.0,
+    "leverage": null
+  },
+  "AAPL": {
+    "epic": "AAPL",
+    "displayName": "Apple Inc",
+    "min_trade_size": 0.1,
+    "margin_factor": 20.0,
+    "leverage": null
+  },
+  "TSLA": {
+    "epic": "TSLA",
+    "displayName": "Tesla Inc",
+    "min_trade_size": 0.1,
+    "margin_factor": 20.0,
+    "leverage": null
+  },
+  "NVDA": {
+    "epic": "NVDA",
+    "displayName": "NVIDIA Corp",
+    "min_trade_size": 0.1,
+    "margin_factor": 20.0,
+    "leverage": null
+  },
+  "BTCUSD": {
+    "epic": "BTCUSD",
+    "displayName": "Bitcoin / USD",
+    "min_trade_size": 0.0001,
+    "margin_factor": 50.0,
+    "leverage": null
+  },
+  "ETHUSD": {
+    "epic": "ETHUSD",
+    "displayName": "Ethereum / USD",
+    "min_trade_size": 0.001,
+    "margin_factor": 50.0,
+    "leverage": null
+  },
+  "XRPUSD": {
+    "epic": "XRPUSD",
+    "displayName": "Ripple / USD",
+    "min_trade_size": 1.0,
+    "margin_factor": 50.0,
+    "leverage": null
+  },
+  "SOLUSD": {
+    "epic": "SOLUSD",
+    "displayName": "Solana / USD",
+    "min_trade_size": 0.1,
+    "margin_factor": 50.0,
+    "leverage": null
+  },
+  "ADAUSD": {
+    "epic": "ADAUSD",
+    "displayName": "Cardano / USD",
+    "min_trade_size": 10.0,
+    "margin_factor": 50.0,
+    "leverage": null
+  },
+  "XAUUSD": {
+    "epic": "-",
+    "displayName": "-",
+    "min_trade_size": null,
+    "margin_factor": null,
+    "leverage": null
+  },
+  "USDJPY": {
+    "epic": "USDJPY",
+    "displayName": "USD/JPY",
+    "min_trade_size": 100.0,
+    "margin_factor": 3.333333,
+    "leverage": null
+  },
+  "GER40": {
+    "epic": "-",
+    "displayName": "-",
+    "min_trade_size": null,
+    "margin_factor": null,
+    "leverage": null
+  }
+}

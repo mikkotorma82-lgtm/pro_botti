@@ -12,7 +12,7 @@ train:
 # features: [ret1, ret5, vol5, ema12, ema26, macd, rsi14, atr14, ema_gap]
 
 live:
-  symbols: [EURUSD, GBPUSD, US500, US100]
+  symbols: [EURUSD, GBPUSD, US500, US100, AAPL, NVDA, TSLA, BTCUSDT, ETHUSDT, XRPUSDT, SOLUSDT, ADAUSDT]
 
 risk:
   mode: vol_target         # fixed | vol_target | kelly

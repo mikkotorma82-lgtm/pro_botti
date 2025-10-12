@@ -1,0 +1,13 @@
+{
+  "PnL": 1.7794959326816753,
+  "HitRate": 74.11610650371017,
+  "MaxDD": 0.9390191879060988,
+  "Sharpe": 0.9625289858699637,
+  "ProfitFactor": 16.920435766430646,
+  "oos_windows": 2,
+  "avg_thr_long": 0.05,
+  "avg_thr_short": 0.06,
+  "fee_bps": 1.6,
+  "symbol": "GBPUSD",
+  "tf": "1h"
+}

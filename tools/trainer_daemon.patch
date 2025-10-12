@@ -1,0 +1,40 @@
+*** /root/pro_botti/tools/trainer_daemon.py.orig	2025-09-02 00:00:00.000000000 +0000
+--- /root/pro_botti/tools/trainer_daemon.py	2025-09-02 00:00:00.000000000 +0000
+***************
+*** 1,120 ****
+  #!/usr/bin/env python3
+  # -*- coding: utf-8 -*-
+  
+  import os, sys, json, time, math, traceback, datetime as dt
+  from typing import Dict, Any, Tuple, Optional
+  
+  import numpy as np
+  import pandas as pd
+  
+- from instrument_loader import get_ohlcv
++ # --- Datasillan automaattinen resolvoija ---
++ try:
++     # Ensisijainen: jos instrument_loader tarjoaa get_ohlcv suoraan
++     from instrument_loader import get_ohlcv
++ except Exception:
++     # Muussa tapauksessa shim: etsi sama funktio eri nimillä samasta moduulista
++     import importlib
++     _il = importlib.import_module("instrument_loader")
++ 
++     def get_ohlcv(symbol: str, tf: str):
++         """
++         Palauttaa OHLCV-datan muodossa, jota trainer odottaa.
++         Yrittää automaattisesti useita yleisiä funktiokuvauksia instrument_loaderista.
++         """
++         candidates = ("load_ohlcv", "load_ohlcv_df", "fetch_ohlcv",
++                       "get_candles", "candles")
++         for name in candidates:
++             if hasattr(_il, name):
++                 return getattr(_il, name)(symbol, tf)
++         raise ImportError(
++             "instrument_loader: ei get_ohlcv() eikä mitään tutuista vaihtoehdoista: "
++             + ", ".join(candidates)
++         )
+  
+  # ... (muut importit ja koodi pysyy ennallaan)
+  

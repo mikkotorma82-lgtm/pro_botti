@@ -1,0 +1,18 @@
+from tools.train_driver import get_trainer_for
+from tools.model_utils import save_meta
+import os, joblib, json
+
+MIN_AUC = float(os.getenv("ACCEPT_MIN_AUC","0.53"))
+BP_IMPROVE = float(os.getenv("ACCEPT_IMPROVE_BP","15"))
+
+mod = get_trainer_for(sym, tf)                # sym/tf muuttujat olemassa trainerissa
+res = mod.train_one(X, y.values, MIN_AUC, BP_IMPROVE)
+
+if res["accept"]:
+    joblib.dump(res["clf"], f"models/pro_{sym}_{tf}.joblib")
+    # kalibraattori talteen erillisenä
+    joblib.dump(res["iso"], f"models/pro_{sym}_{tf}_iso.joblib")
+    save_meta(sym, tf, res["auc"], len(X), {"buy_thr":res["buy_thr"], "sell_thr":res["sell_thr"]})
+    print(f"{sym}_{tf}: AUC={res['auc']:.4f} ✅ (old {res['old_auc']:.4f}) buy={res['buy_thr']}, sell={res['sell_thr']}")
+else:
+    print(f"{sym}_{tf}: AUC={res['auc']:.4f} ❌ (old {res['old_auc']:.4f}) — keep old")

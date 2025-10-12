@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+import os, time, json, re, math, traceback
+from pathlib import Path
+from datetime import datetime, timezone
+import numpy as np, pandas as pd
+from joblib import load
+
+from tools.build_features import build_features
+from tools.consensus import tf_consensus, regime_ok
+from tools.risk import load_cfg, position_size, can_open
+from tools.tele import send as tgsend, send_photo as tgphoto
+from tools.ledger import append_trade, update_position_on_fill
+
+try: import ccxt
+except Exception: ccxt = None
+try: import yfinance as yf
+except Exception: yf = None
+
+ROOT=Path(os.environ.get("ROOT","/root/pro_botti"))
+MODELS=ROOT/"models"; LOGS=(ROOT/"logs"); LOGS.mkdir(parents=True, exist_ok=True)
+
+def log(msg):
+    line=f"[{datetime.now(timezone.utc).isoformat()}] {msg}"
+    print(line, flush=True)
+    (LOGS/"live.log").open("a").write(line+"\n")
+
+def env_list(k, d): return [x.strip() for x in os.environ.get(k,d).split(",") if x.strip()]
+
+def norm_ccxt(sym):
+    m=re.match(r"^([A-Z]+?)(USDT|USD|EUR|GBP)$", sym)
+    return f"{m.group(1)}/{m.group(2)}" if m else sym
+
+def yf_ticker(sym):
+    if sym in ("EURUSD","GBPUSD","USDJPY","AUDUSD","USDCAD","USDCHF"): return sym+"=X"
+    if sym=="US500": return "^GSPC"
+    if sym=="US100": return "^NDX"
+    return sym
+
+def tf_ccxt(tf): return {"15m":"15m","1h":"1h","4h":"4h"}[tf]
+
+def fetch_recent(sym, tf, limit=500):
+    # ccxt ensisijainen
+    if ccxt is not None:
+        try:
+            ex=ccxt.binance({'enableRateLimit': True})
+            ex.load_markets()
+            u=norm_ccxt(sym)
+            if u in ex.markets:
+                o=ex.fetch_ohlcv(u, timeframe=tf_ccxt(tf), limit=limit)
+                df=pd.DataFrame(o,columns=["time","open","high","low","close","volume"])
+                return df.sort_values("time").reset_index(drop=True)
+        except Exception as e:
+            log(f"[WARN] ccxt fetch {sym} {tf}: {e}")
+    # yfinance fallback
+    if yf is None:
+        raise RuntimeError("no data source")
+    itv = {"15m":"15m","1h":"1h","4h":"4h"}[tf]
+    period = "60d" if tf == "15m" else "720d"
+    df = yf.download(auto_adjust=False, tickers=yf_ticker(sym), interval=itv, period=period, progress=False)
+    if df is None or df.empty:
+        raise RuntimeError("yfinance empty")
+    df = df.rename(columns={"Open":"open","High":"high","Low":"low","Close":"close","Volume":"volume"}).reset_index()
+    tcol = "Datetime" if "Datetime" in df.columns else ("Date" if "Date" in df.columns else df.columns[0])
+    df["time"] = pd.to_datetime(df[tcol], utc=True).astype("int64") // 10**6
+    df = df[["time","open","high","low","close","volume"]]
+    return df.sort_values("time").reset_index(drop=True)
+
+class ModelBook:
+    def __init__(self):
+        self.models = {}
+        self.mtimes = {}
+        self.meta = {}
+    def p(self,s,tf): return MODELS/f"pro_{s}_{tf}.joblib"
+    def j(self,s,tf): return MODELS/f"pro_{s}_{tf}.json"
+    def ensure(self,s,tf):
+        path=self.p(s,tf)
+        if not path.exists(): return False
+        mt=path.stat().st_mtime; key=(s,tf)
+        if key not in self.mtimes or mt>self.mtimes[key]:
+            self.models[key]=load(path); self.mtimes[key]=mt
+            try: self.meta[key]=json.loads(self.j(s,tf).read_text())
+            except Exception: self.meta[key]={"symbol":s,"tf":tf}
+            log(f"[OK] loaded {path.name}")
+        return True
+    def predict(self,s,tf,xrow):
+        from numpy import atleast_2d
+        mdl=self.models[(s,tf)]
+        return float(mdl.predict_proba(atleast_2d(xrow))[:,1][0])
+
+def plot_signal_png(df, idx, side, out_png):
+    import matplotlib; matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    tail=df.tail(150).reset_index(drop=True)
+    i=len(tail)-1
+    plt.figure()
+    plt.plot(tail["close"].values)
+    plt.scatter([i],[tail["close"].iloc[i]], s=80)
+    plt.annotate(side,(i,tail["close"].iloc[i]))
+    plt.title(f"{side} @ {pd.to_datetime(tail['time'].iloc[-1], unit='ms')}")
+    plt.tight_layout(); plt.savefig(out_png); plt.close()
+
+def main():
+    SYMS=env_list("SYMBOLS","BTCUSDT,ETHUSDT,ADAUSDT,SOLUSDT,XRPUSDT")
+    TFS =env_list("TFS","15m,1h,4h")
+    POLL=int(os.environ.get("POLL_SECS","60"))
+    BUY=float(os.environ.get("BUY_THR","0.55"))
+    SELL=float(os.environ.get("SELL_THR","0.45"))
+    COOL=int(os.environ.get("COOLDOWN_SECS","300"))
+    ENABLE=os.environ.get("ENABLE_TRADING","0")=="1"
+    BROKER=os.environ.get("BROKER","binance").lower()
+    ORDER_USDT=float(os.environ.get("ORDER_USDT","25"))
+    ALLOW_SHORTS=os.environ.get("ALLOW_SHORTS","0")=="1"
+
+    ex=None
+    if ENABLE and BROKER=="binance":
+        if ccxt is None:
+            log("[WARN] ccxt puuttuu → paper mode")
+            ENABLE=False
+        else:
+            ex=ccxt.binance({'apiKey':os.environ.get("BINANCE_API_KEY"),
+                             'secret':os.environ.get("BINANCE_SECRET"),
+                             'enableRateLimit':True})
+            log("[OK] broker=binance")
+
+    mb=ModelBook(); last_fire={}
+    log(f"[INFO] käynnistyy: SYMBOLS={SYMS} TFS={TFS} POLL_SECS={POLL} BUY_THR={BUY} SELL_THR={SELL} COOLDOWN={COOL}")
+    tgsend(f"🚀 Live käynnissä\nSYMBOLS={SYMS}\nTFS={TFS}\nBUY_THR={BUY} SELL_THR={SELL} COOLDOWN={COOL}\nTRADING={'ON' if ENABLE else 'OFF'}")
+
+    while True:
+        try:
+            SYMS=env_list("SYMBOLS",",".join(SYMS))
+            TFS =env_list("TFS", ",".join(TFS))
+            for s in SYMS:
+                for tf in TFS:
+                    if not mb.ensure(s,tf):
+                        print(json.dumps({"symbol":s,"tf":tf,"side":"SELL","why":"model_missing"}))
+                        continue
+                    try: df=fetch_recent(s,tf,limit=500)
+                    except Exception: 
+                        print(json.dumps({"symbol":s,"tf":tf,"side":"SELL","why":"no_data"})); 
+                        continue
+                    feats=build_features(df)
+                    if feats is None or feats.empty:
+                        print(json.dumps({"symbol":s,"tf":tf,"side":"SELL","why":"no_features"})); 
+                        continue
+
+                    X=feats.iloc[-1].values
+                    try: p=mb.predict(s,tf,X)
+                    except Exception as e:
+                        print(json.dumps({"symbol":s,"tf":tf,"side":"SELL","why":f"predict_fail:{e}"})); 
+                        continue
+
+                    side="HOLD"
+                    if p>=BUY: side="BUY"
+                    elif p<=SELL: side="SELL"
+
+                    print(json.dumps({"symbol":s,"tf":tf,"side":side,"p":round(p,4)}))
+
+                    now=time.time(); key=(s,tf)
+                    if side=="HOLD": continue
+                    if key in last_fire and now-last_fire[key]<COOL: continue
+                    last_fire[key]=now
+
+                    price=float(df["close"].iloc[-1].item())
+                    amount=max(1e-6, ORDER_USDT/price)
+
+                    # Telegram kuva
+                    png=str(LOGS/f"sig_{s}_{tf}_{int(now)}.png")
+                    try: 
+                        plot_signal_png(df,len(df)-1,side,png); 
+                        tgphoto(png, caption=f"📈 {s} {tf} → *{side}*  p={p:.3f}  @~{price:.4f}")
+                    except Exception:
+                        tgsend(f"📈 {s} {tf} → *{side}*  p={p:.3f}  @~{price:.4f}")
+
+                    mode="live" if ENABLE else "paper"
+                    order_id=None
+                    if ENABLE and ex is not None:
+                        try:
+                            pair=norm_ccxt(s)
+                            if side=="BUY":  resp=ex.create_market_buy_order(pair, amount)
+                            else:            resp=ex.create_market_sell_order(pair, amount)
+                            order_id=resp.get("id","")
+                            tgsend(f"✅ *ORDER* {s} {tf} {side} @ ~{price:.4f}")
+                        except Exception as e:
+                            tgsend(f"⚠️ ORDER FAIL {s} {tf} {side}: `{e}`")
+
+                    # Ledger + positio
+                    append_trade(symbol=s, tf=tf, side=side, price=price, amount=amount, mode=mode, p=p)
+                    update_position_on_fill(s, side, amount, price, allow_shorts=ALLOW_SHORTS)
+
+            time.sleep(POLL)
+        except KeyboardInterrupt:
+            log("[INFO] daemon päättyy."); break
+        except Exception as e:
+            log(f"[ERR] loop: {e}"); traceback.print_exc(); time.sleep(2)
+
+if __name__=="__main__":
+    main()
+
+def map_symbol_for_ccxt(sym: str, ex) -> str | None:
+    s = sym.upper()
+    candidates = []
+
+    if s.endswith("USDT") and len(s) > 5:
+        candidates.append(f"{s[:-4]}/USD")
+    if s.endswith("USD") and len(s) > 4:
+        candidates.append(f"{s[:-3]}/USD")
+    if len(s) == 6 and s.isalpha():
+        candidates.append(f"{s[:3]}/{s[3:]}")
+    if "/" in s:
+        candidates.append(s)
+
+    for base in (s, s.replace(".","").replace("-","")):
+        candidates.append(f"{base}/USD")
+        candidates.append(base)
+
+    seen=set(); uniq=[]
+    for c in candidates:
+        if c not in seen:
+            uniq.append(c); seen.add(c)
+
+    exch_symbols=set(getattr(ex,"symbols",[]) or [])
+    for c in uniq:
+        if c in exch_symbols:
+            return c
+    return None

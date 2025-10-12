@@ -1,0 +1,14 @@
+[
+  {"symbol":"EURUSD",  "min_size":100, "step":1,    "currency":"USD", "leverage":30, "margin_pct":3.33},
+  {"symbol":"GBPUSD",  "min_size":100, "step":1,    "currency":"USD"},
+  {"symbol":"US500",   "min_size":1,   "step":1,    "currency":"USD"},
+  {"symbol":"US100",   "min_size":1,   "step":1,    "currency":"USD"},
+  {"symbol":"AAPL",    "min_size":1,   "step":1,    "currency":"USD"},
+  {"symbol":"NVDA",    "min_size":1,   "step":1,    "currency":"USD"},
+  {"symbol":"TSLA",    "min_size":1,   "step":1,    "currency":"USD"},
+  {"symbol":"BTCUSDT", "min_size":0.01,"step":0.01, "currency":"USD"},
+  {"symbol":"ETHUSDT", "min_size":0.1, "step":0.01, "currency":"USD"},
+  {"symbol":"XRPUSDT", "min_size":10,  "step":1,    "currency":"USD"},
+  {"symbol":"SOLUSDT", "min_size":1,   "step":0.1,  "currency":"USD"},
+  {"symbol":"ADAUSDT", "min_size":10,  "step":1,    "currency":"USD"}
+]

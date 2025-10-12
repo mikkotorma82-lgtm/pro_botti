@@ -1,0 +1,8 @@
+{
+  "symbol": "BTCUSDT",
+  "tf": "15m",
+  "n": 70068,
+  "avg_cv_accuracy": 0.5221099503339613,
+  "model_path": "/root/pro_botti/models/ml_BTCUSDT_15m.joblib",
+  "meta_path": "/root/pro_botti/models/ml_BTCUSDT_15m.json"
+}

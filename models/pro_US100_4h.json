@@ -1,0 +1,16 @@
+{
+  "symbol": "US100",
+  "tf": "4h",
+  "horizon": 1,
+  "features": 9,
+  "samples": 1447,
+  "win_rate": 0.4829059829059829,
+  "pf": 1.0094649255356882,
+  "pnl_approx": 0.15211099663619443,
+  "leverage_used": 20.0,
+  "ts": "2025-09-02T04:13:13.956940+00:00",
+  "ai_thresholds": {
+    "long": 0.51,
+    "short": 0.51
+  }
+}
