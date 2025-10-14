@@ -1,18 +1,10 @@
 [Unit]
-Description=Pro Botti - Auto Retrain Timer
-Documentation=https://github.com/mikkotorma82-lgtm/pro_botti
-Requires=pro_botti-retrain.service
+Description=Run retrain pipeline nightly
 
 [Timer]
-# Run daily at 02:00 UTC
-OnCalendar=daily
-OnCalendar=*-*-* 02:00:00
-
-# Run 5 minutes after boot
-OnBootSec=5min
-
-# If a scheduled run is missed (system was off), run it ASAP
+OnCalendar=*-*-* 03:15:00
 Persistent=true
+RandomizedDelaySec=120
 
 [Install]
 WantedBy=timers.target
