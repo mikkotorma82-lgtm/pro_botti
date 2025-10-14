@@ -19,8 +19,10 @@ def env_list(name: str, default_csv: str) -> List[str]:
     return [s.strip() for s in v.split(",") if s.strip()]
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty or not {"close"}.issubset(df.columns):
+        return pd.DataFrame()
     z = df.copy()
-    c = pd.to_numeric(z["close"], errors="coerce")
+    c = pd.to_numeric(z["close"], errors="coerce").astype(float)
     z["ret1"]  = c.pct_change()
     z["ret5"]  = c.pct_change(5)
     z["vol5"]  = z["ret1"].rolling(5).std().fillna(0.0)
@@ -34,8 +36,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     z["rsi14"] = 100 - (100 / (1 + rs))
     if {"high","low","close"}.issubset(z.columns):
         tr = np.maximum(
-            z["high"] - z["low"],
-            np.maximum((z["high"] - z["close"].shift()).abs(), (z["low"] - z["close"].shift()).abs()),
+            pd.to_numeric(z["high"], errors="coerce") - pd.to_numeric(z["low"], errors="coerce"),
+            np.maximum(
+                (pd.to_numeric(z["high"], errors="coerce") - c.shift()).abs(),
+                (pd.to_numeric(z["low"], errors="coerce") - c.shift()).abs(),
+            ),
         )
         z["atr14"] = tr.rolling(14).mean()
     else:
@@ -45,8 +50,8 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     return z
 
 def pct_returns(close: pd.Series) -> np.ndarray:
-    s = pd.to_numeric(close, errors="coerce")
-    return s.pct_change().fillna(0.0).to_numpy()
+    c = pd.to_numeric(close, errors="coerce").astype(float)
+    return c.pct_change().fillna(0.0).to_numpy()
 
 def max_drawdown(eq: np.ndarray) -> float:
     if eq.size == 0: return 0.0
@@ -64,10 +69,10 @@ def sharpe(r: np.ndarray, periods_per_year: float) -> float:
     return float(r.mean()/sd*np.sqrt(periods_per_year)) if sd>0 else 0.0
 
 def periods_py(tf: str) -> float:
-    tf = tf.lower()
-    if tf.endswith("m"): return 525600.0/int(tf[:-1])
-    if tf.endswith("h"): return 8760.0/int(tf[:-1])
-    if tf.endswith("d"): return 252.0/int(tf[:-1])
+    t = str(tf).lower()
+    if t.endswith("m"): return 525600.0/float(t[:-1])
+    if t.endswith("h"): return 8760.0/float(t[:-1])
+    if t.endswith("d"): return 252.0/float(t[:-1])
     return 8760.0
 
 def simulate_longonly(returns: np.ndarray, probs: np.ndarray, buy: float, sell: float):
@@ -88,18 +93,15 @@ def simulate_longonly(returns: np.ndarray, probs: np.ndarray, buy: float, sell: 
 def evaluate_one(sym: str, tf: str, days: int, buy: float, sell: float) -> Optional[Dict]:
     mp = MODELS / f"pro_{sym}_{tf}.joblib"
     if not mp.exists():
-        print(f"[eval][skip] no model {sym} {tf}")
         return None
-    df = fetch_ohlcv(sym, tf, days)
+    df = fetch_ohlcv(sym, str(tf), days)
     if df is None or df.empty:
-        print(f"[eval][skip] no data {sym} {tf}")
         return None
     feats = build_features(df)
     if feats is None or feats.empty:
-        print(f"[eval][skip] no features {sym} {tf}")
         return None
     clf = load(mp)
-    X = feats[["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]].astype(float).values
+    X = feats[FEATS].astype(float).values
     try:
         P = clf.predict_proba(X)[:,1]
     except Exception:
@@ -110,7 +112,7 @@ def evaluate_one(sym: str, tf: str, days: int, buy: float, sell: float) -> Optio
     s = sharpe(strat, py)
     score = 0.5*s + 0.3*pf + 0.2*(1.0 - min(1.0, mdd))
     trades = int((np.diff(np.r_[0,(strat!=0).astype(int)])!=0).sum()//2)
-    return {"symbol":sym,"tf":tf,"sharpe":s,"pf":pf,"mdd":mdd,"wr":wr,"score":score,"trades":trades}
+    return {"symbol":sym,"tf":str(tf),"sharpe":s,"pf":pf,"mdd":mdd,"wr":wr,"score":score,"trades":trades}
 
 def main():
     ap = argparse.ArgumentParser()
@@ -135,6 +137,7 @@ def main():
             except Exception as e:
                 print(f"[eval][fail] {s} {tf}: {e}")
 
+    # paras TF per symboli
     best: Dict[str,Dict] = {}
     for r in rows:
         sym = r["symbol"]
@@ -145,7 +148,7 @@ def main():
 
     sel = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
-        "timeframes": tfs,
+        "timeframes": [str(t) for t in tfs],
         "top_k": args.top_k,
         "symbols": [r["symbol"] for r in top],
         "criteria": {
