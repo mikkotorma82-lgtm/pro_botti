@@ -2,36 +2,27 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Env
-if [ -f "./secrets.env" ]; then
-  set -a; source ./secrets.env; set +a
-fi
+# Env (valinnainen)
+if [ -f "./secrets.env" ]; then set -a; source ./secrets.env; set +a; fi
 
-: "${SYMBOLS:?SYMBOLS must be set}"
-: "${TFS:=15m,1h,4h}"
-: "${HISTORY_DAYS:=365}"
-: "${TOP_K:=5}"
-: "${MIN_TRADES:=25}"
+SYMS="${SYMS:-BTCUSDT ETHUSDT ADAUSDT SOLUSDT XRPUSDT}"
+TFS="${TFS:-15m 1h 4h}"
+LOOKBACK="${EVAL_LOOKBACK_DAYS:-365}"
+TOPK="${TOP_K:-5}"
+MINTR="${MIN_TRADES:-10}"
 
-IFS=',' read -ra SYMS <<< "$SYMBOLS"
-IFS=',' read -ra TFS_ARR <<< "$TFS"
+# Varmista riippuvuudet
+source venv/bin/activate || true
+pip install -q --upgrade pip
+pip install -q ccxt pandas numpy scikit-learn joblib
 
-for sym in "${SYMS[@]}"; do
-  for tf in "${TFS_ARR[@]}"; do
-    echo "[backfill] $sym $tf $HISTORY_DAYS"
-    python scripts/backfill.py "$sym" "$tf" "$HISTORY_DAYS" || true
-    echo "[train] $sym $tf"
-    python scripts/train.py "$sym" "$tf" || true
-  done
-done
+echo "[auto] train models"
+python scripts/train_all_models.py --symbols ${SYMS} --timeframes ${TFS} --lookback-days "${LOOKBACK}"
 
-echo "[evaluate+select]"
-python scripts/quick_evaluate_select.py --timeframes ${TFS//,/ } --lookback-days "${EVAL_LOOKBACK_DAYS:-365}" --top-k "$TOP_K" --min-trades "$MIN_TRADES"
+echo "[auto] evaluate + select (model-based)"
+python scripts/model_evaluate_select.py --symbols ${SYMS} --timeframes ${TFS} --lookback-days "${LOOKBACK}" --top-k "${TOPK}" --min-trades "${MINTR}"
 
-# Restart live to pick up new active symbols (launch.sh overrides SYMBOLS from state file)
-if systemctl is-active --quiet pro_botti; then
-  echo "[notify] Restarting pro_botti"
-  systemctl restart pro_botti || true
-fi
+echo "[auto] restart live"
+systemctl restart pro_botti || true
 
-echo "[auto_retrain] Done at $(date -Iseconds)"
+echo "[auto] done $(date -Iseconds)"
