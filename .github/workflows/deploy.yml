@@ -1,0 +1,51 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout (for context only)
+      uses: actions/checkout@v4
+
+    - name: Deploy over SSH
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        port: ${{ secrets.SSH_PORT }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          set -euo pipefail
+          cd /root/pro_botti
+          git fetch --all
+          git checkout main
+          git reset --hard origin/main
+
+          # Venv ja riippuvuudet
+          if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
+          source venv/bin/activate
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+          # Palvelut
+          cp deploy/pro_botti.service /etc/systemd/system/ || true
+          systemctl daemon-reload
+          systemctl enable --now pro_botti
+
+          # Ajastin (valinnainen)
+          if [ -f deploy/pro_botti-retrain.service ] && [ -f deploy/pro_botti-retrain.timer ]; then
+            cp deploy/pro_botti-retrain.service /etc/systemd/system/ || true
+            cp deploy/pro_botti-retrain.timer /etc/systemd/system/ || true
+            systemctl daemon-reload
+            systemctl enable --now pro_botti-retrain.timer || true
+          fi
+
+          # Restart live
+          systemctl restart pro_botti
+
+          echo "[deploy] done"
