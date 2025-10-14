@@ -12,6 +12,23 @@ jobs:
     - name: Checkout (for context only)
       uses: actions/checkout@v4
 
+    - name: Preflight — check required secrets
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+        SSH_PORT: ${{ secrets.SSH_PORT }}
+        SSH_KEY:  ${{ secrets.SSH_KEY }}
+      run: |
+        set -euo pipefail
+        missing=0
+        for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
+          if [ -z "${!v:-}" ]; then
+            echo "::error:: Missing required secret: $v"
+            missing=1
+          fi
+        done
+        exit $missing
+
     - name: Deploy over SSH
       uses: appleboy/ssh-action@v1.2.0
       with:
@@ -25,27 +42,18 @@ jobs:
           git fetch --all
           git checkout main
           git reset --hard origin/main
-
-          # Venv ja riippuvuudet
           if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
           source venv/bin/activate
           pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-          # Palvelut
           cp deploy/pro_botti.service /etc/systemd/system/ || true
           systemctl daemon-reload
           systemctl enable --now pro_botti
-
-          # Ajastin (valinnainen)
           if [ -f deploy/pro_botti-retrain.service ] && [ -f deploy/pro_botti-retrain.timer ]; then
             cp deploy/pro_botti-retrain.service /etc/systemd/system/ || true
             cp deploy/pro_botti-retrain.timer /etc/systemd/system/ || true
             systemctl daemon-reload
             systemctl enable --now pro_botti-retrain.timer || true
           fi
-
-          # Restart live
           systemctl restart pro_botti
-
           echo "[deploy] done"
