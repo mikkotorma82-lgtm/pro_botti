@@ -1,8 +1,0 @@
-{
-  "symbol": "ADAUSDT",
-  "tf": "4h",
-  "n": 16076,
-  "avg_cv_accuracy": 0.5124300111982082,
-  "model_path": "/root/pro_botti/models/ml_ADAUSDT_4h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_ADAUSDT_4h.json"
-}

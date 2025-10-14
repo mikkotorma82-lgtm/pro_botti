@@ -1,8 +1,0 @@
-{
-  "symbol": "XRPUSDT",
-  "tf": "1h",
-  "n": 35025,
-  "avg_cv_accuracy": 0.523727942436183,
-  "model_path": "/root/pro_botti/models/ml_XRPUSDT_1h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_XRPUSDT_1h.json"
-}

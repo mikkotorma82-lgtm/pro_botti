@@ -1,8 +1,0 @@
-{
-  "symbol": "AAPL",
-  "tf": "15m",
-  "n": 1536,
-  "avg_cv_accuracy": 0.4625,
-  "model_path": "/root/pro_botti/models/ml_AAPL_15m.joblib",
-  "meta_path": "/root/pro_botti/models/ml_AAPL_15m.json"
-}

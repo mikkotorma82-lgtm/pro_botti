@@ -1,8 +1,0 @@
-{
-  "symbol": "EURUSD",
-  "tf": "4h",
-  "n": 4357,
-  "avg_cv_accuracy": 0.4829201101928374,
-  "model_path": "/root/pro_botti/models/ml_EURUSD_4h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_EURUSD_4h.json"
-}

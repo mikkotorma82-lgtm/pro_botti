@@ -1,84 +1,64 @@
-market:
-  symbols: [EURUSD, GBPUSD, US500, US100, AAPL, NVDA, TSLA, BTCUSDT, ETHUSDT, XRPUSDT, SOLUSDT, ADAUSDT]
+# Pro Botti Configuration
 
-train:
-  timeframes: [15m, 1h, 4h]
-  horizon_bars: 1        # labelointihorisontti
-  n_splits: 5            # rullaavia CV-splitejä
-  rf_trees: 200
-  rf_max_depth: 6
-
-# jos haluat lukita featuret, avaa kommentit alla:
-# features: [ret1, ret5, vol5, ema12, ema26, macd, rsi14, atr14, ema_gap]
-
-live:
-  symbols: [EURUSD, GBPUSD, US500, US100, AAPL, NVDA, TSLA, BTCUSDT, ETHUSDT, XRPUSDT, SOLUSDT, ADAUSDT]
-
-risk:
-  mode: vol_target         # fixed | vol_target | kelly
-  fixed_size: 1.0          # käytetään vain mode=fixed
-  vol_target_annual: 0.20  # tavoitevuosivola (esim. 20%)
-  lookback_bars: 200       # volatiliteetin laskentajakso
-  max_leverage: 3.0        # katon asetus sizingille
-  min_prob: 0.45           # kelly/soft-signaalien portti
-  kelly_payoff: 1.0        # odotettu voittosuhde (R)
-  min_position: 0.0        # alle tämän → 0
-  stop_loss_pct: 0.02      # 2% stop (0 = pois päältä)
-  take_profit_pct: 0.04    # 4% TP  (0 = pois päältä)
-  trailing_stop_pct: 0.015 # 1.5% trailing (0 = pois)
-  conservative_intrabar: true  # jos sekä SL että TP osuvat samaan baariin, painotus stopille
-
-# --- transaktiokulut bps-yksiköissä (1bp = 0.01%) ---
-costs:
-  defaults:
-    fee_bps: 0.0          # pörssin palkkio tms.
-    spread_bps: 1.0       # tyypillinen spread (round-turn, huomioidaan sisään/ulos)
-    slippage_bps: 1.0     # liukumamalli (round-turn odote)
-  per_symbol:
-    EURUSD:
-      spread_bps: 0.5
-      slippage_bps: 0.5
-    GBPUSD:
-      spread_bps: 0.6
-      slippage_bps: 0.6
-    US500:
-      spread_bps: 1.0
-      slippage_bps: 1.0
-    US100:
-      spread_bps: 1.2
-      slippage_bps: 1.0
-    AAPL:
-      spread_bps: 1.0
-      slippage_bps: 1.0
-    NVDA:
-      spread_bps: 1.2
-      slippage_bps: 1.2
-    TSLA:
-      spread_bps: 1.5
-      slippage_bps: 1.5
-    BTCUSDT:
-      spread_bps: 1.0
-      slippage_bps: 1.0
-    ETHUSDT:
-      spread_bps: 1.2
-      slippage_bps: 1.2
-    XRPUSDT:
-      spread_bps: 2.0
-      slippage_bps: 2.0
-    SOLUSDT:
-      spread_bps: 2.0
-      slippage_bps: 2.0
-    ADAUSDT:
-      spread_bps: 2.0
-      slippage_bps: 2.0
-  per_tf:
-    "15m":
-      slippage_bps: 1.5   # intrapäivä -> enemmän liukua
-    "1h":
-      slippage_bps: 1.0
-    "4h":
-      slippage_bps: 0.7
-
+# Trading Parameters
 trading:
-  cooldown_bars: 2          # odotus baarimäärä viimeisestä toteutuksesta
-  flip_guard_bars: 0        # (valinnainen) estä nopea flip-flop
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+  timeframes:
+    - 15m
+    - 1h
+    - 4h
+  buy_threshold: 0.52
+  sell_threshold: 0.48
+  cooldown_seconds: 60
+  enable_trading: false  # Safety: disabled by default
+
+# Risk Management
+risk:
+  max_position_size_usdt: 1000
+  max_drawdown_pct: 20
+  stop_loss_pct: 5
+  take_profit_pct: 10
+  max_leverage: 1
+
+# Data Configuration
+data:
+  history_path: ./data
+  models_path: ./models
+  history_years:
+    15m: 2
+    1h: 4
+    4h: 10
+
+# Model Training
+training:
+  features:
+    - returns
+    - volume
+    - rsi
+    - macd
+    - ema_fast
+    - ema_slow
+  test_size: 0.2
+  random_state: 42
+  model_type: xgboost  # or random_forest
+
+# Telegram Notifications
+telegram:
+  enabled: false
+  bot_token: ""  # Set in .env
+  chat_id: ""    # Set in .env
+
+# Exchange Configuration
+exchange:
+  name: binance
+  testnet: true
+  api_key: ""     # Set in .env
+  api_secret: ""  # Set in .env
+
+# Polling & Monitoring
+monitoring:
+  poll_interval_seconds: 60
+  health_check_enabled: true
+  log_level: INFO

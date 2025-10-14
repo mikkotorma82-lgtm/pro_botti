@@ -1,9 +1,0 @@
-{
-  "rows": 2000,
-  "has_ATR": true,
-  "atr_na": 0,
-  "thr": 0.48,
-  "equity0": 10000.0,
-  "csv": "EURUSD_15m.csv",
-  "ok": true
-}

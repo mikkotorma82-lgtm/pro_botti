@@ -2,17 +2,37 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.env
-.env.*
+.env.local
+.env.production
 venv/
 .venv/
+*.pyc
 
-# Project
-secrets.env
-state/
-_dump/
-exec/
-*.bak*
-*.BAK*
-*.orig
+# Data and Models
+data/*.parquet
+data/*.csv
+models/*.joblib
+models/*.pkl
+models/*.h5
+
+# Logs
+logs/
 *.log
+
+# Secrets
+secrets.env
+.env.local
+
+# Temporary files
+*.bak
+*.tmp
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep placeholder files
+!data/.gitkeep
+!models/.gitkeep
