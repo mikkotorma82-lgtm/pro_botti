@@ -16,3 +16,7 @@ exec/
 *.BAK*
 *.orig
 *.log
+
+# Results and generated files
+results/metrics/
+*.tmp
