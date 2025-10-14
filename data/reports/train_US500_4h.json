@@ -1,8 +1,0 @@
-{
-  "symbol": "US500",
-  "tf": "4h",
-  "n": 1441,
-  "avg_cv_accuracy": 0.5416666666666667,
-  "model_path": "/root/pro_botti/models/ml_US500_4h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_US500_4h.json"
-}

@@ -1,4 +1,0 @@
-# Minimal valid risk config
-atr:
-  period: 14        # Wilder ATR period (>0)
-risk_per_trade: 0.01 # 1% riski/treidi

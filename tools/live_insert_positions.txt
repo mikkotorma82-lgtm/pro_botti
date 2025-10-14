@@ -1,5 +1,0 @@
-# equity kannattaa lukea tilakirjasta tai omasta seurannasta; tässä esimerkki:
-equity = float(os.getenv("EQUITY_USD", "10000"))
-qty = position_size(equity, df, price, cfg)
-if not can_open(active_positions, cfg):
-    side = "HOLD"

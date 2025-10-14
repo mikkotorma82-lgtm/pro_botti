@@ -1,8 +1,0 @@
-{
-  "symbol": "NVDA",
-  "tf": "4h",
-  "n": 1441,
-  "avg_cv_accuracy": 0.5133333333333333,
-  "model_path": "/root/pro_botti/models/ml_NVDA_4h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_NVDA_4h.json"
-}

@@ -1,8 +1,0 @@
-{
-  "symbol": "SOLUSDT",
-  "tf": "1h",
-  "n": 35025,
-  "avg_cv_accuracy": 0.5100222717149221,
-  "model_path": "/root/pro_botti/models/ml_SOLUSDT_1h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_SOLUSDT_1h.json"
-}

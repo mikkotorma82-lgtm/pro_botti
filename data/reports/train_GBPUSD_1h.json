@@ -1,8 +1,0 @@
-{
-  "symbol": "GBPUSD",
-  "tf": "1h",
-  "n": 17291,
-  "avg_cv_accuracy": 0.509961818812912,
-  "model_path": "/root/pro_botti/models/ml_GBPUSD_1h.joblib",
-  "meta_path": "/root/pro_botti/models/ml_GBPUSD_1h.json"
-}
