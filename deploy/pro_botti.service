@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=/root/pro_botti
 EnvironmentFile=/root/pro_botti/secrets.env
+Environment=PATH=/root/pro_botti/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/bin/bash /root/pro_botti/scripts/live_start.sh
 Restart=always
 RestartSec=5
