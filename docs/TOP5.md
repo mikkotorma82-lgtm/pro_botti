@@ -1,5 +1,6 @@
 # Top-5 symbol selection and automation
 
+
 Run once:
 - `source venv/bin/activate`
 - `set -a; source secrets.env; set +a`
