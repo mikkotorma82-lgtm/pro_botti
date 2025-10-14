@@ -12,29 +12,45 @@ jobs:
     - name: Checkout (for context only)
       uses: actions/checkout@v4
 
-    - name: Preflight — check required secrets
+    # Näytä onko kukin arvo SET/MISSING (ei paljasta sisältöä)
+    - name: Debug — show which inputs were read
       env:
-        SSH_HOST: ${{ secrets.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
-        SSH_PORT: ${{ secrets.SSH_PORT }}
+        SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER || vars.SSH_USER }}
+        SSH_PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
+        SSH_KEY:  ${{ secrets.SSH_KEY }}
+      run: |
+        set -euo pipefail
+        for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
+          if [ -n "${!v:-}" ]; then echo "$v=SET"; else echo "$v=MISSING"; fi
+        done
+
+    - name: Preflight — check required secrets/vars
+      env:
+        SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER || vars.SSH_USER }}
+        SSH_PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
         SSH_KEY:  ${{ secrets.SSH_KEY }}
       run: |
         set -euo pipefail
         missing=0
         for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
           if [ -z "${!v:-}" ]; then
-            echo "::error:: Missing required secret: $v"
+            echo "::error:: Missing required value: $v (check repo Settings → Secrets and variables → Actions)"
             missing=1
           fi
         done
+        if [ -z "${SSH_KEY:-}" ]; then
+          echo "::error:: SSH_KEY must be set as a Secret (not a Variable)."
+        fi
         exit $missing
 
     - name: Deploy over SSH
       uses: appleboy/ssh-action@v1.2.0
       with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        port: ${{ secrets.SSH_PORT }}
+        host: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+        username: ${{ secrets.SSH_USER || vars.SSH_USER }}
+        port: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
         key: ${{ secrets.SSH_KEY }}
         script: |
           set -euo pipefail
@@ -42,18 +58,25 @@ jobs:
           git fetch --all
           git checkout main
           git reset --hard origin/main
+
+          # Venv ja riippuvuudet
           if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
           source venv/bin/activate
           pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+          # Palvelut
           cp deploy/pro_botti.service /etc/systemd/system/ || true
           systemctl daemon-reload
           systemctl enable --now pro_botti
+
+          # Ajastin (valinnainen)
           if [ -f deploy/pro_botti-retrain.service ] && [ -f deploy/pro_botti-retrain.timer ]; then
             cp deploy/pro_botti-retrain.service /etc/systemd/system/ || true
             cp deploy/pro_botti-retrain.timer /etc/systemd/system/ || true
             systemctl daemon-reload
             systemctl enable --now pro_botti-retrain.timer || true
           fi
+
           systemctl restart pro_botti
           echo "[deploy] done"
