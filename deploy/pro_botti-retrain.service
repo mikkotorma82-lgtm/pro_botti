@@ -1,27 +1,10 @@
 [Unit]
-Description=Pro Botti - Auto Retrain Pipeline
-Documentation=https://github.com/mikkotorma82-lgtm/pro_botti
-After=network.target
+Description=Pro Botti - retrain + evaluate + select-top
+After=network-online.target
 
 [Service]
 Type=oneshot
-User=root
 WorkingDirectory=/root/pro_botti
-Environment="ROOT=/root/pro_botti"
-Environment="PATH=/root/pro_botti/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/root/pro_botti/scripts/auto_retrain.sh
-
-# Logging
-StandardOutput=append:/root/pro_botti/logs/retrain.log
-StandardError=append:/root/pro_botti/logs/retrain.err
-
-# Resource limits
-MemoryMax=4G
-CPUQuota=200%
-
-# Restart policy for failures
-Restart=on-failure
-RestartSec=300
-
-[Install]
-WantedBy=multi-user.target
+EnvironmentFile=/root/pro_botti/secrets.env
+ExecStart=/usr/bin/bash /root/pro_botti/scripts/auto_retrain.sh
+User=root

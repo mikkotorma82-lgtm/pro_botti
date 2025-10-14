@@ -1,37 +1,15 @@
 [Unit]
-Description=Pro Botti - Live Trading Service
-Documentation=https://github.com/mikkotorma82-lgtm/pro_botti
+Description=Pro Botti - Live trading loop
 After=network.target
 
 [Service]
 Type=simple
-User=root
 WorkingDirectory=/root/pro_botti
-Environment="ROOT=/root/pro_botti"
-Environment="PATH=/root/pro_botti/venv/bin:/usr/local/bin:/usr/bin:/bin"
-
-# Load environment variables from botti.env
-EnvironmentFile=-/root/pro_botti/botti.env
-
-# Start live trading with active symbols
-ExecStart=/root/pro_botti/venv/bin/python3 -m cli live --config /root/pro_botti/config.yaml
-
-# Logging
-StandardOutput=append:/root/pro_botti/logs/live.log
-StandardError=append:/root/pro_botti/logs/live.err
-
-# Restart policy
+EnvironmentFile=/root/pro_botti/secrets.env
+ExecStart=/usr/bin/bash /root/pro_botti/scripts/live_start.sh
 Restart=always
-RestartSec=10
-
-# Resource limits
-MemoryMax=2G
-CPUQuota=100%
-
-# Signal handling
-KillMode=mixed
-KillSignal=SIGTERM
-TimeoutStopSec=30
+RestartSec=5
+User=root
 
 [Install]
 WantedBy=multi-user.target
