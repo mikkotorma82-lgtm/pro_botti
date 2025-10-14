@@ -19,3 +19,14 @@ export SYMBOLS
 echo "[$(date -Iseconds)] [INFO] käynnistyy: SYMBOLS=[${SYMBOLS}]"
 
 exec /usr/bin/env python3 -m tools.live_daemon
+
+# Override SYMBOLS from state/active_symbols.json if present
+if [ -f "state/active_symbols.json" ]; then
+  ACTIVE_SYMBOLS="$( /root/pro_botti/venv/bin/python - <<\PY\nimport json,sys\ntry:\n    d=json.load(open(\"state/active_symbols.json\"))\n    syms=d.get(\"symbols\", [])\n    if not syms: sys.exit(2)\n    print(\",\".join(syms))\nexcept Exception:\n    sys.exit(1)\nPY )"
+  if [ -n "$ACTIVE_SYMBOLS" ]; then
+    export SYMBOLS="$ACTIVE_SYMBOLS"
+    echo "[launch] Using active SYMBOLS=${SYMBOLS}"
+  else
+    echo "[launch] Warning: active_symbols.json empty/parse failed; using secrets.env SYMBOLS."
+  fi
+fi
