@@ -6,49 +6,24 @@ from typing import List
 import numpy as np, pandas as pd
 from joblib import dump
 from sklearn.ensemble import RandomForestClassifier
-
-try:
-    import ccxt  # type: ignore
-except Exception:
-    ccxt = None
+from tools.data_sources import fetch_ohlcv
 
 ROOT   = Path(__file__).resolve().parents[1]
 MODELS = ROOT / "models"
 MODELS.mkdir(parents=True, exist_ok=True)
 
+FEATS = ["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]
+
 def env_list(name: str, default_csv: str) -> List[str]:
     v = os.getenv(name, default_csv)
     return [s.strip() for s in v.split(",") if s.strip()]
 
-def to_ccxt_symbol(sym: str) -> str:
-    if "/" in sym: return sym
-    if sym.endswith("USDT"): return f"{sym[:-4]}/USDT"
-    return sym
-
-def tf_to_ccxt(tf: str) -> str: return tf.lower()
-
-def fetch(sym: str, tf: str, lookback_days: int) -> pd.DataFrame:
-    if ccxt is None: raise RuntimeError("ccxt puuttuu")
-    ex = ccxt.binance({"enableRateLimit": True})
-    since = int((time.time() - lookback_days*86400) * 1000)
-    rows = []; last = since
-    while True:
-        batch = ex.fetch_ohlcv(to_ccxt_symbol(sym), timeframe=tf_to_ccxt(tf), since=last, limit=1000)
-        if not batch: break
-        rows.extend(batch)
-        if len(batch) < 1000 or len(rows) >= 3000: break
-        last = int(batch[-1][0]) + 1
-    if not rows: return pd.DataFrame()
-    df = pd.DataFrame(rows, columns=["time","open","high","low","close","volume"])
-    df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True)
-    return df
-
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     z = df.copy()
     c = pd.to_numeric(z["close"], errors="coerce")
-    z["ret1"] = c.pct_change()
-    z["ret5"] = c.pct_change(5)
-    z["vol5"] = z["ret1"].rolling(5).std().fillna(0.0)
+    z["ret1"]  = c.pct_change()
+    z["ret5"]  = c.pct_change(5)
+    z["vol5"]  = z["ret1"].rolling(5).std().fillna(0.0)
     z["ema12"] = c.ewm(span=12, adjust=False).mean()
     z["ema26"] = c.ewm(span=26, adjust=False).mean()
     z["macd"]  = z["ema12"] - z["ema26"]
@@ -70,28 +45,28 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     return z
 
 def label_next_up(df: pd.DataFrame) -> pd.Series:
-    # y=1 jos seuraavan baarin tuotto > 0, muuten 0
     ret1_fwd = pd.to_numeric(df["close"], errors="coerce").pct_change().shift(-1)
     return (ret1_fwd > 0).astype(int).iloc[:-1]
 
 def train_one(sym: str, tf: str, lookback_days: int):
-    df = fetch(sym, tf, lookback_days)
+    df = fetch_ohlcv(sym, tf, lookback_days)
     if df is None or df.empty or len(df) < 200:
-        print(f"[train][skip] no data {sym} {tf}")
+        print(f"[train][skip] no/low data {sym} {tf}")
         return
-    feats = build_features(df).iloc[:-1]  # kohdistus y:hen
+    feats = build_features(df).iloc[:-1]
     y = label_next_up(df)
     y = y.loc[feats.index]
-    X = feats[["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]].astype(float).values
+    X = feats[FEATS].astype(float).values
     if len(y) < 100:
         print(f"[train][skip] too few samples {sym} {tf} n={len(y)}")
         return
+    from sklearn.ensemble import RandomForestClassifier
     clf = RandomForestClassifier(n_estimators=400, max_depth=6, min_samples_leaf=5, n_jobs=-1, random_state=42)
     clf.fit(X, y.values)
     out = MODELS / f"pro_{sym}_{tf}.joblib"
     dump(clf, out)
     meta = {
-        "symbol": sym, "tf": tf, "feats": ["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"],
+        "symbol": sym, "tf": tf, "feats": FEATS,
         "trained_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
     }
     (MODELS / f"pro_{sym}_{tf}.json").write_text(json.dumps(meta, indent=2))
@@ -99,12 +74,15 @@ def train_one(sym: str, tf: str, lookback_days: int):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--symbols", nargs="+", required=True)
-    ap.add_argument("--timeframes", nargs="+", required=True)
-    ap.add_argument("--lookback-days", type=int, default=365)
+    ap.add_argument("--symbols", nargs="+", default=None)
+    ap.add_argument("--timeframes", nargs="+", default=None)
+    ap.add_argument("--lookback-days", type=int, default=int(os.getenv("EVAL_LOOKBACK_DAYS","365")))
     args = ap.parse_args()
-    for s in args.symbols:
-        for tf in args.timeframes:
+
+    syms = args.symbols or env_list("SYMBOLS", "BTCUSDT,ETHUSDT,ADAUSDT,SOLUSDT,XRPUSDT")
+    tfs  = args.timeframes or env_list("TFS",    "15m,1h,4h")
+    for s in syms:
+        for tf in tfs:
             try:
                 train_one(s, tf, args.lookback_days)
             except Exception as e:

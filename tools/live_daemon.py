@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, sys, json, time
+import os, json, time
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List
 import numpy as np
 import pandas as pd
 from joblib import load
-
-# Valinnaisesti ccxt markkinadatan hakuun (crypto)
-try:
-    import ccxt  # type: ignore
-except Exception:
-    ccxt = None
+from tools.data_sources import fetch_ohlcv
 
 ROOT   = Path(__file__).resolve().parents[1]
 MODELS = ROOT / "models"
@@ -24,49 +19,16 @@ def env_list(name: str, default_csv: str) -> List[str]:
     v = os.getenv(name, default_csv)
     return [s.strip() for s in v.split(",") if s.strip()]
 
-def to_ccxt_symbol(sym: str) -> str:
-    # Muunna esim. BTCUSDT -> BTC/USDT
-    if "/" in sym:
-        return sym
-    if sym.endswith("USDT"):
-        return f"{sym[:-4]}/USDT"
-    return sym
-
-def tf_to_ccxt(tf: str) -> str:
-    # binance hyväksyy 15m,1h,4h sellaisenaan
-    return tf.lower()
-
-def fetch_ccxt_ohlcv(sym: str, tf: str, lookback_days: int = 365, limit: int = 3000) -> pd.DataFrame:
-    if ccxt is None:
-        raise RuntimeError("ccxt puuttuu (pip install ccxt)")
-    ex = ccxt.binance({"enableRateLimit": True})
-    since = int((time.time() - lookback_days*86400) * 1000)
-    tf_ccxt = tf_to_ccxt(tf)
-    allrows = []
-    last = since
-    while True:
-        batch = ex.fetch_ohlcv(to_ccxt_symbol(sym), timeframe=tf_ccxt, since=last, limit=1000)
-        if not batch:
-            break
-        allrows.extend(batch)
-        if len(batch) < 1000 or len(allrows) >= limit:
-            break
-        last = int(batch[-1][0]) + 1
-    if not allrows:
-        return pd.DataFrame()
-    df = pd.DataFrame(allrows, columns=["time","open","high","low","close","volume"])
-    df["time"] = pd.to_datetime(df["time"], unit="ms", utc=True)
-    return df
-
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     z = df.copy()
-    z["ret1"] = pd.to_numeric(z["close"], errors="coerce").pct_change()
-    z["ret5"] = pd.to_numeric(z["close"], errors="coerce").pct_change(5)
-    z["vol5"] = z["ret1"].rolling(5).std().fillna(0.0)
-    z["ema12"] = pd.to_numeric(z["close"], errors="coerce").ewm(span=12, adjust=False).mean()
-    z["ema26"] = pd.to_numeric(z["close"], errors="coerce").ewm(span=26, adjust=False).mean()
+    c = pd.to_numeric(z["close"], errors="coerce")
+    z["ret1"]  = c.pct_change()
+    z["ret5"]  = c.pct_change(5)
+    z["vol5"]  = z["ret1"].rolling(5).std().fillna(0.0)
+    z["ema12"] = c.ewm(span=12, adjust=False).mean()
+    z["ema26"] = c.ewm(span=26, adjust=False).mean()
     z["macd"]  = z["ema12"] - z["ema26"]
-    diff = pd.to_numeric(z["close"], errors="coerce").diff()
+    diff = c.diff()
     up = diff.clip(lower=0).rolling(14).mean()
     dn = (-diff.clip(upper=0)).rolling(14).mean()
     rs = up / dn.replace(0, np.nan)
@@ -79,7 +41,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         z["atr14"] = tr.rolling(14).mean()
     else:
         z["atr14"] = 0.0
-    z["ema_gap"] = (pd.to_numeric(z["close"], errors="coerce") - z["ema12"]) / z["ema12"]
+    z["ema_gap"] = (c - z["ema12"]) / z["ema12"]
     z = z.replace([np.inf,-np.inf], np.nan).dropna()
     return z
 
@@ -97,8 +59,7 @@ class ModelBook:
 
     def ensure(self, s:str, tf:str) -> bool:
         p = self._model_path(s,tf)
-        if not p.exists():
-            return False
+        if not p.exists(): return False
         mt = p.stat().st_mtime
         key = (s,tf)
         if key not in self.mtimes or mt > self.mtimes[key]:
@@ -114,9 +75,9 @@ class ModelBook:
             log(f"[OK] loaded {p.name} (features={len(self.feats[key])})")
         return True
 
-    def predict_proba(self, s:str, tf:str, X: np.ndarray) -> float:
-        mdl = self.models[(s,tf)]
+    def predict_proba(self, s:str, tf:str, X):
         from numpy import atleast_2d
+        mdl = self.models[(s,tf)]
         return float(mdl.predict_proba(atleast_2d(X))[:,1][0])
 
 def main():
@@ -130,7 +91,6 @@ def main():
     log(f"[INFO] live start: SYMBOLS={SYMS} TFS={TFS} POLL={POLL}s BUY_THR={BUY} SELL_THR={SELL}")
     while True:
         try:
-            # dynaaminen SYMBOLS/TFS envistä
             SYMS = env_list("SYMBOLS", ",".join(SYMS))
             TFS  = env_list("TFS", ",".join(TFS))
             for s in SYMS:
@@ -139,7 +99,7 @@ def main():
                         log(f"[WARN] no_model {s} {tf}")
                         continue
                     try:
-                        df = fetch_ccxt_ohlcv(s, tf, lookback_days=365, limit=2000)
+                        df = fetch_ohlcv(s, tf, lookback_days=365)
                     except Exception as e:
                         log(f"[WARN] fetch_fail {s} {tf}: {e}")
                         continue
