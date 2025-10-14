@@ -8,11 +8,27 @@ train:
   rf_trees: 200
   rf_max_depth: 6
 
+# Symbol selection configuration
+selection:
+  top_k: 5                # Number of top symbols to select
+  min_trades: 25          # Minimum trades required for selection
+  weights:
+    sharpe: 0.5           # Weight for Sharpe ratio
+    profit_factor: 0.3    # Weight for profit factor
+    max_drawdown: 0.2     # Weight for max drawdown (penalty)
+    winrate: 0.0          # Weight for win rate
+
+# Evaluation configuration
+evaluation:
+  lookback_days: 365      # Days of history to evaluate
+  timeframes: [15m, 1h, 4h]
+
 # jos haluat lukita featuret, avaa kommentit alla:
 # features: [ret1, ret5, vol5, ema12, ema26, macd, rsi14, atr14, ema_gap]
 
 live:
   symbols: [EURUSD, GBPUSD, US500, US100, AAPL, NVDA, TSLA, BTCUSDT, ETHUSDT, XRPUSDT, SOLUSDT, ADAUSDT]
+  always_manage_open_positions: true  # Continue managing positions even if not in active list
 
 risk:
   mode: vol_target         # fixed | vol_target | kelly
