@@ -19,8 +19,10 @@ def env_list(name: str, default_csv: str) -> List[str]:
     return [s.strip() for s in v.split(",") if s.strip()]
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty or not {"close"}.issubset(df.columns):
+        return pd.DataFrame()
     z = df.copy()
-    c = pd.to_numeric(z["close"], errors="coerce")
+    c = pd.to_numeric(z["close"], errors="coerce").astype(float)
     z["ret1"]  = c.pct_change()
     z["ret5"]  = c.pct_change(5)
     z["vol5"]  = z["ret1"].rolling(5).std().fillna(0.0)
@@ -34,8 +36,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     z["rsi14"] = 100 - (100 / (1 + rs))
     if {"high","low","close"}.issubset(z.columns):
         tr = np.maximum(
-            z["high"] - z["low"],
-            np.maximum((z["high"] - z["close"].shift()).abs(), (z["low"] - z["close"].shift()).abs()),
+            pd.to_numeric(z["high"], errors="coerce") - pd.to_numeric(z["low"], errors="coerce"),
+            np.maximum(
+                (pd.to_numeric(z["high"], errors="coerce") - c.shift()).abs(),
+                (pd.to_numeric(z["low"], errors="coerce") - c.shift()).abs(),
+            ),
         )
         z["atr14"] = tr.rolling(14).mean()
     else:
@@ -45,24 +50,27 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     return z
 
 def label_next_up(df: pd.DataFrame) -> pd.Series:
-    ret1_fwd = pd.to_numeric(df["close"], errors="coerce").pct_change().shift(-1)
-    return (ret1_fwd > 0).astype(int).iloc[:-1]
+    c = pd.to_numeric(df["close"], errors="coerce").astype(float)
+    ret1_fwd = c.pct_change().shift(-1)
+    y = (ret1_fwd > 0).astype(int)
+    return y.iloc[:-1]
 
 def train_one(sym: str, tf: str, lookback_days: int):
-    df = fetch_ohlcv(sym, tf, lookback_days)
+    df = fetch_ohlcv(sym, str(tf), lookback_days)
     if df is None or df.empty or len(df) < 200:
         print(f"[train][skip] no/low data {sym} {tf}")
         return
     feats = build_features(df).iloc[:-1]
-    y = label_next_up(df)
-    y = y.loc[feats.index]
+    if feats is None or feats.empty:
+        print(f"[train][skip] no features {sym} {tf}")
+        return
+    y = label_next_up(df).loc[feats.index]
     X = feats[FEATS].astype(float).values
     if len(y) < 100:
         print(f"[train][skip] too few samples {sym} {tf} n={len(y)}")
         return
-    from sklearn.ensemble import RandomForestClassifier
     clf = RandomForestClassifier(n_estimators=400, max_depth=6, min_samples_leaf=5, n_jobs=-1, random_state=42)
-    clf.fit(X, y.values)
+    clf.fit(X, y.values.ravel())
     out = MODELS / f"pro_{sym}_{tf}.joblib"
     dump(clf, out)
     meta = {
