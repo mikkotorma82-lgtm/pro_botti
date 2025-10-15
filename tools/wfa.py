@@ -62,7 +62,8 @@ def wfa_one(csv_path: str, folds: int = 6) -> Dict[str, Any]:
     if T < 400:
         raise ValueError(f"Not enough rows ({T}) for WFA")
     fold_len = T // (folds + 1)
-    results: List{FoldResult} = []
+    results: List[FoldResult] = []
+
     for i in range(folds):
         train_lo = 0
         train_hi = (i+1)*fold_len
