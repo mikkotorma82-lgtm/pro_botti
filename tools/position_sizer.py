@@ -1,226 +1,78 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-position_sizer.py — riskipohjainen position koko + symbolikohtaiset riskiohjaukset
-
-Toiminto:
-- Lukee instrumenttien tiedot /root/pro_botti/data/instrument_map.json (min_trade_size, step, margin_factor, leverage).
-- Lukee (valinnainen) /root/pro_botti/config/risk_overrides.json:
-    { "BTCUSDT": 0.08, "US500": 0.04, ... }  # absoluuttinen riskiprosentti symbolille
-- Tarjoaa:
-    * instr_info(symbol) -> saneerattu dict instrumentista
-    * effective_risk_pct(symbol, default_risk_pct) -> symbolikohtainen riskiprosentti
-    * calc_order_size(symbol, price, free_balance, risk_pct_base, safety_mult=0.95, atr=None, vol_ref=None)
-      -> (size, info_dict)
-
-Huom:
-- free_balance = vapaana oleva pääoma (esim. Capital "available").
-- risk_budget = free_balance * effective_risk_pct * safety_mult
-- Jos instrumentilla on leverage (lev), muodostetaan position_notional = risk_budget * lev (konservatiivinen).
-  Muussa tapauksessa oletetaan 1x.
-- size = position_notional / price, jonka jälkeen pyöristetään brokerin step/min vaatimus.
-"""
-
-import os
-import json
-import math
+from __future__ import annotations
+import json, os
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Optional
+import numpy as np
+import pandas as pd
 
-ROOT = Path("/root/pro_botti")
-DATA_DIR = ROOT / "data"
-CONFIG_DIR = ROOT / "config"
+STATE = Path(__file__).resolve().parents[1] / "state"
+REG = STATE / "models_pro.json"
 
-INSTR_PATH = DATA_DIR / "instrument_map.json"
-RISK_OVR   = CONFIG_DIR / "risk_overrides.json"
+def _load_models() -> dict:
+    if not REG.exists():
+        return {"models":[]}
+    return json.loads(REG.read_text())
 
-# ---------- Helpers ----------
-
-def _load_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+def _find_model(symbol: str, tf: str) -> Optional[dict]:
+    reg = _load_models()
+    rows = [m for m in reg.get("models", []) if m.get("symbol")==symbol and m.get("tf")==tf]
+    if not rows:
         return None
+    rows.sort(key=lambda r: int(r.get("trained_at", 0)), reverse=True)
+    return rows[0]
 
-def _round_step(x: float, step: float) -> float:
-    if step and step > 0:
-        return math.floor(x / step) * step
-    return float(x)
+def _atr(df: pd.DataFrame, n: int = 14) -> float:
+    h = df["high"].astype(float).values
+    l = df["low"].astype(float).values
+    c = df["close"].astype(float).values
+    tr = np.maximum.reduce([h[1:]-l[1:], np.abs(h[1:]-c[:-1]), np.abs(l[1:]-c[:-1])])
+    atr = pd.Series(tr).rolling(n, min_periods=n).mean().values
+    return float(atr[-1]) if atr.size else 0.0
 
-def _ceil_step(x: float, step: float) -> float:
-    if step and step > 0:
-        n = math.ceil(x / step)
-        return n * step
-    return float(x)
+def _risk_pct_from_metrics(sharpe: float, pf: float, maxdd: float) -> float:
+    # Perusajatus: jos malli hyvä (korkea Sharpe, PF), ja DD pieni (lähellä 0), voidaan riskata enemmän.
+    # Skaalataan konservatiivisesti tuottopainotteisesti ja rajoitetaan 0.1%–1.0% treidiä kohden ennen leikkureita.
+    base = 0.25  # bps -> 0.25% lähtötaso
+    # Sharpe-skaala (Sharpe 1.0 lisää ~0.2%-yks), PF-skaala (PF 2.0 lisää ~0.2%-yks), DD pienentää riskia
+    add = 0.2 * max(0.0, min(2.0, sharpe)) + 0.2 * max(0.0, min(2.0, (pf-1.0)))
+    dd_pen = 0.5 * min(0.0, max(-0.5, maxdd))  # maxdd on negatiivinen, esim -0.2 -> -0.1 lisävähennys
+    risk_pct = base + add + dd_pen
+    return float(max(0.1, min(1.0, risk_pct)))  # 0.1%..1.0%
 
-# ---------- Instruments ----------
-
-_INSTR: Dict[str, Dict[str, Any]] = _load_json(INSTR_PATH) or {}
-
-def instr_info(symbol: str) -> Dict[str, Any]:
+def pick_size(symbol: str, tf: str, last_price: float, equity: float, df_recent: Optional[pd.DataFrame]=None) -> float:
     """
-    Palauttaa instrumentin tiedot turvallisessa muodossa:
-    {
-        "min_trade_size": float|0.0,
-        "step": float|0.0,
-        "margin_factor": float|None,  # prosentteina esim. 5.0 = 5%
-        "leverage": float|None,       # jos margin_factor on annettu, lev = 100.0/margin_factor
-    }
+    Palauttaa määrän (qty) instrumentin yksikköinä (CFD:ssä sopivaa 'size').
+    AUTO-tila: laskee riskiprosentin mallimetriikoista + ATR-stopista.
+    Leikkurit: RISK_MAX_PER_TRADE_PCT, MAX_CONCURRENT_POSITIONS.
     """
-    d = dict(_INSTR.get(symbol, {}) or {})
-    def _as_float(v):
-        try:
-            return float(v)
-        except Exception:
-            return None
+    mode = os.getenv("POSITION_SIZER_MODE","auto").lower()
+    max_risk = float(os.getenv("RISK_MAX_PER_TRADE_PCT", "1.0"))
+    fallback_risk = float(os.getenv("RISK_FALLBACK_PER_TRADE_PCT", "0.25"))
+    stop_k = float(os.getenv("RISK_STOP_ATR_MULT","2.0"))
 
-    mf = _as_float(d.get("margin_factor"))
-    lev = _as_float(d.get("leverage"))
-    if lev is None and mf not in (None, 0):
-        try:
-            lev = 100.0 / float(mf)
-        except Exception:
-            lev = None
+    # Malli ja metriikat
+    mdl = _find_model(symbol, tf)
+    if mode != "auto" or not mdl:
+        risk_pct = min(max_risk, fallback_risk)
+    else:
+        m = mdl.get("metrics", {})
+        sharpe = float(m.get("sh_oos_mean") or m.get("sharpe_oos_mean") or 0.0)
+        pf = float(m.get("pf_oos_mean", 1.0))
+        maxdd = float(m.get("maxdd_oos_min", 0.0))  # negatiivinen
+        risk_pct = _risk_pct_from_metrics(sharpe, pf, maxdd)
+        risk_pct = min(max_risk, risk_pct)
 
-    try:
-        mmin = float(d.get("min_trade_size")) if d.get("min_trade_size") is not None else 0.0
-    except Exception:
-        mmin = 0.0
-    try:
-        step = float(d.get("step")) if d.get("step") is not None else 0.0
-    except Exception:
-        step = 0.0
+    # ATR-stopin etäisyys (arvio), jos df annettu; muuten käytä 1% oletusta
+    if df_recent is not None and len(df_recent) >= 20:
+        atr_val = _atr(df_recent, 14)
+        stop_dist = max(1e-12, stop_k * atr_val)
+    else:
+        stop_dist = max(1e-12, 0.01 * last_price)
 
-    return {
-        "min_trade_size": max(0.0, mmin),
-        "step": max(0.0, step),
-        "margin_factor": mf if mf not in (None, float("nan")) else None,
-        "leverage": lev if lev not in (None, float("nan")) else None,
-    }
+    risk_cash = equity * (risk_pct / 100.0)
+    # qty ~ risk_cash / stop_dist (CFD-peruslogiikka). Klippaa ettei poistu nollaan.
+    qty = max(0.0, risk_cash / stop_dist)
 
-# ---------- Risk overrides ----------
-
-_RISK_OVR_MAP: Dict[str, float] = _load_json(RISK_OVR) or {}
-
-def refresh_overrides() -> None:
-    """Lataa risk_overrides.json uudelleen (jos halutaan dynaamisesti päivittää lennossa)."""
-    global _RISK_OVR_MAP
-    _RISK_OVR_MAP = _load_json(RISK_OVR) or {}
-
-def effective_risk_pct(symbol: str, default_risk_pct: float) -> float:
-    """
-    Palauttaa symbolikohtaisen riskiprosentin. Jos overrides:ssa on arvo, käytetään sitä.
-    Muuten käytetään default_risk_pct:tä (esim. env RISK_PCT).
-    """
-    try:
-        v = _RISK_OVR_MAP.get(symbol)
-        if v is None:
-            return float(default_risk_pct)
-        v = float(v)
-        # pientä varmistusta: järkevä alue 0..0.5
-        if v < 0.0:
-            v = 0.0
-        if v > 0.5:
-            v = 0.5
-        return v
-    except Exception:
-        return float(default_risk_pct)
-
-# ---------- Position sizing ----------
-
-def calc_order_size(
-    symbol: str,
-    price: float,
-    free_balance: float,
-    risk_pct_base: float,
-    safety_mult: float = 0.95,
-    atr: float = None,
-    vol_ref: float = None,
-) -> Tuple[float, Dict[str, Any]]:
-    """
-    Laskee position koon riskibudjetista:
-
-      risk_pct = effective_risk_pct(symbol, risk_pct_base)
-      risk_budget = free_balance * risk_pct * safety_mult
-      lev = instrumentin leverage (jos tiedossa, muuten 1)
-      notional = risk_budget * lev
-      raw_size = notional / price
-      size = pyöristetty(min/step)
-
-    Palauttaa (size, info_dict) — info_dict: kaikki välivaiheet + käytetyt parametrit.
-
-    Huom: atr/vol_ref ei vielä skaalaa kokoa, mutta jätetään parametri tulevaan
-    volatiliteetti-sääntöön (esim. jos ATR poikkeaa paljon omasta perusviitearvosta).
-    """
-    price = float(price or 0.0)
-    free_balance = float(free_balance or 0.0)
-    risk_pct = effective_risk_pct(symbol, float(risk_pct_base or 0.0))
-    risk_pct = max(0.0, min(0.5, risk_pct))
-    safety_mult = float(safety_mult or 1.0)
-    safety_mult = max(0.0, min(1.0, safety_mult))
-
-    info = instr_info(symbol)
-    lev = info.get("leverage") or 1.0
-    min_size = float(info.get("min_trade_size") or 0.0)
-    step = float(info.get("step") or 0.0)
-
-    # jos hinta puuttuu, ei pystytä laskemaan järkevästi
-    if price <= 0.0:
-        return 0.0, {
-            "reason": "price<=0",
-            "symbol": symbol,
-            "price": price,
-            "free_balance": free_balance,
-            "risk_pct": risk_pct,
-            "safety_mult": safety_mult,
-            "leverage": lev,
-            "min_trade_size": min_size,
-            "step": step,
-        }
-
-    # riskibudjetti pääomasta
-    risk_budget = free_balance * risk_pct * safety_mult
-
-    # konservatiivinen malli: notional = risk_budget * lev
-    notional = risk_budget * max(1.0, float(lev))
-
-    raw_size = notional / price
-
-    # pyöristykset brokkerin step/min mukaan: ensin alas stepille, sitten vähintään min_size
-    sized = _round_step(raw_size, step)
-    if min_size > 0 and sized < min_size:
-        sized = _ceil_step(min_size, step or min_size)
-
-    # ei negatiivisia/nollattomia
-    sized = max(0.0, float(sized))
-
-    meta = {
-        "symbol": symbol,
-        "price": price,
-        "free_balance": free_balance,
-        "risk_pct_base": risk_pct_base,
-        "risk_pct_effective": risk_pct,
-        "safety_mult": safety_mult,
-        "risk_budget": risk_budget,
-        "leverage": lev,
-        "notional": notional,
-        "raw_size": raw_size,
-        "min_trade_size": min_size,
-        "step": step,
-        "final_size": sized,
-        "atr": float(atr) if atr is not None else None,
-        "vol_ref": float(vol_ref) if vol_ref is not None else None,
-    }
-
-    return sized, meta
-
-# Pieni itseajo-testi:
-if __name__ == "__main__":
-    import pprint
-    sym = os.getenv("TEST_SYMBOL", "BTCUSDT")
-    px  = float(os.getenv("TEST_PX", "60000"))
-    free = float(os.getenv("TEST_FREE", "1000"))
-    base = float(os.getenv("TEST_RISK", "0.10"))
-    size, meta = calc_order_size(sym, px, free, base)
-    print(f"size={size}")
-    pprint.pp(meta)
+    # TODO: huomioi Capitalin min size / lotin tikki, jos tiedossa (cap specs)
+    return float(qty)
