@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Tuple, List
 import urllib.parse
 
 import requests
+import pandas as pd
 
 # ENV (LIVE):
 #   CAPITAL_API_BASE=https://api-capital.backend-capital.com
@@ -340,9 +341,6 @@ def _extract_bid_ask_from_price_entry(entry: Dict[str, Any]) -> Optional[Tuple[f
 
 
 def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
-    """
-    Fetch latest bid/ask via prices endpoint.
-    """
     sess, base = capital_rest_login()
     epic = _resolve_epic(symbol_or_epic)
     url = f"{base}/api/v1/prices/{epic}"
@@ -362,20 +360,131 @@ def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
     return pair
 
 
+def _res_map(tf: str) -> str:
+    m = {"1m": "MINUTE", "5m": "MINUTE_5", "15m":"MINUTE_15", "30m":"MINUTE_30",
+         "1h":"HOUR", "4h":"HOUR_4", "1d":"DAY"}
+    return m.get(tf.lower(), "HOUR")
+
+
 def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 500) -> Optional[List[Dict[str, Any]]]:
     """
-    Fetch OHLCV candles through prices endpoint.
-    tf mapping kept simple; adjust if your tenant supports more granular endpoints.
+    Fetch OHLCV 'prices' list via prices endpoint (single page).
     """
     sess, base = capital_rest_login()
     epic = _resolve_epic(symbol_or_epic)
-    res_map = {"15m": "MINUTE_15", "1h": "HOUR", "4h": "HOUR_4", "1d": "DAY"}
-    res = res_map.get(tf.lower(), "HOUR")
     url = f"{base}/api/v1/prices/{epic}"
-    params = {"resolution": res, "max": int(max_rows)}
+    params = {"resolution": _res_map(tf), "max": int(max_rows)}
     r = sess.get(url, params=params, timeout=20)
     if r.status_code == 404:
         return None
     r.raise_for_status()
     data = r.json()
     return data.get("prices") or data.get("data") or []
+
+
+def capital_get_candles_paged(symbol_or_epic: str, tf: str, total_limit: int = 2000, page_size: int = 200,
+                              sleep_sec: float = 0.8) -> List[Dict[str, Any]]:
+    """
+    Paged fetch via prices endpoint using pageNumber. Many tenants support:
+      GET /api/v1/prices/{EPIC}?resolution=HOUR&max=200&pageNumber=1
+    Fallback: if pageNumber not supported (no change in data), returns just the first page.
+    """
+    sess, base = capital_rest_login()
+    epic = _resolve_epic(symbol_or_epic)
+    url = f"{base}/api/v1/prices/{epic}"
+    res = _res_map(tf)
+
+    results: List[Dict[str, Any]] = []
+    page = 1
+    last_first_ts = None
+    grabbed = 0
+
+    while grabbed < total_limit:
+        params = {"resolution": res, "max": int(page_size), "pageNumber": int(page)}
+        r = sess.get(url, params=params, timeout=25)
+        if r.status_code == 404:
+            break
+        if r.status_code == 429:
+            time.sleep(max(_RATE_LIMIT_SLEEP, 90))
+            continue
+        r.raise_for_status()
+        data = r.json()
+        items = data.get("prices") or data.get("data") or []
+        if not items:
+            break
+
+        # Detect if paging not supported (same chunk repeats)
+        first_ts = (items[0].get("snapshotTimeUTC") or items[0].get("snapshotTime") or items[0].get("updateTimeUTC"))
+        if page == 2 and last_first_ts and first_ts == last_first_ts:
+            # paging likely unsupported; keep only first page
+            break
+
+        results.extend(items)
+        grabbed += len(items)
+        last_first_ts = first_ts
+        page += 1
+        time.sleep(sleep_sec)
+
+        # Stop if last page smaller than page_size
+        if len(items) < page_size:
+            break
+
+    # Ensure newest-last order
+    return results
+
+
+def _entry_to_ohlc(entry: Dict[str, Any]) -> Dict[str, Any]:
+    # time
+    t = entry.get("snapshotTimeUTC") or entry.get("snapshotTime") or entry.get("updateTimeUTC")
+    # O/H/L/C as mid (prefer midPrice, else avg(bid,ask) from close/open/high/low)
+    def mid_from(d: Optional[Dict[str, Any]]) -> Optional[float]:
+        if not isinstance(d, dict):
+            return None
+        if "mid" in d and isinstance(d["mid"], (int, float)):
+            return float(d["mid"])
+        bid = d.get("bid"); ask = d.get("ask") if "ask" in d else d.get("offer")
+        if isinstance(bid, (int, float)) and isinstance(ask, (int, float)):
+            return (float(bid) + float(ask)) / 2.0
+        # sell/buy synonym
+        sell = d.get("sell"); buy = d.get("buy")
+        if isinstance(sell, (int, float)) and isinstance(buy, (int, float)):
+            return (float(sell) + float(buy)) / 2.0
+        return None
+
+    o = mid_from(entry.get("openPrice"))
+    h = mid_from(entry.get("highPrice"))
+    l = mid_from(entry.get("lowPrice"))
+    c = mid_from(entry.get("closePrice"))
+
+    vol = entry.get("lastTradedVolume")
+    if not isinstance(vol, (int, float)):
+        vol = 0.0
+
+    return {"time": t, "open": o, "high": h, "low": l, "close": c, "volume": float(vol)}
+
+
+def capital_get_candles_df(symbol_or_epic: str, tf: str, total_limit: int = 2000,
+                           page_size: int = 200, sleep_sec: float = 0.8) -> pd.DataFrame:
+    """
+    Return standardized DataFrame [time, open, high, low, close, volume] UTC.
+    Uses paged fetch to accumulate up to total_limit bars (newest last).
+    """
+    items = capital_get_candles_paged(symbol_or_epic, tf, total_limit=total_limit, page_size=page_size, sleep_sec=sleep_sec)
+    if not items:
+        return pd.DataFrame(columns=["time","open","high","low","close","volume"])
+    rows = [_entry_to_ohlc(x) for x in items]
+    df = pd.DataFrame(rows)
+    # coerce time
+    if "time" in df.columns:
+        try:
+            df["time"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
+        except Exception:
+            pass
+    df = df.dropna(subset=["time"])
+    # drop rows if O/H/L/C missing – keep safe; or fill forward?
+    for k in ("open","high","low","close","volume"):
+        if k not in df.columns:
+            df[k] = None
+    df = df[["time","open","high","low","close","volume"]]
+    df = df.sort_values("time").reset_index(drop=True)
+    return df
