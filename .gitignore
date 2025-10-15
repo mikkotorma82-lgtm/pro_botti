@@ -20,3 +20,14 @@ exec/
 # Results and generated files
 results/metrics/
 *.tmp
+# data caches
+data/
+state/
+# logs
+logs/
+*.log
+*.err
+# venv and python crud
+venv/
+__pycache__/
+*.pyc
