@@ -366,9 +366,9 @@ def _res_map(tf: str) -> str:
     return m.get(tf.lower(), "HOUR")
 
 
-def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 500) -> Optional[List[Dict[str, Any]]]:
+def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 200) -> Optional[List[Dict[str, Any]]]:
     """
-    Fetch OHLCV 'prices' list via prices endpoint (single page).
+    Single page via prices endpoint (max ~200).
     """
     sess, base = capital_rest_login()
     epic = _resolve_epic(symbol_or_epic)
@@ -382,23 +382,16 @@ def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 500) -> Op
     return data.get("prices") or data.get("data") or []
 
 
-def capital_get_candles_paged(symbol_or_epic: str, tf: str, total_limit: int = 2000, page_size: int = 200,
-                              sleep_sec: float = 0.8) -> List[Dict[str, Any]]:
+def _try_paged_by_number(sess: requests.Session, base: str, epic: str, res: str,
+                         page_size: int, total_limit: int, sleep_sec: float) -> List[Dict[str, Any]]:
     """
-    Paged fetch via prices endpoint using pageNumber. Many tenants support:
-      GET /api/v1/prices/{EPIC}?resolution=HOUR&max=200&pageNumber=1
-    Fallback: if pageNumber not supported (no change in data), returns just the first page.
+    Try ?pageNumber=N pagination; fallback decided by duplicate detection.
     """
-    sess, base = capital_rest_login()
-    epic = _resolve_epic(symbol_or_epic)
     url = f"{base}/api/v1/prices/{epic}"
-    res = _res_map(tf)
-
     results: List[Dict[str, Any]] = []
     page = 1
     last_first_ts = None
     grabbed = 0
-
     while grabbed < total_limit:
         params = {"resolution": res, "max": int(page_size), "pageNumber": int(page)}
         r = sess.get(url, params=params, timeout=25)
@@ -408,29 +401,94 @@ def capital_get_candles_paged(symbol_or_epic: str, tf: str, total_limit: int = 2
             time.sleep(max(_RATE_LIMIT_SLEEP, 90))
             continue
         r.raise_for_status()
-        data = r.json()
-        items = data.get("prices") or data.get("data") or []
+        items = (r.json().get("prices") or r.json().get("data") or [])
         if not items:
             break
-
-        # Detect if paging not supported (same chunk repeats)
         first_ts = (items[0].get("snapshotTimeUTC") or items[0].get("snapshotTime") or items[0].get("updateTimeUTC"))
         if page == 2 and last_first_ts and first_ts == last_first_ts:
-            # paging likely unsupported; keep only first page
-            break
-
+            # paging not working → signal fallback
+            return []
         results.extend(items)
         grabbed += len(items)
         last_first_ts = first_ts
         page += 1
         time.sleep(sleep_sec)
-
-        # Stop if last page smaller than page_size
         if len(items) < page_size:
             break
-
-    # Ensure newest-last order
     return results
+
+
+def _try_paged_by_time(sess: requests.Session, base: str, epic: str, res: str,
+                       page_size: int, total_limit: int, sleep_sec: float) -> List[Dict[str, Any]]:
+    """
+    Walk back in time using to=<oldest-1s>.
+    """
+    url = f"{base}/api/v1/prices/{epic}"
+    results: List[Dict[str, Any]] = []
+
+    # First page (newest)
+    r = sess.get(url, params={"resolution": res, "max": int(page_size)}, timeout=25)
+    if r.status_code == 404:
+        return results
+    r.raise_for_status()
+    items = (r.json().get("prices") or r.json().get("data") or [])
+    if not items:
+        return results
+    results.extend(items)
+    grabbed = len(items)
+
+    # continue back
+    def norm_ts(entry: Dict[str, Any]) -> Optional[str]:
+        return entry.get("snapshotTimeUTC") or entry.get("snapshotTime") or entry.get("updateTimeUTC")
+
+    oldest = norm_ts(items[0])
+    while grabbed < total_limit and oldest:
+        # subtract 1 second (string-safe: append 'Z' if missing)
+        to_ts = str(oldest)
+        if len(to_ts) == 19:  # 'YYYY-MM-DDTHH:MM:SS'
+            to_ts += "Z"
+        params = {"resolution": res, "max": int(page_size), "to": to_ts}
+        r = sess.get(url, params=params, timeout=25)
+        if r.status_code == 429:
+            time.sleep(max(_RATE_LIMIT_SLEEP, 90))
+            continue
+        if r.status_code == 404:
+            break
+        r.raise_for_status()
+        page_items = (r.json().get("prices") or r.json().get("data") or [])
+        if not page_items:
+            break
+        # if all items are >= oldest → break to avoid infinite loop
+        new_oldest = norm_ts(page_items[0])
+        if not new_oldest or new_oldest == oldest:
+            break
+        results.extend(page_items)
+        grabbed += len(page_items)
+        oldest = new_oldest
+        time.sleep(sleep_sec)
+        if len(page_items) < page_size:
+            break
+    return results
+
+
+def capital_get_candles_paged(symbol_or_epic: str, tf: str, total_limit: int = 2000, page_size: int = 200,
+                              sleep_sec: float = 0.8) -> List[Dict[str, Any]]:
+    """
+    Paged fetch via prices endpoint. Tries pageNumber first; if not working, falls back to time window (to=<oldest-1s>).
+    Returns newest last order (append order preserved).
+    """
+    sess, base = capital_rest_login()
+    epic = _resolve_epic(symbol_or_epic)
+    res = _res_map(tf)
+
+    # First try pageNumber
+    items = _try_paged_by_number(sess, base, epic, res, page_size, total_limit, sleep_sec)
+    if items:
+        return items[:total_limit]
+
+    # Fallback to time window
+    items = _try_paged_by_time(sess, base, epic, res, page_size, total_limit, sleep_sec)
+    return items[:total_limit]
 
 
 def _entry_to_ohlc(entry: Dict[str, Any]) -> Dict[str, Any]:
@@ -467,7 +525,7 @@ def capital_get_candles_df(symbol_or_epic: str, tf: str, total_limit: int = 2000
                            page_size: int = 200, sleep_sec: float = 0.8) -> pd.DataFrame:
     """
     Return standardized DataFrame [time, open, high, low, close, volume] UTC.
-    Uses paged fetch to accumulate up to total_limit bars (newest last).
+    Uses robust paged fetch to accumulate up to total_limit bars (newest last).
     """
     items = capital_get_candles_paged(symbol_or_epic, tf, total_limit=total_limit, page_size=page_size, sleep_sec=sleep_sec)
     if not items:
@@ -481,7 +539,7 @@ def capital_get_candles_df(symbol_or_epic: str, tf: str, total_limit: int = 2000
         except Exception:
             pass
     df = df.dropna(subset=["time"])
-    # drop rows if O/H/L/C missing – keep safe; or fill forward?
+    # ensure columns
     for k in ("open","high","low","close","volume"):
         if k not in df.columns:
             df[k] = None
