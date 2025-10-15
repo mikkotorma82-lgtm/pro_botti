@@ -28,7 +28,6 @@ def main():
     for fp in files:
         try:
             res = wfa_one(fp, folds=args.folds)
-            # infer symbol/tf from filename like SYMBOL__TF.csv
             name = Path(fp).stem
             if "__" in name:
                 symbol, tf = name.split("__", 1)
