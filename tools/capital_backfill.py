@@ -27,27 +27,25 @@ def estimate_total(tf: str, lookback_days: int, max_cap: int) -> int:
 
 def write_outputs(df: pd.DataFrame, symbol: str, tf: str, fmt: str) -> Path:
     base = f"{safe_name(symbol)}__{tf}"
+    p = OUT_DIR / f"{base}.{ 'parquet' if fmt=='parquet' else 'csv'}"
     if fmt == "parquet":
-        p = OUT_DIR / f"{base}.parquet"
         df.to_parquet(p, index=False)
-        return p
     else:
-        p = OUT_DIR / f"{base}.csv"
         df.to_csv(p, index=False)
-        return p
+    return p
 
 def main():
     ap = argparse.ArgumentParser(description="Backfill Capital.com OHLCV to local cache")
     ap.add_argument("--symbols", nargs="+", required=True, help='Symbols or EPICs, e.g. "US SPX 500" "EUR/USD" "GOLD" "AAPL" "BTC/USD"')
     ap.add_argument("--timeframes", nargs="+", default=["15m","1h","4h"], help="TF list, e.g. 15m 1h 4h")
     ap.add_argument("--lookback-days", type=int, default=180, help="How many days to backfill")
-    ap.add_argument("--max-total", type=int, default=5000, help="Hard limit of total bars per TF")
+    ap.add_argument("--max-total", type=int, default=10000, help="Hard limit of total bars per TF")
     ap.add_argument("--page-size", type=int, default=200, help="Page size per request")
-    ap.add_argument("--sleep-sec", type=float, default=0.8, help="Sleep between page requests")
+    ap.add_argument("--sleep-sec", type=float, default=1.0, help="Sleep between page requests")
     ap.add_argument("--fmt", choices=["parquet","csv"], default="parquet", help="Output format")
     args = ap.parse_args()
 
-    # ensure login warm
+    # warm login
     capital_rest_login()
 
     for sym in args.symbols:
@@ -60,8 +58,6 @@ def main():
                 continue
             p = write_outputs(df, sym, tf, args.fmt)
             print(f"[OK] wrote {len(df)} rows -> {p}")
-
-            # be gentle with WAF
             time.sleep(1.2)
 
 if __name__ == "__main__":
