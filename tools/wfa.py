@@ -22,7 +22,6 @@ class FoldResult:
     maxdd_oos: float
 
 def _metrics(returns: np.ndarray) -> Tuple[float,float,float,float]:
-    # dailyized approx using bars; here we just compute per-bar Sharpe on std, PF, WR
     if returns.size == 0:
         return 0.0, 1.0, 0.0, 0.0
     mu = returns.mean()
@@ -30,9 +29,8 @@ def _metrics(returns: np.ndarray) -> Tuple[float,float,float,float]:
     sharpe = mu / sd
     gains = returns[returns > 0].sum()
     losses = -returns[returns < 0].sum()
-    pf = (gains / losses) if losses > 0 else np.inf
+    pf = (gains / losses) if losses > 0 else float("inf")
     wr = (returns > 0).mean() if returns.size else 0.0
-    # CAGR proxy (compounded)
     cagr = float(np.exp(np.log1p(returns).sum()) - 1.0)
     return float(sharpe), float(pf), float(wr), float(cagr)
 
@@ -48,7 +46,7 @@ def _sma_strategy(df: pd.DataFrame, n: int) -> np.ndarray:
     sma = pd.Series(px).rolling(n, min_periods=n).mean().values
     pos = (px > sma).astype(float)
     ret = np.zeros_like(px, dtype=float)
-    ret[1:] = (px[1:] - px[:-1]) / px[:-1] * pos[:-1]
+    ret[1:] = (px[1:] - px[:-1]) / (px[:-1] + 1e-12) * pos[:-1]
     return ret
 
 def wfa_one(csv_path: str, folds: int = 6) -> Dict[str, Any]:
@@ -64,9 +62,7 @@ def wfa_one(csv_path: str, folds: int = 6) -> Dict[str, Any]:
     if T < 400:
         raise ValueError(f"Not enough rows ({T}) for WFA")
     fold_len = T // (folds + 1)
-    results: List[FoldResult] = []
-    eq_all = []
-
+    results: List{FoldResult} = []
     for i in range(folds):
         train_lo = 0
         train_hi = (i+1)*fold_len
@@ -98,10 +94,9 @@ def wfa_one(csv_path: str, folds: int = 6) -> Dict[str, Any]:
             n=int(best_n),
             sharpe_oos=sh, pf_oos=pf, wr_oos=wr, cagr_oos=cagr, maxdd_oos=maxdd
         ))
-        eq_all.append(eq[-1] if eq.size else 1.0)
 
-    # aggregate
     agg = {
+        "file": csv_path,
         "folds": len(results),
         "sharpe_oos_mean": float(np.mean([r.sharpe_oos for r in results])) if results else 0.0,
         "pf_oos_mean": float(np.mean([r.pf_oos for r in results])) if results else 1.0,
