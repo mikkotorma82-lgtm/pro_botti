@@ -17,8 +17,8 @@ import requests
 #   CAPITAL_PASSWORD=...   # API key password
 # Optional:
 #   CAPITAL_ACCOUNT_TYPE=CFD
-#   CAPITAL_LOGIN_TTL=540            # re-login interval seconds (default 9 min; token ~10 min)
-#   CAPITAL_RATE_LIMIT_SLEEP=90      # base sleep on 429 (seconds)
+#   CAPITAL_LOGIN_TTL=540             # re-login interval seconds (default 9 min; token ~10 min)
+#   CAPITAL_RATE_LIMIT_SLEEP=90       # base sleep on 429 (seconds)
 #   CAPITAL_RESOLVE_CACHE_TTL=2592000 # EPIC cache TTL seconds (default 30 days)
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -222,7 +222,7 @@ def _is_prob_epic(s: str) -> bool:
 
 def capital_market_search(query: str, limit: int = 25) -> List[Dict[str, Any]]:
     """
-    Search markets by display name; returns entries with epic and instrumentName.
+    Search markets by display name; returns entries with epic, instrumentName, symbol.
     """
     sess, base = capital_rest_login()
     q = urllib.parse.quote(query)
@@ -238,8 +238,9 @@ def capital_market_search(query: str, limit: int = 25) -> List[Dict[str, Any]]:
         for it in items:
             epic = it.get("epic") or it.get("EPIC") or it.get("id")
             name = it.get("instrumentName") or it.get("name") or it.get("symbol")
+            symbol = it.get("symbol") or ""
             if epic:
-                out.append({"epic": epic, "instrumentName": name, "raw": it})
+                out.append({"epic": epic, "instrumentName": name, "symbol": symbol, "raw": it})
         if out:
             break
     return out[:limit]
@@ -252,7 +253,8 @@ def _resolve_epic(symbol_or_name: str) -> str:
       1) Already EPIC-like -> return as-is
       2) Env override CAPITAL_EPIC_<KEY>
       3) Cache hit (capital_epic_map.json) and not expired
-      4) Search markets and cache result
+      4) Prefer symbol exact match (normalized: remove '/', spaces) over name match
+      5) Name exact, then name contains, else first
     """
     s = symbol_or_name.strip()
     if _is_prob_epic(s):
@@ -264,21 +266,30 @@ def _resolve_epic(symbol_or_name: str) -> str:
 
     cache = _epic_cache_load()
     key = s.upper()
-    hit = cache.get(key)
     now = time.time()
+    hit = cache.get(key)
     if hit and (now - float(hit.get("ts", 0))) < _RESOLVE_CACHE_TTL:
         return hit["epic"]
 
-    # search
     hits = capital_market_search(s)
     if not hits:
-        # cache negative to avoid repeated storm (short TTL)
         cache[key] = {"epic": s, "name": s, "ts": now}
         _epic_cache_save(cache)
         return s
 
-    # choose best match
     s_upper = s.upper()
+    sym_target = s_upper.replace("/", "").replace(" ", "")
+
+    # 4) symbol exact match (normalized)
+    for h in hits:
+        sym = (h.get("symbol") or "").upper().replace("/", "").replace(" ", "")
+        if sym and sym == sym_target:
+            epic = h["epic"]
+            cache[key] = {"epic": epic, "name": h.get("instrumentName"), "ts": now}
+            _epic_cache_save(cache)
+            return epic
+
+    # 5) name exact -> name contains -> first
     best = None
     for h in hits:
         name = (h.get("instrumentName") or "").upper()
@@ -296,6 +307,38 @@ def _resolve_epic(symbol_or_name: str) -> str:
     return epic
 
 
+def _extract_bid_ask_from_price_entry(entry: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+    """
+    Try multiple shapes of price entries:
+      - direct: {'bid': ..., 'offer': ...} or {'bid': ..., 'ask': ...}
+      - nested: {'closePrice': {'bid': ..., 'ask': ...}} etc.
+      - sell/buy synonyms
+    """
+    def pick(d: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+        if not isinstance(d, dict):
+            return None
+        if "bid" in d and "offer" in d and isinstance(d["bid"], (int, float)) and isinstance(d["offer"], (int, float)):
+            return float(d["bid"]), float(d["offer"])
+        if "bid" in d and "ask" in d and isinstance(d["bid"], (int, float)) and isinstance(d["ask"], (int, float)):
+            return float(d["bid"]), float(d["ask"])
+        if "sell" in d and "buy" in d and isinstance(d["sell"], (int, float)) and isinstance(d["buy"], (int, float)):
+            return float(d["sell"]), float(d["buy"])
+        return None
+
+    # direct on entry
+    got = pick(entry)
+    if got:
+        return got
+
+    # nested typical IG shapes
+    for k in ("closePrice", "openPrice", "lastTradedPrice", "highPrice", "lowPrice", "midPrice", "price"):
+        sub = entry.get(k)
+        got = pick(sub) if isinstance(sub, dict) else None
+        if got:
+            return got
+    return None
+
+
 def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
     """
     Fetch latest bid/ask via prices endpoint.
@@ -310,19 +353,13 @@ def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
     r.raise_for_status()
     data = r.json()
 
-    bid = ask = None
-    try:
-        arr = data.get("prices") or data.get("data") or []
-        if arr:
-            last = arr[-1]
-            bid = last.get("bid")
-            ask = last.get("ask")
-    except Exception:
-        pass
+    arr = data.get("prices") or data.get("data") or []
+    if not arr:
+        return None
 
-    if isinstance(bid, (int, float)) and isinstance(ask, (int, float)):
-        return float(bid), float(ask)
-    return None
+    last = arr[-1]
+    pair = _extract_bid_ask_from_price_entry(last)
+    return pair
 
 
 def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 500) -> Optional[List[Dict[str, Any]]]:
