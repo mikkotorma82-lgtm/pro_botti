@@ -10,26 +10,35 @@ import urllib.parse
 
 import requests
 
-# Env
-# CAPITAL_API_BASE=https://api-capital.backend-capital.com
-# CAPITAL_API_KEY=...
-# CAPITAL_USERNAME=...
-# CAPITAL_PASSWORD=...
-# (optional) CAPITAL_ACCOUNT_TYPE=CFD
-# (optional) CAPITAL_LOGIN_TTL=540
-# (optional) CAPITAL_RATE_LIMIT_SLEEP=65
+# ENV (LIVE):
+#   CAPITAL_API_BASE=https://api-capital.backend-capital.com
+#   CAPITAL_API_KEY=...
+#   CAPITAL_USERNAME=...
+#   CAPITAL_PASSWORD=...   # API key password
+# Optional:
+#   CAPITAL_ACCOUNT_TYPE=CFD
+#   CAPITAL_LOGIN_TTL=540            # re-login interval seconds (default 9 min; token ~10 min)
+#   CAPITAL_RATE_LIMIT_SLEEP=90      # base sleep on 429 (seconds)
+#   CAPITAL_RESOLVE_CACHE_TTL=2592000 # EPIC cache TTL seconds (default 30 days)
 
-STATE_DIR = Path(__file__).resolve().parents[1] / "state"
+ROOT_DIR = Path(__file__).resolve().parents[1]
+STATE_DIR = ROOT_DIR / "state"
 STATE_DIR.mkdir(parents=True, exist_ok=True)
+
 SESSION_PATH = STATE_DIR / "capital_session.json"
 COOKIES_PATH = STATE_DIR / "capital_cookies.pkl"
+EPIC_CACHE_PATH = STATE_DIR / "capital_epic_map.json"
 
 _CAPITAL_SESS: Optional[requests.Session] = None
 _CAPITAL_BASE: Optional[str] = None
 _CAPITAL_LAST_LOGIN_TS: float = 0.0
-_CAPITAL_LOGIN_TTL: int = int(os.getenv("CAPITAL_LOGIN_TTL", "540"))
-_RATE_LIMIT_SLEEP: int = int(os.getenv("CAPITAL_RATE_LIMIT_SLEEP", "65"))
-_COOLDOWN_UNTIL: float = 0.0  # globaali WAF-cooldown
+
+_LOGIN_TTL: int = int(os.getenv("CAPITAL_LOGIN_TTL", "540"))
+_RATE_LIMIT_SLEEP: int = int(os.getenv("CAPITAL_RATE_LIMIT_SLEEP", "90"))
+_RESOLVE_CACHE_TTL: int = int(os.getenv("CAPITAL_RESOLVE_CACHE_TTL", str(30 * 24 * 3600)))
+
+_COOLDOWN_UNTIL: float = 0.0  # global cooldown end time after 429
+
 
 def _mandatory_env(key: str) -> str:
     v = os.getenv(key, "").strip()
@@ -37,12 +46,22 @@ def _mandatory_env(key: str) -> str:
         raise RuntimeError(f"Missing {key} env")
     return v
 
-def _is_probably_epic(s: str) -> bool:
-    return ("." in s) and (" " not in s)
 
-def _env_epic_for(symbol: str) -> Optional[str]:
-    key = "CAPITAL_EPIC_" + "".join(ch for ch in symbol.upper() if ch.isalnum())
-    return os.getenv(key)
+def _load_json(path: Path, default: Any) -> Any:
+    try:
+        if path.exists():
+            return json.loads(path.read_text())
+    except Exception:
+        pass
+    return default
+
+
+def _save_json(path: Path, obj: Any) -> None:
+    try:
+        path.write_text(json.dumps(obj, ensure_ascii=False, indent=2))
+    except Exception:
+        pass
+
 
 def _load_cookies(sess: requests.Session) -> None:
     try:
@@ -53,6 +72,7 @@ def _load_cookies(sess: requests.Session) -> None:
     except Exception:
         pass
 
+
 def _save_cookies(sess: requests.Session) -> None:
     try:
         with COOKIES_PATH.open("wb") as f:
@@ -60,29 +80,32 @@ def _save_cookies(sess: requests.Session) -> None:
     except Exception:
         pass
 
-def _load_cached_session() -> Optional[Tuple[str, str, float]]:
-    try:
-        if SESSION_PATH.exists():
-            obj = json.loads(SESSION_PATH.read_text())
-            cst = obj.get("cst"); sec = obj.get("sec"); ts = float(obj.get("login_time", 0))
-            if cst and sec and ts > 0:
-                return cst, sec, ts
-    except Exception:
-        pass
+
+def _load_session_cache() -> Optional[Tuple[str, str, float]]:
+    obj = _load_json(SESSION_PATH, {})
+    cst = obj.get("cst")
+    sec = obj.get("sec")
+    ts = float(obj.get("login_time", 0) or 0)
+    if cst and sec and ts > 0:
+        return cst, sec, ts
     return None
 
-def _save_cached_session(cst: str, sec: str, login_time: float) -> None:
-    try:
-        SESSION_PATH.write_text(json.dumps({"cst": cst, "sec": sec, "login_time": login_time}))
-    except Exception:
-        pass
+
+def _save_session_cache(cst: str, sec: str, ts: float) -> None:
+    _save_json(SESSION_PATH, {"cst": cst, "sec": sec, "login_time": ts})
+
 
 def capital_rest_login(force: bool = False) -> Tuple[requests.Session, str]:
+    """
+    Log in to Capital LIVE REST once and reuse tokens/cookies across process and runs.
+    - No TOTP. If backend enforces TOTP, raise descriptive error.
+    - Aggressive protection against 429 with cooldown.
+    """
     global _CAPITAL_SESS, _CAPITAL_BASE, _CAPITAL_LAST_LOGIN_TS, _COOLDOWN_UNTIL
 
     now = time.time()
     if now < _COOLDOWN_UNTIL:
-        wait = int(_COOLDOWN_UNTIL - now)
+        wait = int(_COOLDOWN_UNTIL - now) + 1
         raise RuntimeError(f"Capital login cooling down due to prior 429. Try again in ~{wait}s")
 
     base = _mandatory_env("CAPITAL_API_BASE").rstrip("/")
@@ -91,11 +114,11 @@ def capital_rest_login(force: bool = False) -> Tuple[requests.Session, str]:
     password = _mandatory_env("CAPITAL_PASSWORD")
     account_type = os.getenv("CAPITAL_ACCOUNT_TYPE", "CFD")
 
-    # Reuse in-memory session if valid
-    if (not force) and _CAPITAL_SESS is not None and (now - _CAPITAL_LAST_LOGIN_TS < _CAPITAL_LOGIN_TTL):
+    # Reuse in-memory session if still fresh
+    if (not force) and _CAPITAL_SESS is not None and (now - _CAPITAL_LAST_LOGIN_TS < _LOGIN_TTL):
         return _CAPITAL_SESS, _CAPITAL_BASE  # type: ignore[return-value]
 
-    # Create session and load cookies
+    # New session; load cookies
     s = requests.Session()
     s.headers.update({
         "Accept": "application/json",
@@ -105,25 +128,29 @@ def capital_rest_login(force: bool = False) -> Tuple[requests.Session, str]:
     })
     _load_cookies(s)
 
-    # Try to reuse cached tokens if still valid
-    cached = _load_cached_session()
+    # Try cached tokens first (persisted)
+    cached = _load_session_cache()
     if cached and not force:
         cst, sec, ts = cached
         age = now - ts
-        if age < _CAPITAL_LOGIN_TTL:
+        if age < _LOGIN_TTL:
             s.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
+            if account_type:
+                s.headers.setdefault("X-CAP-ACCOUNT-TYPE", account_type)
             _CAPITAL_SESS, _CAPITAL_BASE, _CAPITAL_LAST_LOGIN_TS = s, base, ts
             return _CAPITAL_SESS, _CAPITAL_BASE
 
+    # Perform login
     url = f"{base}/api/v1/session"
     payload: Dict[str, Any] = {"identifier": username, "password": password}
 
-    backoffs = [_RATE_LIMIT_SLEEP, max(_RATE_LIMIT_SLEEP, 90), max(_RATE_LIMIT_SLEEP, 120)]
+    # Backoffs: increasing sleeps on repeated 429
+    backoffs = [_RATE_LIMIT_SLEEP, max(_RATE_LIMIT_SLEEP, 120), max(_RATE_LIMIT_SLEEP, 180)]
     last_err = None
     for attempt, pause in enumerate(backoffs, start=1):
         r = s.post(url, json=payload, timeout=25)
         if r.status_code == 429:
-            # Set global cooldown and sleep once, then retry
+            # Set cooldown and pause, then retry
             _COOLDOWN_UNTIL = time.time() + pause
             time.sleep(pause)
             last_err = {"status": r.status_code, "text": r.text[:200]}
@@ -133,6 +160,7 @@ def capital_rest_login(force: bool = False) -> Tuple[requests.Session, str]:
             cst = r.headers.get("CST")
             xsec = r.headers.get("X-SECURITY-TOKEN")
             if not cst or not xsec:
+                # Some tenants put tokens in body (rare)
                 try:
                     data = r.json()
                     cst = cst or data.get("CST")
@@ -145,27 +173,57 @@ def capital_rest_login(force: bool = False) -> Tuple[requests.Session, str]:
             s.headers.update({"CST": cst, "X-SECURITY-TOKEN": xsec})
             if account_type:
                 s.headers.setdefault("X-CAP-ACCOUNT-TYPE", account_type)
+
             _save_cookies(s)
-            _save_cached_session(cst, xsec, time.time())
+            _save_session_cache(cst, xsec, time.time())
 
             _CAPITAL_SESS, _CAPITAL_BASE, _CAPITAL_LAST_LOGIN_TS = s, base, time.time()
             return _CAPITAL_SESS, _CAPITAL_BASE
 
         if r.status_code in (401, 403):
-            try: err = r.json()
-            except Exception: err = {"body": r.text}
-            raise RuntimeError(f"Capital login failed ({r.status_code}). Response: {err}")
+            try:
+                err = r.json()
+            except Exception:
+                err = {"body": r.text}
+            raise RuntimeError(f"Capital login failed ({r.status_code}). Server may enforce TOTP. Response: {err}")
 
         last_err = {"status": r.status_code, "text": r.text[:200]}
         r.raise_for_status()
 
-    # If all attempts failed with 429, extend cooldown and fail clearly
+    # If all attempts resulted in 429, extend cooldown and abort
     if last_err and last_err.get("status") == 429:
         _COOLDOWN_UNTIL = time.time() + max(backoffs)
         raise RuntimeError(f"Capital login: rate-limited (429). Cooldown active for ~{max(backoffs)}s.")
     raise RuntimeError(f"Capital login: unexpected errors. last={last_err}")
 
+
+def _epic_cache_load() -> Dict[str, Dict[str, Any]]:
+    obj = _load_json(EPIC_CACHE_PATH, {})
+    if not isinstance(obj, dict):
+        return {}
+    return obj
+
+
+def _epic_cache_save(cache: Dict[str, Dict[str, Any]]) -> None:
+    _save_json(EPIC_CACHE_PATH, cache)
+
+
+def _env_epic_for(symbol: str) -> Optional[str]:
+    # CAPITAL_EPIC_<UPPERALNUM>
+    key = "CAPITAL_EPIC_" + "".join(ch for ch in symbol.upper() if ch.isalnum())
+    v = os.getenv(key, "").strip()
+    return v or None
+
+
+def _is_prob_epic(s: str) -> bool:
+    # EPIC typically has dots and no spaces: e.g., IX.D.SPTRD.D
+    return ("." in s) and (" " not in s)
+
+
 def capital_market_search(query: str, limit: int = 25) -> List[Dict[str, Any]]:
+    """
+    Search markets by display name; returns entries with epic and instrumentName.
+    """
     sess, base = capital_rest_login()
     q = urllib.parse.quote(query)
     paths = [f"/api/v1/markets?searchTerm={q}", f"/markets?searchTerm={q}"]
@@ -186,29 +244,62 @@ def capital_market_search(query: str, limit: int = 25) -> List[Dict[str, Any]]:
             break
     return out[:limit]
 
+
 def _resolve_epic(symbol_or_name: str) -> str:
+    """
+    Resolve display name or EPIC -> EPIC with caching.
+    Priority:
+      1) Already EPIC-like -> return as-is
+      2) Env override CAPITAL_EPIC_<KEY>
+      3) Cache hit (capital_epic_map.json) and not expired
+      4) Search markets and cache result
+    """
     s = symbol_or_name.strip()
-    if _is_probably_epic(s):
+    if _is_prob_epic(s):
         return s
+
     env_epic = _env_epic_for(s)
     if env_epic:
-        return env_epic.strip()
+        return env_epic
+
+    cache = _epic_cache_load()
+    key = s.upper()
+    hit = cache.get(key)
+    now = time.time()
+    if hit and (now - float(hit.get("ts", 0))) < _RESOLVE_CACHE_TTL:
+        return hit["epic"]
+
+    # search
     hits = capital_market_search(s)
     if not hits:
+        # cache negative to avoid repeated storm (short TTL)
+        cache[key] = {"epic": s, "name": s, "ts": now}
+        _epic_cache_save(cache)
         return s
+
+    # choose best match
     s_upper = s.upper()
     best = None
     for h in hits:
         name = (h.get("instrumentName") or "").upper()
         if name == s_upper:
-            best = h; break
-        if s_upper in name and best is None:
+            best = h
+            break
+        if (s_upper in name) and best is None:
             best = h
     if not best:
         best = hits[0]
-    return best["epic"]
+
+    epic = best["epic"]
+    cache[key] = {"epic": epic, "name": best.get("instrumentName"), "ts": now}
+    _epic_cache_save(cache)
+    return epic
+
 
 def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
+    """
+    Fetch latest bid/ask via prices endpoint.
+    """
     sess, base = capital_rest_login()
     epic = _resolve_epic(symbol_or_epic)
     url = f"{base}/api/v1/prices/{epic}"
@@ -218,6 +309,7 @@ def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
         return None
     r.raise_for_status()
     data = r.json()
+
     bid = ask = None
     try:
         arr = data.get("prices") or data.get("data") or []
@@ -227,11 +319,17 @@ def capital_get_bid_ask(symbol_or_epic: str) -> Optional[Tuple[float, float]]:
             ask = last.get("ask")
     except Exception:
         pass
+
     if isinstance(bid, (int, float)) and isinstance(ask, (int, float)):
         return float(bid), float(ask)
     return None
 
+
 def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 500) -> Optional[List[Dict[str, Any]]]:
+    """
+    Fetch OHLCV candles through prices endpoint.
+    tf mapping kept simple; adjust if your tenant supports more granular endpoints.
+    """
     sess, base = capital_rest_login()
     epic = _resolve_epic(symbol_or_epic)
     res_map = {"15m": "MINUTE_15", "1h": "HOUR", "4h": "HOUR_4", "1d": "DAY"}
