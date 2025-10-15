@@ -7,6 +7,7 @@ import pickle
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, List
 import urllib.parse
+import datetime as dt
 
 import requests
 import pandas as pd
@@ -382,6 +383,30 @@ def capital_get_candles(symbol_or_epic: str, tf: str, max_rows: int = 200) -> Op
     return data.get("prices") or data.get("data") or []
 
 
+def _to_epoch_ms(s: str) -> Optional[int]:
+    # Try parse several time formats into epoch ms
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            if fmt.endswith("%z") and (s.endswith("Z") or s.endswith("z")):
+                s2 = s[:-1] + "+0000"
+            else:
+                s2 = s
+            dtobj = dt.datetime.strptime(s2, fmt)
+            if dtobj.tzinfo is None:
+                dtobj = dtobj.replace(tzinfo=dt.timezone.utc)
+            return int(dtobj.timestamp() * 1000)
+        except Exception:
+            continue
+    try:
+        # pandas robust parser fallback
+        ts = pd.to_datetime(s, utc=True, errors="coerce")
+        if pd.isna(ts):
+            return None
+        return int(ts.value // 10**6)
+    except Exception:
+        return None
+
+
 def _try_paged_by_number(sess: requests.Session, base: str, epic: str, res: str,
                          page_size: int, total_limit: int, sleep_sec: float) -> List[Dict[str, Any]]:
     """
@@ -421,7 +446,7 @@ def _try_paged_by_number(sess: requests.Session, base: str, epic: str, res: str,
 def _try_paged_by_time(sess: requests.Session, base: str, epic: str, res: str,
                        page_size: int, total_limit: int, sleep_sec: float) -> List[Dict[str, Any]]:
     """
-    Walk back in time using to=<oldest-1s>.
+    Walk back in time. Tries multiple formats for 'to' (ISO, ISO+Z, epoch-ms), and if needed adds 'from'.
     """
     url = f"{base}/api/v1/prices/{epic}"
     results: List[Dict[str, Any]] = []
@@ -437,44 +462,82 @@ def _try_paged_by_time(sess: requests.Session, base: str, epic: str, res: str,
     results.extend(items)
     grabbed = len(items)
 
-    # continue back
     def norm_ts(entry: Dict[str, Any]) -> Optional[str]:
         return entry.get("snapshotTimeUTC") or entry.get("snapshotTime") or entry.get("updateTimeUTC")
 
     oldest = norm_ts(items[0])
+
     while grabbed < total_limit and oldest:
-        # subtract 1 second (string-safe: append 'Z' if missing)
-        to_ts = str(oldest)
-        if len(to_ts) == 19:  # 'YYYY-MM-DDTHH:MM:SS'
-            to_ts += "Z"
-        params = {"resolution": res, "max": int(page_size), "to": to_ts}
-        r = sess.get(url, params=params, timeout=25)
-        if r.status_code == 429:
-            time.sleep(max(_RATE_LIMIT_SLEEP, 90))
-            continue
-        if r.status_code == 404:
+        tried = []
+        # Prepare candidate 'to' values
+        cand_iso = str(oldest)  # as-is
+        cand_iso_z = cand_iso if cand_iso.endswith("Z") else (cand_iso + "Z")
+        cand_ms = _to_epoch_ms(cand_iso)
+
+        # Try 1: to=ISO as-is
+        for variant in (
+            {"to": cand_iso, "use_from": False},
+            {"to": cand_iso_z, "use_from": False},
+            {"to": cand_ms, "use_from": False},
+            # add a small window by 'from' if server requires both bounds
+            {"to": cand_iso, "use_from": True},
+            {"to": cand_iso_z, "use_from": True},
+            {"to": cand_ms, "use_from": True},
+        ):
+            if variant["to"] in tried or variant["to"] is None:
+                continue
+            tried.append(variant["to"])
+            params = {"resolution": res, "max": int(page_size)}
+            if variant["use_from"]:
+                # 14 days window back by default (safe for 15m/1h/4h)
+                try:
+                    ts_ms = cand_ms if isinstance(cand_ms, int) else _to_epoch_ms(cand_iso)
+                    if ts_ms:
+                        from_ms = ts_ms - 14 * 24 * 3600 * 1000
+                        params["from"] = from_ms
+                except Exception:
+                    pass
+            params["to"] = variant["to"]
+
+            rr = sess.get(url, params=params, timeout=25)
+            if rr.status_code == 429:
+                time.sleep(max(_RATE_LIMIT_SLEEP, 90))
+                continue
+            if rr.status_code == 400:
+                # try next format
+                continue
+            if rr.status_code == 404:
+                # end of history (or wrong window)
+                continue
+            rr.raise_for_status()
+            page_items = (rr.json().get("prices") or rr.json().get("data") or [])
+            if not page_items:
+                continue
+
+            new_oldest = norm_ts(page_items[0])
+            # If no progress, try next format
+            if not new_oldest or new_oldest == oldest:
+                continue
+
+            results.extend(page_items)
+            grabbed += len(page_items)
+            oldest = new_oldest
+            time.sleep(sleep_sec)
             break
-        r.raise_for_status()
-        page_items = (r.json().get("prices") or r.json().get("data") or [])
-        if not page_items:
+        else:
+            # none of the variants worked -> stop
             break
-        # if all items are >= oldest → break to avoid infinite loop
-        new_oldest = norm_ts(page_items[0])
-        if not new_oldest or new_oldest == oldest:
+
+        if len(results) >= total_limit:
             break
-        results.extend(page_items)
-        grabbed += len(page_items)
-        oldest = new_oldest
-        time.sleep(sleep_sec)
-        if len(page_items) < page_size:
-            break
+
     return results
 
 
 def capital_get_candles_paged(symbol_or_epic: str, tf: str, total_limit: int = 2000, page_size: int = 200,
                               sleep_sec: float = 0.8) -> List[Dict[str, Any]]:
     """
-    Paged fetch via prices endpoint. Tries pageNumber first; if not working, falls back to time window (to=<oldest-1s>).
+    Paged fetch via prices endpoint. Tries pageNumber first; if not working, falls back to time window (various 'to' formats).
     Returns newest last order (append order preserved).
     """
     sess, base = capital_rest_login()
