@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os, json, time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 import numpy as np
 import pandas as pd
@@ -83,8 +83,14 @@ def _wfa(df: pd.DataFrame, cfg: Dict[str, Any], folds: int,
 
         r_train, _ = simulate_returns(dtrain, sig_train, fee_bps, slip_bps, spread_bps, position_mode)
         r_test,  _ = simulate_returns(dtest,  sig_test,  fee_bps, slip_bps, spread_bps, position_mode)
-        m = _metrics(r_test)
-        details.append({"metrics": m})
+        # Voit halutessa painottaa metrikoita eri tavalla
+        details.append({"metrics": {
+            "sh": float((r_test.mean() / (r_test.std(ddof=1) or 1e-12)) if len(r_test) else 0.0),
+            "pf": float((r_test[r_test > 0].sum() / max(1e-12, -r_test[r_test < 0].sum())) if len(r_test) else 1.0),
+            "wr": float((r_test > 0).mean() if len(r_test) else 0.0),
+            "cagr": float(np.exp(np.log1p(r_test).sum()) - 1.0) if len(r_test) else 0.0,
+            "maxdd": 0.0
+        }})
 
     agg = {
         "folds": len(details),
@@ -97,26 +103,7 @@ def _wfa(df: pd.DataFrame, cfg: Dict[str, Any], folds: int,
     }
     return agg
 
-def _fetch_df_with_retry(symbol: str, tf: str,
-                         total_limit: int, page_size: int, sleep_sec: float,
-                         retries: int = 5) -> pd.DataFrame:
-    """
-    Robustit retryt Capital-hakuihin. Ei kaada koko ajoa, jos yksittäinen pyyntö timeouttaa.
-    """
-    back = max(1.0, sleep_sec)
-    for i in range(1, retries+1):
-        try:
-            df = capital_get_candles_df(symbol, tf, total_limit=total_limit, page_size=page_size, sleep_sec=sleep_sec)
-            return df
-        except Exception as e:
-            wait = min(90, int(back * i * 1.8))
-            print(f"[WARN] fetch candles failed ({symbol} {tf}) attempt {i}/{retries}: {e} -> sleep {wait}s", flush=True)
-            time.sleep(wait)
-    # Viimeinen yritys – jos vielä epäonnistuu, palauta tyhjä
-    return pd.DataFrame(columns=["time","open","high","low","close","volume"])
-
 def main():
-    # Login ensin
     capital_rest_login()
 
     symbols = read_symbols()
@@ -124,7 +111,7 @@ def main():
     folds = int(os.getenv("TRAIN_FOLDS", "6"))
     max_total = int(os.getenv("TRAIN_MAX_TOTAL", "10000"))
     page_size = int(os.getenv("TRAIN_PAGE_SIZE", "200"))
-    sleep_sec = float(os.getenv("TRAIN_PAGE_SLEEP", "1.0"))
+    sleep_sec = float(os.getenv("TRAIN_PAGE_SLEEP", "1.5"))
 
     fee_bps = float(os.getenv("SIM_FEE_BPS", "1.0"))
     slip_bps = float(os.getenv("SIM_SLIP_BPS", "1.5"))
@@ -134,12 +121,13 @@ def main():
 
     grid = _grid()
     registry: List[Dict[str, Any]] = []
-    print(f"[TRAIN] symbols={len(symbols)} TFs={tfs} folds={folds} costs(bps) fee={fee_bps} slip={slip_bps} spread={spread_bps} sr_filter={sr_filter} mode={position_mode}", flush=True)
+    print(f"[TRAIN] symbols={len(symbols)} TFs={tfs} folds={folds} page_size={page_size} page_sleep={sleep_sec}", flush=True)
 
     for sym in symbols:
         for tf in tfs:
             try:
-                df = _fetch_df_with_retry(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec, retries=5)
+                # Pieni backoff pitkien hakujen jälkeen kevyesti API:lle
+                df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
                 if df.empty or len(df) < 600:
                     print(f"[WARN] not enough data {sym} {tf} (rows={len(df)})", flush=True)
                     continue
@@ -167,14 +155,15 @@ def main():
                 }
                 registry.append(row)
                 print(f"[OK] {sym} {tf} -> sh={res['sh_oos_mean']:.3f} pf={res['pf_oos_mean']:.2f} thr={cfg['threshold']} cfg={cfg['params']}", flush=True)
-                time.sleep(0.8)
+                time.sleep(0.4)
             except Exception as e:
                 print(f"[ERROR] training failed for {sym} {tf}: {e}", flush=True)
-                # jatketaan seuraavaan TF:ään/symboliin
 
-    # Kirjoita mitä saatiin – ei kaadeta ajuria vaikka osa epäonnistui
-    with open(REG_PATH, "w") as f:
+    # ATOMINEN KIRJOITUS: temp -> rename (os.replace)
+    tmp_path = REG_PATH.with_suffix(".json.tmp")
+    with open(tmp_path, "w") as f:
         json.dump({"models": registry}, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, REG_PATH)
     print(f"[DONE] models -> {REG_PATH} (count={len(registry)})", flush=True)
 
 if __name__ == "__main__":
