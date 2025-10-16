@@ -16,8 +16,8 @@ META_REG = STATE / "models_meta.json"
 _model_cache: dict[str, Tuple[object, dict]] = {}
 
 def _safe_key(symbol: str, tf: str) -> str:
+    import re
     k = f"{symbol}__{tf}"
-    # Poista riskimerkit tiedostonimestä
     return re.sub(r"[^A-Za-z0-9_.-]", "", k)
 
 def _load_meta(symbol: str, tf: str) -> Optional[Tuple[object, dict]]:
@@ -40,15 +40,10 @@ def _load_meta(symbol: str, tf: str) -> Optional[Tuple[object, dict]]:
         return None
 
 def should_take_trade(symbol: str, tf: str, action: str, df: pd.DataFrame) -> Tuple[bool, float]:
-    """
-    Palauttaa (ok, p) – ok=True jos meta-suodatin hyväksyy kaupan.
-    action: 'BUY' / 'SELL'
-    """
     if os.getenv("META_ENABLED", "1") != "1":
         return True, 1.0
     got = _load_meta(symbol, tf)
     if not got:
-        # ei mallia -> älä estä
         return True, 1.0
     model, row = got
     feats = compute_features(df).iloc[-1:].copy()
