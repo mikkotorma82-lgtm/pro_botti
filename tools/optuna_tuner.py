@@ -59,9 +59,7 @@ def _entry_points(df: pd.DataFrame, cfg: Dict[str, Any]) -> Tuple[np.ndarray, np
     return idx, dirs
 
 def _tp_fp_at_threshold(y_true: np.ndarray, p: np.ndarray, thr: float) -> Tuple[int,int]:
-    yhat = (p >= thr).astype(int)
-    tp = int(((yhat==1) & (y_true==1)).sum())
-    fp = int(((yhat==1) & (y_true==0)).sum())
+    yhat = (p >= thr).astype(int); tp = int(((yhat==1) & (y_true==1)).sum()); fp = int(((yhat==1) & (y_true==0)).sum())
     return tp, fp
 
 def _purged_score(p_list: List[np.ndarray], y_list: List[np.ndarray], thr: float) -> float:
@@ -87,6 +85,7 @@ def tune_one(symbol: str, tf: str, df: pd.DataFrame, cfg: Dict[str, Any]) -> Dic
 
     def build_cv_preds(pt_mult: float, sl_mult: float, max_hold: int) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
+        # Täsmälleen samat sarakkeet ja järjestys kuin mallissa
         X = feats_all.iloc[idx].reindex(columns=exp_cols).fillna(0.0)
         cv = PurgedTimeSeriesSplit(n_splits=int(os.getenv("META_CV_SPLITS","5")), embargo=int(os.getenv("META_EMBARGO","48")))
         ids = np.arange(len(X)); p_list, y_list = [], []
