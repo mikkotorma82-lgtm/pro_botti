@@ -59,7 +59,9 @@ def _entry_points(df: pd.DataFrame, cfg: Dict[str, Any]) -> Tuple[np.ndarray, np
     return idx, dirs
 
 def _tp_fp_at_threshold(y_true: np.ndarray, p: np.ndarray, thr: float) -> Tuple[int,int]:
-    yhat = (p >= thr).astype(int); tp = int(((yhat==1) & (y_true==1)).sum()); fp = int(((yhat==1) & (y_true==0)).sum())
+    yhat = (p >= thr).astype(int)
+    tp = int(((yhat==1) & (y_true==1)).sum())
+    fp = int(((yhat==1) & (y_true==0)).sum())
     return tp, fp
 
 def _purged_score(p_list: List[np.ndarray], y_list: List[np.ndarray], thr: float) -> float:
@@ -78,7 +80,7 @@ def tune_one(symbol: str, tf: str, df: pd.DataFrame, cfg: Dict[str, Any]) -> Dic
     if not exp_cols:
         return {"ok": False, "reason": "no_feature_list_saved"}
 
-    feats_all = compute_features(df).replace([np.inf,-np.inf], np.nan).fillna(method="ffill").fillna(method="bfill").fillna(0.0)
+    feats_all = compute_features(df).replace([np.inf,-np.inf], np.nan).ffill().bfill().fillna(0.0)
     idx, dirs = _entry_points(df, cfg)
     if len(idx) < 50:
         return {"ok": False, "reason": "too_few_entries", "entries": int(len(idx))}
@@ -148,7 +150,7 @@ def tune_one(symbol: str, tf: str, df: pd.DataFrame, cfg: Dict[str, Any]) -> Dic
 
 def main():
     capital_rest_login()
-    symbols = read_symbols()  # Treenaa kaikille config/symbols.txt symboleille
+    symbols = read_symbols()  # -> config/symbols.txt
     tfs = [s.strip() for s in (os.getenv("TRAIN_TFS") or "15m,1h,4h").split(",") if s.strip()]
     max_total = int(os.getenv("TRAIN_MAX_TOTAL","10000"))
     page_size = int(os.getenv("TRAIN_PAGE_SIZE","200"))
