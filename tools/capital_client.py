@@ -19,14 +19,11 @@ def _resolve_epic(symbol_or_name: str) -> str:
     s = (symbol_or_name or "").strip()
     if not s:
         return s
-    # Env override – käytä vain jos arvo on oikea EPIC (ei esim. 'US500' jos backendi vaatii toista)
     env = os.environ.get("CAPITAL_EPIC_" + _norm_key(s))
     if env and env.strip():
         return env.strip()
-    # Jos näyttää jo EPICiltä (pisteitä, ei välilyöntejä), palauta
     if "." in s and " " not in s:
         return s
-    # Markkinahaku
     try:
         hits = capital_market_search(s)
         if hits:
@@ -45,7 +42,6 @@ def _resolve_epic(symbol_or_name: str) -> str:
             return (best or hits[0])["epic"]
     except Exception:
         pass
-    # Fallback
     return s.replace("/", "").replace(" ", "")
 
 def _last_price(sess: "requests.Session", base: str, epic: str) -> Optional[float]:
@@ -79,12 +75,30 @@ def _try_post(sess: "requests.Session", url: str, payload: Dict[str, Any]) -> Tu
     except Exception as e:
         return False, None, f"EXC {e}"
 
+def _confirm_deal(sess: "requests.Session", base: str, deal_ref: str, tries: int = 3, sleep_s: float = 0.8) -> Dict[str, Any]:
+    """
+    IG/Capital confirm: palauttaa mm. dealId, status, reason, level jne.
+    """
+    url = f"{base}/api/v1/confirms/{deal_ref}"
+    last = {}
+    for i in range(tries):
+        try:
+            r = sess.get(url, timeout=10)
+            if r.status_code // 100 == 2 and r.text:
+                data = r.json()
+                if data.get("dealId") or data.get("dealStatus") or data.get("reason"):
+                    return data
+                last = data
+            else:
+                last = {"status": r.status_code, "body": r.text[:200]}
+        except Exception as e:
+            last = {"error": str(e)}
+        time.sleep(sleep_s)
+    return last or {}
+
 def market_order(epic: str, direction: str, size: float) -> Dict[str, Any]:
     """
     Tee markkinatoimeksianto. Palauttaa dict: {ok, data, order_id?, position_id?} tai local mock.
-    - epic: näyttönimi tai EPIC; resolvoidaan EPICiksi
-    - direction: BUY/SELL
-    - size: float
     """
     direction = (direction or "").upper()
     if direction not in ("BUY", "SELL"):
@@ -95,29 +109,27 @@ def market_order(epic: str, direction: str, size: float) -> Dict[str, Any]:
     sess, base = capital_rest_login()
     sess.headers.setdefault("Accept", "application/json")
     sess.headers.setdefault("Content-Type", "application/json")
-    # Joillakin instansseilla VERSION=2 vaaditaan
     sess.headers.setdefault("VERSION", "2")
 
     epic_res = _resolve_epic(epic)
     print(f"[ORDER][DEBUG] resolved EPIC={epic_res}")
 
-    # Yritetään useita muotoja järjestyksessä
-    attempts: List[Tuple[str, Dict[str, Any]]] = [
-        # 1) positions symbol/side/type
+    attempts: List[Tuple[str, Dict[str, Any], str]] = [
+        # 1) positions (symbol/side/type)
         (f"{base}/api/v1/positions", {
             "symbol": epic_res,
             "side": direction,
             "size": float(size),
             "type": "MARKET",
-        }),
-        # 2) positions epic/direction/orderType
+        }, "positions(symbol/side/type)"),
+        # 2) positions (epic/direction/orderType)
         (f"{base}/api/v1/positions", {
             "epic": epic_res,
             "direction": direction,
             "size": float(size),
             "orderType": "MARKET",
-        }),
-        # 3) IG/Capital tyyli: positions/otc
+        }, "positions(epic/direction/orderType)"),
+        # 3) positions/otc (IG/Capital)
         (f"{base}/api/v1/positions/otc", {
             "epic": epic_res,
             "direction": direction,
@@ -125,31 +137,42 @@ def market_order(epic: str, direction: str, size: float) -> Dict[str, Any]:
             "orderType": "MARKET",
             "timeInForce": "FILL_OR_KILL",
             "forceOpen": True,
-        }),
-        # 4) /api/v1/deal fallback
+        }, "positions/otc"),
+        # 4) deal (fallback)
         (f"{base}/api/v1/deal", {
             "epic": epic_res,
             "direction": direction,
             "size": float(size),
             "orderType": "MARKET",
-        }),
+        }, "deal"),
     ]
 
     last_err = ""
-    for url, payload in attempts:
+    for url, payload, tag in attempts:
         ok, data, info = _try_post(sess, url, payload)
         if ok:
-            print(f"[ORDER][REST] EPIC={epic_res} dir={direction} size={size} via {url}")
             d = data or {}
+            print(f"[ORDER][REST] EPIC={epic_res} dir={direction} size={size} via {url}")
+            # Jos vastauksessa on dealReference, yritä confirm
+            deal_ref = d.get("dealReference") or d.get("deal_ref") or d.get("reference")
+            order_id = str(d.get("dealId") or d.get("order_id") or d.get("id") or "")
+            pos_id = str(d.get("position") or d.get("position_id") or "")
+
+            if deal_ref and not order_id:
+                conf = _confirm_deal(sess, base, deal_ref)
+                if conf:
+                    order_id = str(conf.get("dealId") or order_id or "")
+                    # IG-tyypissä position-id ei aina tule suoraan confirmista; jätetään tyhjäksi jos ei ole
+
             return {
                 "ok": True,
                 "data": d,
-                "order_id": str(d.get("dealId") or d.get("order_id") or d.get("id") or ""),
-                "position_id": str(d.get("position") or d.get("position_id") or ""),
+                "order_id": order_id,
+                "position_id": pos_id,
             }
         else:
-            print(f"[ORDER][DEBUG] {url} -> {info}")
-            last_err = f"{url} -> {info}"
+            print(f"[ORDER][DEBUG] {tag} {url} -> {info}")
+            last_err = f"{tag} {url} -> {info}"
 
     # Fallback: mock
     pos_id = f"local-{int(time.time()*1000)}"
