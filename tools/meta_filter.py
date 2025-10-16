@@ -41,26 +41,24 @@ def _load_meta(symbol: str, tf: str) -> Optional[Tuple[object, dict]]:
 def should_take_trade(symbol: str, tf: str, action: str, df: pd.DataFrame) -> Tuple[bool, float]:
     if os.getenv("META_ENABLED", "1") != "1":
         return True, 1.0
-
     got = _load_meta(symbol, tf)
     if not got:
         if os.getenv("META_REQUIRED", "0") == "1":
             return False, 0.0
         return True, 1.0
-
     model, row = got
-
     feats_all = compute_features(df).iloc[-1:].copy()
-    # Täsmällinen sarakejärjestys ja täydennys
     cols = row.get("features", list(feats_all.columns))
-    feats = feats_all.reindex(columns=cols).replace([np.inf, -np.inf], np.nan).fillna(method="ffill").fillna(method="bfill").fillna(0.0)
-
+    feats = (feats_all
+             .reindex(columns=cols)
+             .replace([np.inf, -np.inf], np.nan)
+             .ffill().bfill()
+             .fillna(0.0))
     try:
         proba = float(model.predict_proba(feats)[:, 1][0])
     except Exception:
         p = float(model.predict(feats)[0])
         proba = max(0.0, min(1.0, p))
-
     thr = float(row.get("threshold", float(os.getenv("META_THRESHOLD", "0.6"))))
     if action == "SELL":
         thr = float(row.get("threshold_sell", thr))
