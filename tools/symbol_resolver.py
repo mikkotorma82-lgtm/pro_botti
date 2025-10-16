@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import os
-from typing import List, Tuple
+from typing import List
 
 _MAP = {
     "US500": "US SPX 500",
@@ -31,26 +31,28 @@ def _fx_with_slash(sym: str) -> str:
 
 def normalize_symbol(s: str) -> str:
     u = s.strip().upper()
+
+    # Binance-tyyliset stableparit -> USD (BTCUSDT -> BTCUSD)
+    if u.endswith("USDT"):
+        u = u[:-1]  # poista T -> "...USD"
+
+    # Tunnetut mapit suoraan
     if u in _MAP:
         return _MAP[u]
+
+    # FX-tyyliset 6 merkin koodit -> lisää vinoviiva
     if len(u) == 6 and u.isalpha():
         return _fx_with_slash(u)
+
+    # Muut (osakkeet, indeksien valmiit nimet)
     return s.strip()
 
 def read_symbols() -> List[str]:
     raw = os.getenv("SYMBOLS", "")
     if raw.strip():
-        items = [normalize_symbol(x) for x in raw.split(",") if x.strip()]
-        return items
+        return [normalize_symbol(x) for x in raw.split(",") if x.strip()]
     from pathlib import Path
     p = Path(__file__).resolve().parents[1] / "config" / "symbols.txt"
     if p.exists():
-        items = [normalize_symbol(x) for x in p.read_text().splitlines() if x.strip() and not x.strip().startswith("#")]
-        return items
+        return [normalize_symbol(x) for x in p.read_text().splitlines() if x.strip() and not x.strip().startswith("#")]
     return ["US SPX 500","EUR/USD","GOLD","AAPL","BTC/USD"]
-
-def normalize_all(symbols: List[str]) -> List[str]:
-    return [normalize_symbol(x) for x in symbols]
-
-def as_symbol_tf_pairs(symbols: List[str], tfs: List[str]):
-    return [(s, tf) for s in symbols for tf in tfs]
