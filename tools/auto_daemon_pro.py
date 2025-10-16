@@ -2,36 +2,25 @@
 from __future__ import annotations
 import os, json, time, traceback, threading, subprocess, shlex
 from pathlib import Path
-from typing import List, Dict, Any
-
+from typing import Any, Dict, List
 import pandas as pd
-
 from tools.capital_session import capital_rest_login, capital_get_candles_df, capital_get_bid_ask
 from tools.consensus_engine import consensus_signal
 from tools.signal_executor import execute_action
 from tools.frequency_controller import record_trade, calibrate_thresholds
 from tools.symbol_resolver import read_symbols
 from tools.capital_client import connect_and_prepare
-# UUSI: meta-suodatin
 from tools.meta_filter import should_take_trade
 
 STATE = Path(__file__).resolve().parents[1] / "state"
-STATE.mkdir(parents=True, exist_ok=True)
 LIVE_STATE = STATE / "live_state.json"
+SELECTED = STATE / "selected_universe.json"
 
 def _load_json(p: Path, default: Any) -> Any:
-    if not p.exists():
-        return default
     try:
         return json.loads(p.read_text())
     except Exception:
         return default
-
-def _save_json(p: Path, obj: Any) -> None:
-    try:
-        p.write_text(json.dumps(obj, ensure_ascii=False, indent=2))
-    except Exception:
-        pass
 
 def _equity() -> float:
     try:
@@ -46,48 +35,34 @@ def _bar_align(tf: str) -> int:
 def _int_env(key: str, default: int) -> int:
     raw = os.getenv(key, str(default))
     try:
-        cleaned = str(raw).split("#", 1)[0].strip()
-        return int(cleaned)
+        return int(str(raw).split("#",1)[0].strip())
     except Exception:
         print(f"[WARN] invalid int env {key}={raw!r} -> default {default}", flush=True)
         return default
 
-# ----------------- Taustatreeni omassa säikeessä -----------------
-
-_TRAIN_BG_LOCK = threading.Lock()
-def _trainer_once() -> None:
+def _selected_universe() -> Dict[str, List[str]]:
+    """
+    Palauttaa mappingin symbol -> [tfs] valitusta universumista, jos tiedosto löytyy.
+    """
+    if not SELECTED.exists():
+        return {}
     try:
-        cwd = str(Path(__file__).resolve().parents[1])
-        py = os.path.join(cwd, "venv", "bin", "python")
-        cmd = f"{shlex.quote(py)} -m tools.train_wfa_pro && {shlex.quote(py)} -m tools.train_meta"
-        print(f"[TRAIN_BG] start: {cmd}", flush=True)
-        p = subprocess.run(cmd, cwd=cwd, shell=True)
-        print(f"[TRAIN_BG] done: rc={p.returncode}", flush=True)
+        obj = json.loads(SELECTED.read_text())
+        combos = obj.get("combos", [])
+        m: Dict[str, List[str]] = {}
+        for c in combos:
+            m.setdefault(c["symbol"], [])
+            if c["tf"] not in m[c["symbol"]]:
+                m[c["symbol"]].append(c["tf"])
+        return m
     except Exception as e:
-        print(f"[TRAIN_BG][ERROR] {e}", flush=True)
-
-def _trainer_loop() -> None:
-    interval_min = _int_env("TRAIN_BG_INTERVAL_MIN", 360)
-    sleep_s = max(60, interval_min * 60)
-    print(f"[TRAIN_BG] loop start (interval={interval_min} min)", flush=True)
-    time.sleep(10)
-    while True:
-        try:
-            if _TRAIN_BG_LOCK.acquire(blocking=False):
-                try:
-                    _trainer_once()
-                finally:
-                    _TRAIN_BG_LOCK.release()
-            else:
-                print("[TRAIN_BG] previous run still active, skip", flush=True)
-        except Exception as e:
-            print(f"[TRAIN_BG][LOOP][ERROR] {e}", flush=True)
-        time.sleep(sleep_s)
+        print(f"[WARN] failed parsing selected_universe: {e}", flush=True)
+        return {}
 
 def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
 
-    # Login + adoption/management
+    # Login
     sess_try = 0
     while True:
         try:
@@ -100,15 +75,26 @@ def main_loop():
             print(f"[AUTO] capital_rest_login failed: {e} -> retry in {wait}s", flush=True)
             time.sleep(wait)
 
-    if os.getenv("TRAIN_BG", "1") == "1":
-        t = threading.Thread(target=_trainer_loop, name="trainer-bg", daemon=True)
+    # Ei enää TRAIN_BG oletuksena
+    if os.getenv("TRAIN_BG", "0") == "1":
+        t = threading.Thread(target=lambda: None, daemon=True)  # poistettu käytöstä
         t.start()
+        print("[TRAIN_BG] disabled by config", flush=True)
 
-    symbols = read_symbols()
-    tfs = [s.strip() for s in (os.getenv("LIVE_TFS") or "15m,1h").split(",") if s.strip()]
+    # Universumi: käytä selected_universe jos saatavilla, muuten env
+    mapping = _selected_universe()
+    if mapping:
+        symbols = list(mapping.keys())
+        tf_map = mapping
+        print(f"[AUTO] using selected_universe.json (symbols={len(symbols)})", flush=True)
+    else:
+        symbols = read_symbols()
+        tfs = [s.strip() for s in (os.getenv("LIVE_TFS") or "15m,1h").split(",") if s.strip()]
+        tf_map = {sym: tfs for sym in symbols}
+        print(f"[AUTO] using env universe (symbols={len(symbols)})", flush=True)
+
     max_total = int(os.getenv("LIVE_TOTAL_BARS", "600"))
     sleep_min = int(os.getenv("LIVE_MIN_SLEEP", "15"))
-
     live_state = _load_json(LIVE_STATE, {})
     last_calib = 0
 
@@ -122,6 +108,7 @@ def main_loop():
                     print(f"[AUTO] frequency controller adjusted thresholds on {changed} model(s)", flush=True)
 
             for sym in symbols:
+                tfs = tf_map.get(sym, [])
                 for tf in tfs:
                     reg = _load_json(STATE / "models_pro.json", {"models": []})
                     rows = [m for m in reg.get("models", []) if m.get("symbol") == sym and m.get("tf") == tf and m.get("strategy") == "CONSENSUS"]
@@ -146,7 +133,6 @@ def main_loop():
                         action = "SELL" if os.getenv("LIVE_SHORTS", "0") == "1" else "HOLD"
 
                     if action in ("BUY", "SELL"):
-                        # Meta-suodatin
                         ok, p = should_take_trade(sym, tf, action, df)
                         if not ok:
                             print(f"[META] {sym} {tf} {action} filtered p={p:.2f}", flush=True)
@@ -162,14 +148,15 @@ def main_loop():
 
                     live_state[key] = {"last_sig": last_sig, "pos": 0, "equity": _equity()}
 
-            _save_json(LIVE_STATE, live_state)
+            (STATE / "live_state.json").write_text(json.dumps(live_state, ensure_ascii=False, indent=2))
 
         except Exception as e:
             print("[AUTO] loop error:", e, flush=True)
             traceback.print_exc()
 
-        step = min(_bar_align(tf) for tf in tfs) if tfs else 60
-        time.sleep(max(sleep_min, step // 5))
+        # vaiheistus
+        min_step = min(_bar_align(tf) for tfs in tf_map.values() for tf in tfs) if tf_map else 60
+        time.sleep(max(sleep_min, min_step // 5))
 
 if __name__ == "__main__":
     main_loop()
