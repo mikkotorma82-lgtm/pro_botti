@@ -12,10 +12,12 @@ from tools.signal_executor import execute_action
 from tools.frequency_controller import record_trade, calibrate_thresholds
 from tools.symbol_resolver import read_symbols
 from tools.capital_client import connect_and_prepare
+# UUSI: meta-suodatin
+from tools.meta_filter import should_take_trade
 
 STATE = Path(__file__).resolve().parents[1] / "state"
 STATE.mkdir(parents=True, exist_ok=True)
-LIVE_STATE = STATE / "live_state.json"   # { key: { "last_sig": int, "pos": int, "equity": float } }
+LIVE_STATE = STATE / "live_state.json"
 
 def _load_json(p: Path, default: Any) -> Any:
     if not p.exists():
@@ -33,7 +35,7 @@ def _save_json(p: Path, obj: Any) -> None:
 
 def _equity() -> float:
     try:
-        from tools.ledger import current_equity  # optional
+        from tools.ledger import current_equity
         return float(current_equity())
     except Exception:
         return float(os.getenv("STARTING_EQUITY", "10000"))
@@ -41,39 +43,36 @@ def _equity() -> float:
 def _bar_align(tf: str) -> int:
     return {"15m": 900, "1h": 3600, "4h": 14400}.get(tf, 3600)
 
+def _int_env(key: str, default: int) -> int:
+    raw = os.getenv(key, str(default))
+    try:
+        cleaned = str(raw).split("#", 1)[0].strip()
+        return int(cleaned)
+    except Exception:
+        print(f"[WARN] invalid int env {key}={raw!r} -> default {default}", flush=True)
+        return default
+
 # ----------------- Taustatreeni omassa säikeessä -----------------
 
 _TRAIN_BG_LOCK = threading.Lock()
 def _trainer_once() -> None:
-    """
-    Aja yksi treenikierros erillisessä aliprosessissa.
-    Kirjoittaa mallit atomisesti train_wfa_pro:n kautta.
-    """
     try:
         cwd = str(Path(__file__).resolve().parents[1])
         py = os.path.join(cwd, "venv", "bin", "python")
-        cmd = f"{shlex.quote(py)} -m tools.train_wfa_pro"
+        cmd = f"{shlex.quote(py)} -m tools.train_wfa_pro && {shlex.quote(py)} -m tools.train_meta"
         print(f"[TRAIN_BG] start: {cmd}", flush=True)
-        # Perus throttlaus – halutessa voit override: TRAIN_PAGE_SLEEP ym. botti.env:ssä
-        env = os.environ.copy()
-        # Kevyempi treeni jos haluat (esim. rajaa TF:t): env.setdefault("TRAIN_TFS","15m,1h")
         p = subprocess.run(cmd, cwd=cwd, shell=True)
         print(f"[TRAIN_BG] done: rc={p.returncode}", flush=True)
     except Exception as e:
         print(f"[TRAIN_BG][ERROR] {e}", flush=True)
 
 def _trainer_loop() -> None:
-    """
-    Pyöritä treeniä taustalla tasavälein, häiritsemättä liveä.
-    """
-    interval_min = int(os.getenv("TRAIN_BG_INTERVAL_MIN", "360") or "360")
+    interval_min = _int_env("TRAIN_BG_INTERVAL_MIN", 360)
     sleep_s = max(60, interval_min * 60)
     print(f"[TRAIN_BG] loop start (interval={interval_min} min)", flush=True)
-    # Pieni viive käynnistyksessä, että live ehtii alustaa
     time.sleep(10)
     while True:
         try:
-            # Varmista ettei päällekkäisiä ajoja
             if _TRAIN_BG_LOCK.acquire(blocking=False):
                 try:
                     _trainer_once()
@@ -101,7 +100,6 @@ def main_loop():
             print(f"[AUTO] capital_rest_login failed: {e} -> retry in {wait}s", flush=True)
             time.sleep(wait)
 
-    # Käynnistä treenin taustasäie tarvittaessa
     if os.getenv("TRAIN_BG", "1") == "1":
         t = threading.Thread(target=_trainer_loop, name="trainer-bg", daemon=True)
         t.start()
@@ -117,15 +115,12 @@ def main_loop():
     while True:
         try:
             now = int(time.time())
-
-            # Kynnyskalibrointi 1h välein
             if now - last_calib > 3600:
                 last_calib = now
                 changed = calibrate_thresholds(k=0.05)
                 if changed:
                     print(f"[AUTO] frequency controller adjusted thresholds on {changed} model(s)", flush=True)
 
-            # Live-signaalit + toimeksiannot
             for sym in symbols:
                 for tf in tfs:
                     reg = _load_json(STATE / "models_pro.json", {"models": []})
@@ -151,14 +146,19 @@ def main_loop():
                         action = "SELL" if os.getenv("LIVE_SHORTS", "0") == "1" else "HOLD"
 
                     if action in ("BUY", "SELL"):
-                        ba = capital_get_bid_ask(sym)
-                        px = (ba[1] if action == "BUY" else ba[0]) if ba else float(df["close"].iloc[-1])
-                        res = execute_action(sym, tf, action, px, equity=_equity())
-                        if res:
-                            record_trade(sym, tf)
-                            print(f"[AUTO] {sym} {tf}: {action} executed", flush=True)
+                        # Meta-suodatin
+                        ok, p = should_take_trade(sym, tf, action, df)
+                        if not ok:
+                            print(f"[META] {sym} {tf} {action} filtered p={p:.2f}", flush=True)
                         else:
-                            print(f"[AUTO] {sym} {tf}: {action} skipped (risk/guard/router)", flush=True)
+                            ba = capital_get_bid_ask(sym)
+                            px = (ba[1] if action == "BUY" else ba[0]) if ba else float(df["close"].iloc[-1])
+                            res = execute_action(sym, tf, action, px, equity=_equity())
+                            if res:
+                                record_trade(sym, tf)
+                                print(f"[AUTO] {sym} {tf}: {action} executed (p_meta={p:.2f})", flush=True)
+                            else:
+                                print(f"[AUTO] {sym} {tf}: {action} skipped (risk/guard/router)", flush=True)
 
                     live_state[key] = {"last_sig": last_sig, "pos": 0, "equity": _equity()}
 
