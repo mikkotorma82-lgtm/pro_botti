@@ -31,30 +31,25 @@ def _zscore(s: pd.Series, n: int = 50) -> pd.Series:
 
 def compute_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Syöte: df jossa sarakkeet: time,index, open, high, low, close, volume (vähintään close)
-    Palauttaa: features DataFrame samalle indeksille (NaN alkuja on ok; live käyttää tail(1))
+    Palauttaa featuret samalle indeksille (NaN alkuja on ok; live käyttää tail(1))
     """
     close = df["close"]
     f = pd.DataFrame(index=df.index)
-    # Liukuvat
     f["sma20"] = _sma(close, 20)
     f["sma50"] = _sma(close, 50)
     f["ema21"] = _ema(close, 21)
     f["ema50"] = _ema(close, 50)
     f["sma_diff"] = f["sma20"] - f["sma50"]
     f["ema_diff"] = f["ema21"] - f["ema50"]
-    # RSI / MACD
     f["rsi14"] = _rsi(close, 14)
     macd, macds, mach = _macd(close, 12, 26, 9)
     f["macd"] = macd
     f["macd_sig"] = macds
     f["macd_hist"] = mach
-    # Volatiliteetti / momentti
     ret1 = close.pct_change()
     f["ret1"] = ret1
     f["vola50"] = ret1.rolling(50, min_periods=10).std()
     f["ret1_z"] = _zscore(ret1, 50)
-    # Yksinkertainen ATR proxy (range %)
     if {"high","low","close"}.issubset(df.columns):
         rng = (df["high"] - df["low"]).replace(0, np.nan)
         f["rng_pct"] = (rng / df["close"]).rolling(14, min_periods=5).mean()
