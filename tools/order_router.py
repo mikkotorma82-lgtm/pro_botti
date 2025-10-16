@@ -5,7 +5,6 @@ from typing import Optional, Dict, Any
 
 from tools.capital_client import connect_and_prepare, CapitalClient
 
-# Ylläpidetään yksi client
 _CC: Optional[CapitalClient] = None
 
 def _client() -> CapitalClient:
@@ -19,10 +18,6 @@ def _norm_symbol_for_env_key(symbol: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", u)
 
 def to_cap_epic_hint(symbol: str) -> str:
-    """
-    Palauta vain 'vihje' EPICiksi (poista '/' ja välilyönnit) dry-run tulostukseen.
-    Varsinainen EPIC resolvoidaan CapitalClientissä markkinahaulla.
-    """
     norm = _norm_symbol_for_env_key(symbol)
     v = os.environ.get(f"CAPITAL_EPIC_{norm}")
     if v and v.strip():
@@ -53,7 +48,6 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
         }
 
     cli = _client()
-    # Välitä näyttönimi/symboli – CapitalClient resolvoi EPICin oikeaksi
     res = cli.place_market(symbol=symbol, side=side.upper(), size=float(qty))
     return {
         "dry_run": False,
