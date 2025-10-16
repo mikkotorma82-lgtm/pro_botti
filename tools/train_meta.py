@@ -12,6 +12,7 @@ from tools.consensus_engine import consensus_signal
 from tools.ml.features import compute_features
 from tools.ml.labels import label_meta_from_entries
 from tools.ml.purged_cv import PurgedTimeSeriesSplit
+from tools.ml.asset_class import resolve_asset_class
 
 warnings.filterwarnings("ignore")
 
@@ -46,36 +47,47 @@ def _pf_proxy(y_true: np.ndarray, p: np.ndarray, thr: float) -> float:
     return tp / (fp + 1.0)
 
 def _cv_choose_threshold(X: pd.DataFrame, y: np.ndarray, splits: int, embargo: int) -> Tuple[float, float]:
-    # Rakennetaan purged-CV probat ja haetaan thr, joka maksimoisi PF-proxyn
     cv = PurgedTimeSeriesSplit(n_splits=splits, embargo=embargo)
     idx = np.arange(len(X))
     probs, truths = [], []
     for tr, te in cv.split(idx):
         if len(np.unique(y[tr])) < 2 or len(np.unique(y[te])) < 2:
             continue
+        from sklearn.ensemble import GradientBoostingClassifier
         clf = GradientBoostingClassifier(random_state=42)
         clf.fit(X.iloc[tr], y[tr])
         p = clf.predict_proba(X.iloc[te])[:,1]
         p = np.clip(p, 0.02, 0.98)
-        probs.append(p.astype(float))
-        truths.append(y[te].astype(int))
+        probs.append(p.astype(float)); truths.append(y[te].astype(int))
     if not probs:
         return 0.6, 0.0
     grid = np.arange(0.50, 0.81, 0.02)
-    best_thr, best_score = 0.6, -1
+    best_thr, best_score = 0.6, -1.0
     for thr in grid:
-        score = 0.0
-        for p, t in zip(probs, truths):
-            score += _pf_proxy(t, p, thr)
-        score /= len(probs)
+        score = sum(_pf_proxy(t, p, thr) for p,t in zip(probs,truths)) / len(probs)
         if score > best_score:
-            best_score, best_thr = score, float(thr)
+            best_score, best_thr = float(score), float(thr)
     return best_thr, best_score
+
+def _features_for_class(asset_class: str) -> List[str]:
+    ac = asset_class
+    if ac == "crypto":
+        # trend + momentum + vola + volyymi
+        return ["sma_diff","ema_diff","rsi14","macd_hist","atr14","obv"]
+    if ac == "index":
+        # trend + trendin vahvuus + vola
+        return ["ema_diff","rsi14","adx14","vola50","atr14"]
+    if ac == "stock":
+        # trend + ajoitus + volyymi + vola
+        return ["ema_diff","rsi14","stoch_k","obv","atr14"]
+    if ac in ("metal","energy","fx"):
+        # konservatiivisempi: trend + vola + momentti
+        return ["ema_diff","rsi14","atr14","vola50","rng_pct"]
+    return ["ema_diff","rsi14","vola50","rng_pct"]
 
 def main():
     capital_rest_login()
     symbols = read_symbols()
-    # Halutessasi voit rajoittaa treenattavia symboleja ajossa: export SYMBOLS='BTC/USD,ETH/USD'
     tfs = [s.strip() for s in (os.getenv("TRAIN_TFS") or "15m,1h,4h").split(",") if s.strip()]
     max_total = int(os.getenv("TRAIN_MAX_TOTAL", "10000"))
     page_size = int(os.getenv("TRAIN_PAGE_SIZE", "200"))
@@ -88,7 +100,7 @@ def main():
     decay = float(os.getenv("TIME_DECAY", "0.995"))
 
     registry: List[Dict[str, Any]] = []
-    print(f"[META-TRAIN] start symbols={len(symbols)} tfs={tfs} pt={pt_mult} sl={sl_mult} hold={max_hold} cv={cv_splits} embargo={embargo} feature_set={os.getenv('FEATURE_SET','minimal')}", flush=True)
+    print(f"[META-TRAIN] start symbols={len(symbols)} tfs={tfs} pt={pt_mult} sl={sl_mult} hold={max_hold} cv={cv_splits} embargo={embargo}", flush=True)
 
     for sym in symbols:
         for tf in tfs:
@@ -98,33 +110,37 @@ def main():
                 df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
                 if df.empty or len(df) < 600: print(f"[WARN] insufficient data {sym} {tf} ({len(df)})", flush=True); continue
 
-                feats = compute_features(df)
+                feats_all = compute_features(df)
                 idx, dirs = _entry_points(df, cfg)
                 if len(idx) < 50: print(f"[WARN] too few entries {sym} {tf} ({len(idx)})", flush=True); continue
 
-                X = feats.iloc[idx].replace([np.inf,-np.inf], np.nan).fillna(method="ffill").fillna(method="bfill").fillna(0.0)
-                y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
+                asset_class = resolve_asset_class(sym)
+                want_cols = _features_for_class(asset_class)
+                # Kohdista featurit haluttuihin; puuttuvat korvataan 0.0
+                feats_all = feats_all.replace([np.inf,-np.inf], np.nan).fillna(method="ffill").fillna(method="bfill")
+                feats_all = feats_all.fillna(0.0)
+                X = feats_all.iloc[idx]
+                X = X.reindex(columns=want_cols).fillna(0.0)
 
-                # Valitse kynnys CV:n PF-proxyn mukaan
+                y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
                 thr, cv_score = _cv_choose_threshold(X, y, splits=cv_splits, embargo=embargo)
 
-                # Lopullinen malli aikapainotuksella
+                # Aikapainotus
                 n = len(X)
                 weights = (decay ** (np.arange(n)[::-1])).astype(float)
                 clf = GradientBoostingClassifier(random_state=42)
                 clf.fit(X, y, sample_weight=weights)
+
                 key = _safe_key(sym, tf)
                 dump(clf, META_DIR / f"{key}.joblib")
-
                 row = {"key": key, "symbol": sym, "tf": tf,
                        "threshold": float(thr), "cv_pf_score": float(cv_score),
                        "pt_mult": pt_mult, "sl_mult": sl_mult, "max_hold": max_hold,
-                       "trained_at": int(time.time()),
+                       "trained_at": int(time.time()), "asset_class": asset_class,
                        "features": list(X.columns), "entries": int(len(idx)),
-                       "class_balance": float(y.mean()),
-                       "feature_set": os.getenv("FEATURE_SET","minimal")}
+                       "class_balance": float(y.mean())}
                 registry.append(row)
-                print(f"[OK][META] {sym} {tf} -> thr={thr:.2f} cv_pf={cv_score:.3f} entries={len(idx)} pos_rate={y.mean():.2f}", flush=True)
+                print(f"[OK][META] {sym} {tf} [{asset_class}] -> thr={thr:.2f} cv_pf={cv_score:.3f} feats={len(X.columns)} entries={len(idx)}", flush=True)
                 time.sleep(0.2)
             except Exception as e:
                 print(f"[ERROR][META] {sym} {tf}: {e}", flush=True)
