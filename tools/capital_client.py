@@ -488,3 +488,17 @@ def _compute_R(p: Position, px: float) -> Optional[float]:
             return (p.entry_price - px) / risk
     except Exception:
         return None
+
+
+# -------------------------- päätason apukäyttö --------------------------
+
+def connect_and_prepare() -> CapitalClient:
+    """
+    Yhdistä, adoptoi avoimet positiot ja käynnistä hallinta jos pyydetty.
+    Live voi kutsua tätä suoraan (order_router käyttää tätä).
+    """
+    cli = CapitalClient()
+    ok = cli.login()
+    if not ok:
+        print("[CapitalClient] Login epäonnistui – jatketaan best-effort-tilassa.")
+    return cli
