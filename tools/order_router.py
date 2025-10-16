@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 
 from tools.capital_client import connect_and_prepare, CapitalClient
 
-# Ylläpidetään yksi ja sama CapitalClient-instanssi
+# Ylläpidetään yksi client
 _CC: Optional[CapitalClient] = None
 
 def _client() -> CapitalClient:
@@ -15,38 +15,21 @@ def _client() -> CapitalClient:
     return _CC
 
 def _norm_symbol_for_env_key(symbol: str) -> str:
-    """
-    Muodostaa environment-avaimen rungon:
-      'US SPX 500' -> 'USSPX500'
-      'EUR/USD'    -> 'EURUSD'
-      'BTC/USD'    -> 'BTCUSD'
-    """
     u = symbol.upper()
     return re.sub(r"[^A-Z0-9]", "", u)
 
-def to_cap_epic(symbol: str) -> str:
+def to_cap_epic_hint(symbol: str) -> str:
     """
-    EPIC-kartoitus Capitalille:
-    1) jos löytyy ympäristömuuttuja CAPITAL_EPIC_<NORM>, käytä sitä
-       - esimerkki: CAPITAL_EPIC_USSPX500=US500
-    2) muuten poista vinoviivat ja välilyönnit: EUR/USD -> EURUSD
+    Palauta vain 'vihje' EPICiksi (poista '/' ja välilyönnit) dry-run tulostukseen.
+    Varsinainen EPIC resolvoidaan CapitalClientissä markkinahaulla.
     """
     norm = _norm_symbol_for_env_key(symbol)
-    env_key = f"CAPITAL_EPIC_{norm}"
-    val = os.environ.get(env_key)
-    if val and val.strip():
-        return val.strip()
+    v = os.environ.get(f"CAPITAL_EPIC_{norm}")
+    if v and v.strip():
+        return v.strip()
     return symbol.replace("/", "").replace(" ", "")
 
 def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_run: Optional[bool]=None) -> Dict[str, Any]:
-    """
-    Lähettää markkinatoimeksiannon Capital.comiin.
-    - symbol: esim. 'US SPX 500', 'EUR/USD', 'BTC/USD', 'AAPL'
-    - side:   'BUY' tai 'SELL'
-    - qty:    size (CFD-koko)
-    - tf:     valinnainen – raportointiin (ei vaikuta lähetykseen)
-    - dry_run: jos None, käyttää DRY_RUN env (oletus 1 = ei lähetetä oikeasti)
-    """
     if side is None or side.upper() not in ("BUY", "SELL"):
         raise ValueError(f"route_order: invalid side '{side}' (expected BUY/SELL)")
     if qty is None or qty <= 0:
@@ -55,13 +38,13 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
     if dry_run is None:
         dry_run = (os.environ.get("DRY_RUN", "1") != "0")
 
-    epic = to_cap_epic(symbol)
+    epic_hint = to_cap_epic_hint(symbol)
 
     if dry_run:
         return {
             "dry_run": True,
             "exchange": "capital",
-            "epic": epic,
+            "epic_hint": epic_hint,
             "symbol": symbol,
             "side": side.upper(),
             "qty": float(qty),
@@ -70,13 +53,12 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
         }
 
     cli = _client()
-    # CapitalClient.place_market käyttää 'symbol' kenttää; annetaan epic-muotoinen string
-    res = cli.place_market(symbol=epic, side=side.upper(), size=float(qty))
-    # res on jo dict ({"ok":..., "data":..., "order_id":..., "position_id":...})
+    # Välitä näyttönimi/symboli – CapitalClient resolvoi EPICin oikeaksi
+    res = cli.place_market(symbol=symbol, side=side.upper(), size=float(qty))
     return {
         "dry_run": False,
         "exchange": "capital",
-        "epic": epic,
+        "epic_hint": epic_hint,
         "symbol": symbol,
         "side": side.upper(),
         "qty": float(qty),
@@ -86,7 +68,4 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
     }
 
 def create_market_order(symbol: str, side: str, qty: float, dry_run: Optional[bool]=None) -> Dict[str, Any]:
-    """
-    Taaksepäin-yhteensopiva alias – suositaan route_order()-funktiota.
-    """
     return route_order(symbol=symbol, side=side, qty=qty, tf=None, dry_run=dry_run)
