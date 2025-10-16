@@ -26,7 +26,7 @@ def to_cap_epic_hint(symbol: str) -> str:
 def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_run: Optional[bool]=None) -> Dict[str, Any]:
     """
     Lähettää markkinatoimeksiannon Capitalille market_orderilla.
-    - symbol: näyttönimi (esim 'US SPX 500', 'EUR/USD') tai EPIC-vihje
+    - symbol: näyttönimi (esim 'US SPX 500', 'EUR/USD') tai EPIC
     - side:   'BUY' / 'SELL'
     - qty:    koko
     - tf:     (valinnainen) ei vaikuta lähetykseen
@@ -55,8 +55,8 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
             "tf": tf,
         }
 
-    # market_order huolehtii EPIC-resoluutiosta oikeaksi
-    res = cap.market_order(epic=epic_hint, direction=s, size=float(qty))
+    # TÄRKEÄ: välitä näyttönimi/symboli resolverille – se hakee oikean EPICin (esim. 'US SPX 500' -> 'US500')
+    res = cap.market_order(epic=symbol, direction=s, size=float(qty))
     return {
         "dry_run": False,
         "exchange": "capital",
