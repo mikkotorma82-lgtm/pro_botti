@@ -1,23 +1,9 @@
 # -*- coding: utf-8 -*-
-"""
-Capital market_order – lähettää markkinatoimeksiannon capital_sessionin sessiolla.
-- Ei vaadi CAPITAL_ACCOUNT_ID:tä
-- Käyttää env: CAPITAL_API_BASE, CAPITAL_API_KEY, CAPITAL_USERNAME, CAPITAL_PASSWORD
-- EPIC resolvoidaan:
-  1) CAPITAL_EPIC_<NORM> env – KÄYTÄ TÄTÄ VAIN JOS ARVO ON OIKEA EPIC (pisteellinen)
-  2) market search (instrumentName/symbol) -> EPIC
-  3) fallback: poista '/' ja välilyönnit (voi epäonnistua)
-- Lähetys:
-  - POST /api/v1/positions/otc; jos 404/405, fallback POST /api/v1/positions
-  - Header VERSION=2 (joillain instansseilla vaaditaan)
-- REST-epäonnistuessa palauttaa local mock -position (ei kaada liveä)
-"""
-
 from __future__ import annotations
 import os
 import re
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple, List
 
 try:
     import requests
@@ -33,14 +19,14 @@ def _resolve_epic(symbol_or_name: str) -> str:
     s = (symbol_or_name or "").strip()
     if not s:
         return s
-    # Env override – käytä vain jos arvo on oikea EPIC (ei esim. 'US500')
+    # Env override – käytä vain jos arvo on oikea EPIC (ei esim. 'US500' jos backendi vaatii toista)
     env = os.environ.get("CAPITAL_EPIC_" + _norm_key(s))
     if env and env.strip():
         return env.strip()
     # Jos näyttää jo EPICiltä (pisteitä, ei välilyöntejä), palauta
     if "." in s and " " not in s:
         return s
-    # Hae markkinoista
+    # Markkinahaku
     try:
         hits = capital_market_search(s)
         if hits:
@@ -49,7 +35,6 @@ def _resolve_epic(symbol_or_name: str) -> str:
                 sym = (h.get("symbol") or "").upper().replace("/", "").replace(" ", "")
                 if sym and sym == target:
                     return h["epic"]
-            # name exact -> contains -> first
             best = None
             for h in hits:
                 name = (h.get("instrumentName") or "").upper()
@@ -82,10 +67,22 @@ def _last_price(sess: "requests.Session", base: str, epic: str) -> Optional[floa
         pass
     return None
 
+def _try_post(sess: "requests.Session", url: str, payload: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]], str]:
+    try:
+        r = sess.post(url, json=payload, timeout=25)
+        ok = (r.status_code // 100 == 2)
+        body = r.text[:500] if r.text else ""
+        if ok:
+            return True, (r.json() if r.text else {}), f"{r.status_code}"
+        else:
+            return False, None, f"{r.status_code} {body}"
+    except Exception as e:
+        return False, None, f"EXC {e}"
+
 def market_order(epic: str, direction: str, size: float) -> Dict[str, Any]:
     """
     Tee markkinatoimeksianto. Palauttaa dict: {ok, data, order_id?, position_id?} tai local mock.
-    - epic: EPIC tai näyttönimi/vihje; resolvoidaan EPICiksi
+    - epic: näyttönimi tai EPIC; resolvoidaan EPICiksi
     - direction: BUY/SELL
     - size: float
     """
@@ -96,58 +93,66 @@ def market_order(epic: str, direction: str, size: float) -> Dict[str, Any]:
         raise ValueError(f"market_order: invalid size '{size}'")
 
     sess, base = capital_rest_login()
-    epic_res = _resolve_epic(epic)
+    sess.headers.setdefault("Accept", "application/json")
+    sess.headers.setdefault("Content-Type", "application/json")
+    # Joillakin instansseilla VERSION=2 vaaditaan
     sess.headers.setdefault("VERSION", "2")
 
-    # 1) positions/otc (IG/Capital-tyyli)
-    url_otc = f"{base}/api/v1/positions/otc"
-    payload_otc = {
-        "epic": epic_res,
-        "direction": direction,
-        "size": float(size),
-        "orderType": "MARKET",
-        "timeInForce": "FILL_OR_KILL",
-        "forceOpen": True,
-    }
+    epic_res = _resolve_epic(epic)
+    print(f"[ORDER][DEBUG] resolved EPIC={epic_res}")
 
-    try:
-        r = sess.post(url_otc, json=payload_otc, timeout=25)
-        if r.status_code // 100 == 2:
-            data = r.json() if r.text else {}
-            print(f"[ORDER][REST] EPIC={epic_res} dir={direction} size={size} via /positions/otc")
+    # Yritetään useita muotoja järjestyksessä
+    attempts: List[Tuple[str, Dict[str, Any]]] = [
+        # 1) positions symbol/side/type
+        (f"{base}/api/v1/positions", {
+            "symbol": epic_res,
+            "side": direction,
+            "size": float(size),
+            "type": "MARKET",
+        }),
+        # 2) positions epic/direction/orderType
+        (f"{base}/api/v1/positions", {
+            "epic": epic_res,
+            "direction": direction,
+            "size": float(size),
+            "orderType": "MARKET",
+        }),
+        # 3) IG/Capital tyyli: positions/otc
+        (f"{base}/api/v1/positions/otc", {
+            "epic": epic_res,
+            "direction": direction,
+            "size": float(size),
+            "orderType": "MARKET",
+            "timeInForce": "FILL_OR_KILL",
+            "forceOpen": True,
+        }),
+        # 4) /api/v1/deal fallback
+        (f"{base}/api/v1/deal", {
+            "epic": epic_res,
+            "direction": direction,
+            "size": float(size),
+            "orderType": "MARKET",
+        }),
+    ]
+
+    last_err = ""
+    for url, payload in attempts:
+        ok, data, info = _try_post(sess, url, payload)
+        if ok:
+            print(f"[ORDER][REST] EPIC={epic_res} dir={direction} size={size} via {url}")
+            d = data or {}
             return {
                 "ok": True,
-                "data": data,
-                "order_id": str((data or {}).get("dealId") or (data or {}).get("order_id") or (data or {}).get("id") or ""),
-                "position_id": str((data or {}).get("position") or (data or {}).get("position_id") or ""),
+                "data": d,
+                "order_id": str(d.get("dealId") or d.get("order_id") or d.get("id") or ""),
+                "position_id": str(d.get("position") or d.get("position_id") or ""),
             }
-        # 404/405 → fallback /positions
-        if r.status_code in (404, 405):
-            url_pos = f"{base}/api/v1/positions"
-            payload_pos = {
-                "symbol": epic_res,
-                "side": direction,
-                "size": float(size),
-                "type": "MARKET",
-                "tif": "FOK",
-            }
-            rr = sess.post(url_pos, json=payload_pos, timeout=25)
-            rr.raise_for_status()
-            data = rr.json() if rr.text else {}
-            print(f"[ORDER][REST] EPIC={epic_res} dir={direction} size={size} via /positions")
-            return {
-                "ok": True,
-                "data": data,
-                "order_id": str((data or {}).get("order_id") or (data or {}).get("id") or ""),
-                "position_id": str((data or {}).get("position") or (data or {}).get("position_id") or ""),
-            }
-        # jokin muu HTTP-virhe
-        r.raise_for_status()
-    except Exception as e:
-        print(f"[ERROR] REST order epäonnistui: {e}")
+        else:
+            print(f"[ORDER][DEBUG] {url} -> {info}")
+            last_err = f"{url} -> {info}"
 
-    # 2) Fallback: local mock, jotta live voi jatkaa
+    # Fallback: mock
     pos_id = f"local-{int(time.time()*1000)}"
     px = _last_price(sess, base, epic_res) or 0.0
-    print(f"[ORDER][LOCAL] EPIC={epic_res} dir={direction} size={size} -> mock pos {pos_id}")
+    print(f"[ORDER][LOCAL] EPIC={epic_res} dir={direction} size={size} -> mock pos {pos_id} (last_err={last_err})")
     return {"ok": True, "data": {"local_only": True, "entry_px": px}, "position_id": pos_id}
