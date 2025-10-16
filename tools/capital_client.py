@@ -9,18 +9,19 @@ CapitalClient – yhteensopiva asiakas liven odottamille metodeille:
 Tämä versio käyttää samaa sessio- ja loginpolkua kuin tools.capital_session:
 - Login ja sessio: capital_rest_login() -> (requests.Session, base)
 - API-päätepisteet: /api/v1/* (orders, positions, prices)
-- Headerit ja tokenit ovat linjassa capital_sessionin kanssa
+- Headerit ja tokenit linjassa capital_sessionin kanssa
 
 Ympäristö:
 - CAPITAL_API_BASE, CAPITAL_API_KEY, CAPITAL_USERNAME, CAPITAL_PASSWORD, CAPITAL_ACCOUNT_ID
-- X-CAP-ACCOUNT-TYPE (CAPITAL_ACCOUNT_TYPE) välittyy capital_sessionin kautta
-- ADOPT_ON_START=1, MANAGE_OPEN_POSITIONS=1 jne. toimivat kuten aiemmin
+- CAPITAL_ACCOUNT_TYPE (esim CFD; capital_session lisää headerin)
+- ADOPT_ON_START=1, MANAGE_OPEN_POSITIONS=1 jne.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -31,7 +32,7 @@ try:
 except Exception:
     requests = None  # pragma: no cover
 
-from tools.capital_session import capital_rest_login
+from tools.capital_session import capital_rest_login, capital_market_search
 
 INSTR_PATH = "/root/pro_botti/data/instrument_map.json"
 
@@ -189,6 +190,51 @@ class CapitalClient:
             pass
         return None
 
+    # ---------------------- EPIC resoluutio ----------------------
+
+    @staticmethod
+    def _is_prob_epic(s: str) -> bool:
+        # EPIC usein pisteellinen, ilman välilyöntejä, esim. IX.D.SPTRD.D
+        return ("." in s) and (" " not in s)
+
+    def _resolve_epic(self, symbol_or_name: str) -> str:
+        s = (symbol_or_name or "").strip()
+        if not s:
+            return s
+        if self._is_prob_epic(s):
+            return s
+
+        # Ympäristö override: CAPITAL_EPIC_<ALNUM>
+        key = "CAPITAL_EPIC_" + re.sub(r"[^A-Z0-9]", "", s.upper())
+        v = os.environ.get(key, "").strip()
+        if v:
+            return v
+
+        # Haku rajapinnasta
+        try:
+            hits = capital_market_search(s)
+            if hits:
+                target = s.upper().replace("/", "").replace(" ", "")
+                # symbol exact (normalized)
+                for h in hits:
+                    sym = (h.get("symbol") or "").upper().replace("/", "").replace(" ", "")
+                    if sym and sym == target:
+                        return h["epic"]
+                # name exact -> name contains -> first
+                best = None
+                for h in hits:
+                    name = (h.get("instrumentName") or "").upper()
+                    if name == s.upper():
+                        best = h; break
+                    if (s.upper() in name) and best is None:
+                        best = h
+                return (best or hits[0])["epic"]
+        except Exception:
+            pass
+
+        # Viimeinen fallback: poista / ja välilyönnit
+        return s.replace("/", "").replace(" ", "")
+
     # ---------------------- order & positio-operaatiot ----------------------
 
     def place_market(self, symbol: str, side: str, size: float,
@@ -197,8 +243,8 @@ class CapitalClient:
                      trailing: Optional[Dict[str, Any]] = None,
                      comment: Optional[str] = None) -> Dict[str, Any]:
         """
-        Markkinatoimeksianto /api/v1/orders päähän.
-        symbol paramilla annetaan EPIC (tai brokerin symboli).
+        Markkinatoimeksianto IG/Capital-tyyppiseen päähän: POST /api/v1/positions/otc
+        symbol paramilla annetaan näyttönimi tai EPIC; resolvoimme EPICin itse.
         """
         req = OrderRequest(symbol=symbol, side=_norm_side(side), size=float(size),
                            order_type="MARKET", stop_loss=stop_loss,
@@ -377,45 +423,46 @@ class CapitalClient:
 
     def _route_place_order(self, req: OrderRequest, trailing: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        1) REST: /api/v1/orders payload
+        1) REST: POST /api/v1/positions/otc payload IG/Capital-muodossa
         2) Fallback: local mock position cache
         """
         if self.session and self.base:
             try:
-                url = f"{self.base}/api/v1/orders"
-                payload = {
-                    # Huom: käytetään 'symbol' kenttää EPIC:lle; jotkin backendit hyväksyvät myös 'epic'
-                    "symbol": req.symbol,
-                    "side": req.side,
-                    "size": req.size,
-                    "type": req.order_type,
-                    "tif": req.tif,
-                }
-                if req.price is not None:
-                    payload["price"] = req.price
-                if req.stop_loss is not None:
-                    payload["stop_loss"] = req.stop_loss
-                if req.take_profit is not None:
-                    payload["take_profit"] = req.take_profit
-                if trailing:
-                    payload["trailing"] = trailing
-                if req.comment:
-                    payload["comment"] = req.comment
-                if self.account_id:
-                    payload["account_id"] = self.account_id
+                epic = self._resolve_epic(req.symbol)
 
-                r = self.session.post(url, json=payload, timeout=15)
+                # IG/Capital "positions/otc" payload
+                url = f"{self.base}/api/v1/positions/otc"
+                payload = {
+                    "epic": epic,
+                    "direction": req.side,              # BUY/SELL
+                    "size": float(req.size),
+                    "orderType": req.order_type,        # MARKET/LIMIT/STOP
+                    "timeInForce": "FILL_OR_KILL",      # tyypillinen
+                    "forceOpen": True,
+                }
+                if req.price is not None and req.order_type != "MARKET":
+                    payload["level"] = float(req.price)
+                if req.take_profit is not None:
+                    payload["limitLevel"] = float(req.take_profit)
+                if req.stop_loss is not None:
+                    payload["stopLevel"] = float(req.stop_loss)
+
+                # Joissain IG/Capital-päissä tarvitaan VERSION-header (2)
+                self.session.headers.setdefault("VERSION", "2")
+
+                r = self.session.post(url, json=payload, timeout=20)
                 r.raise_for_status()
                 data = r.json() if r.text else {}
-                order_id = str(data.get("order_id") or data.get("id") or data.get("dealId") or "")
-                pos_id = str(data.get("position_id") or data.get("position") or "")
+                order_id = str(data.get("dealId") or data.get("order_id") or data.get("id") or "")
+                pos_id = str(data.get("position") or data.get("position_id") or "")
+
                 if pos_id:
-                    px = self.last_price(req.symbol) or (req.price or 0.0)
+                    px = self.last_price(epic) or (req.price or 0.0)
                     entry = px if req.order_type == "MARKET" else (req.price or px)
                     with self._pos_lock:
                         self._positions[pos_id] = Position(
                             position_id=pos_id,
-                            symbol=req.symbol,
+                            symbol=epic,
                             side="LONG" if req.side in ("BUY", "LONG") else "SHORT",
                             size=req.size,
                             entry_price=float(entry or 0.0),
@@ -423,7 +470,7 @@ class CapitalClient:
                             take_profit=req.take_profit,
                             meta={"order_id": order_id, "raw": data},
                         )
-                print(f"[ORDER] {req.symbol} {req.side} {req.size} type={req.order_type} ok id={order_id or pos_id}")
+                print(f"[ORDER] {epic} {req.side} {req.size} type={req.order_type} ok id={order_id or pos_id}")
                 return {"ok": True, "data": data, "order_id": order_id, "position_id": pos_id}
             except Exception as e:
                 print(f"[ERROR] REST order epäonnistui: {e}")
