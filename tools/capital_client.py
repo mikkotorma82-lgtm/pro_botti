@@ -6,15 +6,10 @@ CapitalClient – yhteensopiva asiakas liven odottamille metodeille:
 - get_open_positions, account_info, last_price
 - adopt_open_positions, manage_positions_loop
 
-Tämä versio käyttää samaa sessio- ja loginpolkua kuin tools.capital_session:
-- Login ja sessio: capital_rest_login() -> (requests.Session, base)
-- API-päätepisteet: /api/v1/* (orders, positions, prices)
+Käyttää samaa sessio- ja loginpolkua kuin tools.capital_session:
+- capital_rest_login() -> (requests.Session, base)
+- API-päätepisteet: /api/v1/* (prices, positions)
 - Headerit ja tokenit linjassa capital_sessionin kanssa
-
-Ympäristö:
-- CAPITAL_API_BASE, CAPITAL_API_KEY, CAPITAL_USERNAME, CAPITAL_PASSWORD, CAPITAL_ACCOUNT_ID
-- CAPITAL_ACCOUNT_TYPE (esim CFD; capital_session lisää headerin)
-- ADOPT_ON_START=1, MANAGE_OPEN_POSITIONS=1 jne.
 """
 
 from __future__ import annotations
@@ -25,7 +20,7 @@ import re
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 try:
     import requests
@@ -58,8 +53,8 @@ def instr_info(symbol: str) -> Dict[str, Any]:
         except Exception:
             return default
 
-    mmin = _flt(d.get("min_trade_size"), 0.0)
-    step = _flt(d.get("lot_step") or d.get("step") or d.get("quantity_step"), 0.0)
+    d["min_trade_size"] = _flt(d.get("min_trade_size"), 0.0)
+    d["lot_step"] = _flt(d.get("lot_step") or d.get("step") or d.get("quantity_step"), 0.0)
     lev  = _flt(d.get("leverage"), None)
     mf   = _flt(d.get("margin_factor"), None)
     if lev is None and mf not in (None, 0):
@@ -67,9 +62,6 @@ def instr_info(symbol: str) -> Dict[str, Any]:
             lev = 100.0 / float(mf)
         except Exception:
             lev = None
-
-    d["min_trade_size"] = mmin
-    d["lot_step"] = step
     d["leverage"] = lev
     return d
 
@@ -110,7 +102,7 @@ class CapitalClient:
     def __init__(self):
         self.session: Optional["requests.Session"] = None
         self.base: str = ""
-        self.account_id = os.environ.get("CAPITAL_ACCOUNT_ID")
+        self.account_id = os.environ.get("CAPITAL_ACCOUNT_ID", "").strip()
 
         # Risk/hallinta
         self.trailing_enabled = os.environ.get("TRAILING_ENABLED", "0") == "1"
@@ -129,11 +121,18 @@ class CapitalClient:
     def login(self) -> bool:
         """
         Käytä capital_sessionin loginia ja jaettua sessiota/headersia.
+        Lisää myös VERSION ja X-CAP-ACCOUNT-ID headerit jos saatavilla.
         """
         try:
             sess, base = capital_rest_login()
             self.session = sess
             self.base = base.rstrip("/")
+            # Jotkin instanssit vaativat VERSION-headerin (2)
+            self.session.headers.setdefault("VERSION", "2")
+            # Tilivalinta headeriin jos annettu
+            if self.account_id:
+                self.session.headers["X-CAP-ACCOUNT-ID"] = self.account_id
+
             if self.adopt_on_start:
                 try:
                     self.adopt_open_positions()
@@ -154,8 +153,9 @@ class CapitalClient:
                 r = self.session.get(url, timeout=10)
                 if r.status_code == 200:
                     return r.json()
-            except Exception:
-                pass
+                print(f"[CapitalClient][account_info] HTTP {r.status_code}: {r.text[:200]}")
+            except Exception as e:
+                print(f"[CapitalClient][account_info][ERROR] {e}")
         free = _env_float("CAP_FREE_BALANCE", None)
         if free is not None:
             return {"accounts": [{"id": self.account_id or "primary", "status": "ENABLED", "preferred": True,
@@ -178,7 +178,6 @@ class CapitalClient:
                             a, b = d.get(path[0]), d.get(path[1])
                             if isinstance(a, (int,float)) and isinstance(b, (int,float)):
                                 return float((a+b)/2.0)
-                # fall through
             except Exception:
                 pass
         env_key = f"LASTPX_{symbol_or_epic}"
@@ -194,7 +193,6 @@ class CapitalClient:
 
     @staticmethod
     def _is_prob_epic(s: str) -> bool:
-        # EPIC usein pisteellinen, ilman välilyöntejä, esim. IX.D.SPTRD.D
         return ("." in s) and (" " not in s)
 
     def _resolve_epic(self, symbol_or_name: str) -> str:
@@ -204,23 +202,19 @@ class CapitalClient:
         if self._is_prob_epic(s):
             return s
 
-        # Ympäristö override: CAPITAL_EPIC_<ALNUM>
         key = "CAPITAL_EPIC_" + re.sub(r"[^A-Z0-9]", "", s.upper())
         v = os.environ.get(key, "").strip()
         if v:
             return v
 
-        # Haku rajapinnasta
         try:
             hits = capital_market_search(s)
             if hits:
                 target = s.upper().replace("/", "").replace(" ", "")
-                # symbol exact (normalized)
                 for h in hits:
                     sym = (h.get("symbol") or "").upper().replace("/", "").replace(" ", "")
                     if sym and sym == target:
                         return h["epic"]
-                # name exact -> name contains -> first
                 best = None
                 for h in hits:
                     name = (h.get("instrumentName") or "").upper()
@@ -232,7 +226,6 @@ class CapitalClient:
         except Exception:
             pass
 
-        # Viimeinen fallback: poista / ja välilyönnit
         return s.replace("/", "").replace(" ", "")
 
     # ---------------------- order & positio-operaatiot ----------------------
@@ -242,10 +235,6 @@ class CapitalClient:
                      take_profit: Optional[float] = None,
                      trailing: Optional[Dict[str, Any]] = None,
                      comment: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Markkinatoimeksianto IG/Capital-tyyppiseen päähän: POST /api/v1/positions/otc
-        symbol paramilla annetaan näyttönimi tai EPIC; resolvoimme EPICin itse.
-        """
         req = OrderRequest(symbol=symbol, side=_norm_side(side), size=float(size),
                            order_type="MARKET", stop_loss=stop_loss,
                            take_profit=take_profit, client_tag="live_market", comment=comment)
@@ -310,8 +299,6 @@ class CapitalClient:
         if self.session and self.base:
             try:
                 url = f"{self.base}/api/v1/positions"
-                if self.account_id:
-                    url = f"{url}?account_id={self.account_id}"
                 r = self.session.get(url, timeout=10)
                 if r.status_code == 200:
                     arr = r.json() if isinstance(r.json(), list) else r.json().get("positions", [])
@@ -331,8 +318,9 @@ class CapitalClient:
                     with self._pos_lock:
                         self._positions = {p.position_id: p for p in res if p.position_id}
                     return res
-            except Exception:
-                pass
+                print(f"[CapitalClient][get_open_positions] HTTP {r.status_code}: {r.text[:200]}")
+            except Exception as e:
+                print(f"[CapitalClient][get_open_positions][ERROR] {e}")
         with self._pos_lock:
             return list(self._positions.values())
 
@@ -423,38 +411,65 @@ class CapitalClient:
 
     def _route_place_order(self, req: OrderRequest, trailing: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        1) REST: POST /api/v1/positions/otc payload IG/Capital-muodossa
+        1) REST: POST /api/v1/positions/otc (IG/Capital-tyyli).
+           Jos palaa 405/404 -> koita POST /api/v1/positions (osa instansseista käyttää tätä).
         2) Fallback: local mock position cache
         """
         if self.session and self.base:
             try:
                 epic = self._resolve_epic(req.symbol)
+                self.session.headers.setdefault("VERSION", "2")
+                if self.account_id:
+                    self.session.headers["X-CAP-ACCOUNT-ID"] = self.account_id
 
-                # IG/Capital "positions/otc" payload
-                url = f"{self.base}/api/v1/positions/otc"
-                payload = {
+                payload_otc = {
                     "epic": epic,
                     "direction": req.side,              # BUY/SELL
                     "size": float(req.size),
                     "orderType": req.order_type,        # MARKET/LIMIT/STOP
-                    "timeInForce": "FILL_OR_KILL",      # tyypillinen
+                    "timeInForce": "FILL_OR_KILL",
                     "forceOpen": True,
                 }
                 if req.price is not None and req.order_type != "MARKET":
-                    payload["level"] = float(req.price)
+                    payload_otc["level"] = float(req.price)
                 if req.take_profit is not None:
-                    payload["limitLevel"] = float(req.take_profit)
+                    payload_otc["limitLevel"] = float(req.take_profit)
                 if req.stop_loss is not None:
-                    payload["stopLevel"] = float(req.stop_loss)
+                    payload_otc["stopLevel"] = float(req.stop_loss)
 
-                # Joissain IG/Capital-päissä tarvitaan VERSION-header (2)
-                self.session.headers.setdefault("VERSION", "2")
+                # 1) positions/otc
+                url_otc = f"{self.base}/api/v1/positions/otc"
+                r = self.session.post(url_otc, json=payload_otc, timeout=25)
+                if r.status_code // 100 != 2:
+                    # Jos ei sallittu/ei löydy, kokeile /positions
+                    if r.status_code in (404, 405):
+                        payload_pos = {
+                            "symbol": epic,               # jotkut instanssit käyttävät "symbol" kenttää
+                            "side": req.side,             # BUY/SELL
+                            "size": float(req.size),
+                            "type": req.order_type,       # MARKET/LIMIT/STOP
+                            "tif": "FOK",
+                        }
+                        if req.price is not None and req.order_type != "MARKET":
+                            payload_pos["price"] = float(req.price)
+                        # SL/TP nimet voivat poiketa – yritetään geneerisiä
+                        if req.take_profit is not None:
+                            payload_pos["take_profit"] = float(req.take_profit)
+                        if req.stop_loss is not None:
+                            payload_pos["stop_loss"] = float(req.stop_loss)
 
-                r = self.session.post(url, json=payload, timeout=20)
-                r.raise_for_status()
-                data = r.json() if r.text else {}
-                order_id = str(data.get("dealId") or data.get("order_id") or data.get("id") or "")
-                pos_id = str(data.get("position") or data.get("position_id") or "")
+                        url_pos = f"{self.base}/api/v1/positions"
+                        rr = self.session.post(url_pos, json=payload_pos, timeout=25)
+                        rr.raise_for_status()
+                        data = rr.json() if rr.text else {}
+                    else:
+                        r.raise_for_status()
+                        data = r.json() if r.text else {}
+                else:
+                    data = r.json() if r.text else {}
+
+                order_id = str((data or {}).get("dealId") or (data or {}).get("order_id") or (data or {}).get("id") or "")
+                pos_id = str((data or {}).get("position") or (data or {}).get("position_id") or "")
 
                 if pos_id:
                     px = self.last_price(epic) or (req.price or 0.0)
@@ -472,10 +487,11 @@ class CapitalClient:
                         )
                 print(f"[ORDER] {epic} {req.side} {req.size} type={req.order_type} ok id={order_id or pos_id}")
                 return {"ok": True, "data": data, "order_id": order_id, "position_id": pos_id}
+
             except Exception as e:
                 print(f"[ERROR] REST order epäonnistui: {e}")
 
-        # Fallback: mock
+        # 2) Fallback: mock
         pos_id = f"local-{int(time.time()*1000)}"
         px = self.last_price(req.symbol) or (req.price or 0.0)
         entry = px if req.order_type == "MARKET" else (req.price or px)
@@ -490,7 +506,7 @@ class CapitalClient:
                 take_profit=req.take_profit,
                 meta={"order_id": None, "local_only": True},
             )
-        print(f"[ORDER][LOCAL] {req.symbol} {req.side} {req.size} type={req.order_type} -> mock pos {pos_id}")
+        print(f"[ORDER][LOCAL] {req.symbol} {req.side} {req.size} type={req.orderType} -> mock pos {pos_id}")
         return {"ok": True, "data": {"local_only": True}, "position_id": pos_id}
 
 
@@ -518,34 +534,3 @@ def _env_float(key: str, default: Optional[float] = None) -> Optional[float]:
         return float(v) if v not in (None, "",) else default
     except Exception:
         return default
-
-def _compute_R(p: Position, px: float) -> Optional[float]:
-    if p.stop_loss is None:
-        return None
-    try:
-        if p.side == "LONG":
-            risk = p.entry_price - p.stop_loss
-            if risk <= 0:
-                return None
-            return (px - p.entry_price) / risk
-        else:
-            risk = p.stop_loss - p.entry_price
-            if risk <= 0:
-                return None
-            return (p.entry_price - px) / risk
-    except Exception:
-        return None
-
-
-# -------------------------- päätason apukäyttö --------------------------
-
-def connect_and_prepare() -> CapitalClient:
-    """
-    Yhdistä, adoptoi avoimet positiot ja käynnistä hallinta jos pyydetty.
-    Live voi kutsua tätä suoraan (order_router käyttää tätä).
-    """
-    cli = CapitalClient()
-    ok = cli.login()
-    if not ok:
-        print("[CapitalClient] Login epäonnistui – jatketaan best-effort-tilassa.")
-    return cli
