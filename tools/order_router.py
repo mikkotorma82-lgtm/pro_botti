@@ -12,11 +12,10 @@ def _norm_symbol_for_env_key(symbol: str) -> str:
     """
     return re.sub(r"[^A-Z0-9]", "", symbol.upper())
 
-def to_cap_epic(symbol: str) -> str:
+def to_cap_epic_hint(symbol: str) -> str:
     """
-    EPIC-kartoitus Capitalille:
-    1) CAPITAL_EPIC_<NORM> jos asetettu
-    2) muuten poista '/' ja välilyönnit (vain vihjeenä)
+    EPIC-vihje lokitusta varten (poistaa '/' ja välilyönnit).
+    HUOM: Varsinainen EPIC resolvoidaan capital_clientissa.
     """
     key = f"CAPITAL_EPIC_{_norm_symbol_for_env_key(symbol)}"
     v = os.environ.get(key)
@@ -27,7 +26,7 @@ def to_cap_epic(symbol: str) -> str:
 def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_run: Optional[bool]=None) -> Dict[str, Any]:
     """
     Lähettää markkinatoimeksiannon Capitalille market_orderilla.
-    - symbol: näyttönimi (esim 'US SPX 500', 'EUR/USD') tai EPIC; router laskee vihjeen
+    - symbol: näyttönimi (esim 'US SPX 500', 'EUR/USD') tai EPIC-vihje
     - side:   'BUY' / 'SELL'
     - qty:    koko
     - tf:     (valinnainen) ei vaikuta lähetykseen
@@ -42,13 +41,13 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
     if dry_run is None:
         dry_run = (os.environ.get("DRY_RUN", "1") != "0")
 
-    epic_hint = to_cap_epic(symbol)
+    epic_hint = to_cap_epic_hint(symbol)
 
     if dry_run:
         return {
             "dry_run": True,
             "exchange": "capital",
-            "epic": epic_hint,
+            "epic_hint": epic_hint,
             "symbol": symbol,
             "side": s,
             "qty": float(qty),
@@ -61,7 +60,7 @@ def route_order(symbol: str, side: str, qty: float, tf: Optional[str]=None, dry_
     return {
         "dry_run": False,
         "exchange": "capital",
-        "epic": epic_hint,
+        "epic_hint": epic_hint,
         "symbol": symbol,
         "side": s,
         "qty": float(qty),
