@@ -39,24 +39,22 @@ def _load_meta(symbol: str, tf: str) -> Optional[Tuple[object, dict]]:
         return None
 
 def should_take_trade(symbol: str, tf: str, action: str, df: pd.DataFrame) -> Tuple[bool, float]:
-    """
-    Palauttaa (ok, p) – ok=True jos meta-suodatin hyväksyy kaupan.
-    action: 'BUY' / 'SELL'
-    """
     if os.getenv("META_ENABLED", "1") != "1":
         return True, 1.0
 
     got = _load_meta(symbol, tf)
     if not got:
-        # Jos vaaditaan meta-malli, estä kauppa kun mallia ei löydy
         if os.getenv("META_REQUIRED", "0") == "1":
             return False, 0.0
-        # Muuten älä estä
         return True, 1.0
 
     model, row = got
-    feats = compute_features(df).iloc[-1:].copy()
-    feats = feats.replace([np.inf, -np.inf], np.nan).fillna(method="ffill").fillna(method="bfill").fillna(0.0)
+
+    feats_all = compute_features(df).iloc[-1:].copy()
+    # Täsmällinen sarakejärjestys ja täydennys
+    cols = row.get("features", list(feats_all.columns))
+    feats = feats_all.reindex(columns=cols).replace([np.inf, -np.inf], np.nan).fillna(method="ffill").fillna(method="bfill").fillna(0.0)
+
     try:
         proba = float(model.predict_proba(feats)[:, 1][0])
     except Exception:
