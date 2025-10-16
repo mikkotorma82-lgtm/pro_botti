@@ -43,7 +43,7 @@ def _bar_align(tf: str) -> int:
 def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
 
-    # Login ja symbolit
+    # Login retry (ei kaadu jos hetkellinen virhe)
     sess_try = 0
     while True:
         try:
@@ -62,29 +62,27 @@ def main_loop():
 
     live_state = _load_json(LIVE_STATE, {})
     last_train = 0
-    last_backfill = 0
     last_calib = 0
 
     while True:
         try:
             now = int(time.time())
 
-            # Viikkotreeni: auton käynnistäminen taustalla (ei blokkaa)
+            # Viikkotreeni (taustalle, ei blokkaa loopkia)
             if now - last_train > 12 * 3600 and time.gmtime(now).tm_wday == 6 and time.gmtime(now).tm_hour == 2:
                 last_train = now
                 os.system("python -m tools.train_wfa_pro >/dev/null 2>&1 &")
 
-            # Päivittäinen kynnyskalibrointi kohti trade-targetia
+            # Päivittäinen kynnyskalibrointi kohti freq-targetia
             if now - last_calib > 3600:
                 last_calib = now
                 changed = calibrate_thresholds(k=0.05)
                 if changed:
                     print(f"[AUTO] frequency controller adjusted thresholds on {changed} model(s)", flush=True)
 
-            # Live-signaalit
+            # Live-signaalit + toimeksiannot
             for sym in symbols:
                 for tf in tfs:
-                    # Nouda konfig
                     reg = _load_json(STATE / "models_pro.json", {"models": []})
                     rows = [m for m in reg.get("models", []) if m.get("symbol") == sym and m.get("tf") == tf and m.get("strategy") == "CONSENSUS"]
                     if not rows:
@@ -125,7 +123,6 @@ def main_loop():
             print("[AUTO] loop error:", e, flush=True)
             traceback.print_exc()
 
-        # Sleep: pienin TF määrää tahdin
         step = min(_bar_align(tf) for tf in tfs) if tfs else 60
         time.sleep(max(sleep_min, step // 5))
 
