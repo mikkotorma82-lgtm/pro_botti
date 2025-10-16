@@ -7,8 +7,9 @@ def signal_sma(df: pd.DataFrame, n: int) -> np.ndarray:
     px = df["close"].astype(float).values
     sma = pd.Series(px).rolling(n, min_periods=n).mean().values
     sig = np.zeros_like(px, dtype=float)
-    sig[~np.isnan(sma)] = np.sign(px[~np.isnan(sma)] - sma[~np.isnan(sma)])
-    return sig  # -1/0/1
+    mask = ~np.isnan(sma)
+    sig[mask] = np.sign(px[mask] - sma[mask])
+    return sig
 
 def signal_ema(df: pd.DataFrame, n: int) -> np.ndarray:
     px = df["close"].astype(float)
@@ -28,7 +29,6 @@ def signal_rsi(df: pd.DataFrame, n: int, low=30.0, high=70.0) -> np.ndarray:
     rs = np.divide(roll_up, roll_down + 1e-12)
     rsi = 100.0 - (100.0 / (1.0 + rs))
     sig = np.zeros_like(px, dtype=float)
-    # Oversold -> buy, Overbought -> sell
     sig[rsi <= low] = 1.0
     sig[rsi >= high] = -1.0
     return sig
@@ -40,6 +40,4 @@ def signal_macd(df: pd.DataFrame, fast=12, slow=26, siglen=9) -> np.ndarray:
     macd = ema_fast - ema_slow
     signal = macd.ewm(span=siglen, adjust=False, min_periods=siglen).mean()
     hist = macd - signal
-    # Käytä histogrammin nollaristiä signaalina
-    sig = np.sign(hist.values)
-    return sig
+    return np.sign(hist.values)
