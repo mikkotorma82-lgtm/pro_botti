@@ -2,33 +2,47 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-def get_daily_vol(close: pd.Series, span: int = 100) -> pd.Series:
-    r = np.log(close).diff()
-    vol = r.ewm(span=span).std()
-    return vol
+def rolling_vola(close: pd.Series, span: int = 50) -> pd.Series:
+    r = close.pct_change()
+    return r.ewm(span=span, adjust=False).std().fillna(method="bfill")
 
-def apply_triple_barrier(df: pd.DataFrame, pt_mult: float, sl_mult: float, max_holding: int) -> pd.Series:
+def label_meta_from_entries(
+    df: pd.DataFrame,
+    entries_idx: np.ndarray,
+    directions: np.ndarray,  # +1 BUY, -1 SELL
+    pt_mult: float = 2.0,
+    sl_mult: float = 2.0,
+    max_holding: int = 48,
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    df: index time-ordered; must include 'close'
-    Returns: label Series (+1 hit TP first, -1 hit SL first, 0 time-out)
+    Binary meta-label:
+      1 -> TP osuu ennen SL:ää
+      0 -> SL osuu ensin T:n sisällä T=max_holding; jos ei kumpikaan, 0 (konservatiivinen)
+    Toteutus bar-close tasolla ilman intrabar-dataa (live-yhteensopiva).
     """
     close = df["close"].values
-    n = len(df)
-    labels = np.zeros(n, dtype=int)
-    # simple ATR-like scale: rolling std as proxy
-    vola = pd.Series(close, index=df.index).pct_change().rolling(50).std().fillna(method="bfill").values
-    for i in range(n - 1):
+    n = len(close)
+    vol = rolling_vola(df["close"]).values
+    y = np.zeros(len(entries_idx), dtype=int)
+    horizon = np.minimum(entries_idx + max_holding, n - 1)
+
+    for k, i in enumerate(entries_idx):
+        d = 1 if directions[k] >= 0 else -1
         entry = close[i]
-        pt = entry * (1 + pt_mult * (vola[i] or 0.001))
-        sl = entry * (1 - sl_mult * (vola[i] or 0.001))
-        j_end = min(n - 1, i + max_holding)
-        # scan forward until barrier
+        # Suhteuta barrierit vola:an, lisää pieni minimi, jottei nollavola riko
+        vol_i = vol[i] if np.isfinite(vol[i]) and vol[i] > 1e-6 else 1e-3
+        tp = entry * (1 + d * pt_mult * vol_i)  # BUY: ylös, SELL: alas (miinus)
+        sl = entry * (1 - d * sl_mult * vol_i)  # BUY: alas, SELL: ylös (miinus kääntää suunnan)
+        j_end = horizon[k]
         hit = 0
+        # Iteroi eteenpäin kunnes yksi osuu
         for j in range(i + 1, j_end + 1):
             px = close[j]
-            if px >= pt:
-                hit = 1; break
-            if px <= sl:
-                hit = -1; break
-        labels[i] = hit  # 0 if neither hit before j_end
-    return pd.Series(labels, index=df.index)
+            if d == 1:
+                if px >= tp: hit = 1; break
+                if px <= sl: hit = 0; break
+            else:
+                if px <= tp: hit = 1; break
+                if px >= sl: hit = 0; break
+        y[k] = hit
+    return y, horizon
