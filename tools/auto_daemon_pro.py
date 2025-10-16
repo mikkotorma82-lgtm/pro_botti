@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, json, time, traceback
+import os, json, time, traceback, threading, subprocess, shlex
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -11,7 +11,6 @@ from tools.consensus_engine import consensus_signal
 from tools.signal_executor import execute_action
 from tools.frequency_controller import record_trade, calibrate_thresholds
 from tools.symbol_resolver import read_symbols
-# UUSI: adoptoi avoimet ja käynnistä hallinta jos pyydetty
 from tools.capital_client import connect_and_prepare
 
 STATE = Path(__file__).resolve().parents[1] / "state"
@@ -42,6 +41,50 @@ def _equity() -> float:
 def _bar_align(tf: str) -> int:
     return {"15m": 900, "1h": 3600, "4h": 14400}.get(tf, 3600)
 
+# ----------------- Taustatreeni omassa säikeessä -----------------
+
+_TRAIN_BG_LOCK = threading.Lock()
+def _trainer_once() -> None:
+    """
+    Aja yksi treenikierros erillisessä aliprosessissa.
+    Kirjoittaa mallit atomisesti train_wfa_pro:n kautta.
+    """
+    try:
+        cwd = str(Path(__file__).resolve().parents[1])
+        py = os.path.join(cwd, "venv", "bin", "python")
+        cmd = f"{shlex.quote(py)} -m tools.train_wfa_pro"
+        print(f"[TRAIN_BG] start: {cmd}", flush=True)
+        # Perus throttlaus – halutessa voit override: TRAIN_PAGE_SLEEP ym. botti.env:ssä
+        env = os.environ.copy()
+        # Kevyempi treeni jos haluat (esim. rajaa TF:t): env.setdefault("TRAIN_TFS","15m,1h")
+        p = subprocess.run(cmd, cwd=cwd, shell=True)
+        print(f"[TRAIN_BG] done: rc={p.returncode}", flush=True)
+    except Exception as e:
+        print(f"[TRAIN_BG][ERROR] {e}", flush=True)
+
+def _trainer_loop() -> None:
+    """
+    Pyöritä treeniä taustalla tasavälein, häiritsemättä liveä.
+    """
+    interval_min = int(os.getenv("TRAIN_BG_INTERVAL_MIN", "360") or "360")
+    sleep_s = max(60, interval_min * 60)
+    print(f"[TRAIN_BG] loop start (interval={interval_min} min)", flush=True)
+    # Pieni viive käynnistyksessä, että live ehtii alustaa
+    time.sleep(10)
+    while True:
+        try:
+            # Varmista ettei päällekkäisiä ajoja
+            if _TRAIN_BG_LOCK.acquire(blocking=False):
+                try:
+                    _trainer_once()
+                finally:
+                    _TRAIN_BG_LOCK.release()
+            else:
+                print("[TRAIN_BG] previous run still active, skip", flush=True)
+        except Exception as e:
+            print(f"[TRAIN_BG][LOOP][ERROR] {e}", flush=True)
+        time.sleep(sleep_s)
+
 def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
 
@@ -50,7 +93,6 @@ def main_loop():
     while True:
         try:
             capital_rest_login()
-            # kutsu adoption/management bootstrap – kun env-liput päällä, tämä adoptoi ja käynnistää hallintasilmukan
             connect_and_prepare()
             break
         except Exception as e:
@@ -59,20 +101,24 @@ def main_loop():
             print(f"[AUTO] capital_rest_login failed: {e} -> retry in {wait}s", flush=True)
             time.sleep(wait)
 
+    # Käynnistä treenin taustasäie tarvittaessa
+    if os.getenv("TRAIN_BG", "1") == "1":
+        t = threading.Thread(target=_trainer_loop, name="trainer-bg", daemon=True)
+        t.start()
+
     symbols = read_symbols()
     tfs = [s.strip() for s in (os.getenv("LIVE_TFS") or "15m,1h").split(",") if s.strip()]
     max_total = int(os.getenv("LIVE_TOTAL_BARS", "600"))
     sleep_min = int(os.getenv("LIVE_MIN_SLEEP", "15"))
 
     live_state = _load_json(LIVE_STATE, {})
-    last_train = 0
     last_calib = 0
 
     while True:
         try:
             now = int(time.time())
 
-            # Päivittäinen kynnyskalibrointi
+            # Kynnyskalibrointi 1h välein
             if now - last_calib > 3600:
                 last_calib = now
                 changed = calibrate_thresholds(k=0.05)
