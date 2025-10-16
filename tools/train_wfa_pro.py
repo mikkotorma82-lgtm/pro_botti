@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os, json, time
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -60,7 +60,7 @@ def _wfa(df: pd.DataFrame, cfg: Dict[str, Any], folds: int,
          sr_filter: bool, position_mode: str) -> Dict[str, Any]:
 
     T = len(df)
-    fold_len = T // (folds + 1)
+    fold_len = max(1, T // (folds + 1))
     details = []
     for i in range(folds):
         train_lo, train_hi = 0, (i+1)*fold_len
@@ -97,8 +97,28 @@ def _wfa(df: pd.DataFrame, cfg: Dict[str, Any], folds: int,
     }
     return agg
 
+def _fetch_df_with_retry(symbol: str, tf: str,
+                         total_limit: int, page_size: int, sleep_sec: float,
+                         retries: int = 5) -> pd.DataFrame:
+    """
+    Robustit retryt Capital-hakuihin. Ei kaada koko ajoa, jos yksittäinen pyyntö timeouttaa.
+    """
+    back = max(1.0, sleep_sec)
+    for i in range(1, retries+1):
+        try:
+            df = capital_get_candles_df(symbol, tf, total_limit=total_limit, page_size=page_size, sleep_sec=sleep_sec)
+            return df
+        except Exception as e:
+            wait = min(90, int(back * i * 1.8))
+            print(f"[WARN] fetch candles failed ({symbol} {tf}) attempt {i}/{retries}: {e} -> sleep {wait}s", flush=True)
+            time.sleep(wait)
+    # Viimeinen yritys – jos vielä epäonnistuu, palauta tyhjä
+    return pd.DataFrame(columns=["time","open","high","low","close","volume"])
+
 def main():
+    # Login ensin
     capital_rest_login()
+
     symbols = read_symbols()
     tfs = [s.strip() for s in (os.getenv("TRAIN_TFS") or "").split(",") if s.strip()] or DEFAULT_TFS
     folds = int(os.getenv("TRAIN_FOLDS", "6"))
@@ -114,43 +134,48 @@ def main():
 
     grid = _grid()
     registry: List[Dict[str, Any]] = []
-    print(f"[TRAIN] symbols={len(symbols)} TFs={tfs} folds={folds} costs(bps) fee={fee_bps} slip={slip_bps} spread={spread_bps} sr_filter={sr_filter} mode={position_mode}")
+    print(f"[TRAIN] symbols={len(symbols)} TFs={tfs} folds={folds} costs(bps) fee={fee_bps} slip={slip_bps} spread={spread_bps} sr_filter={sr_filter} mode={position_mode}", flush=True)
 
     for sym in symbols:
         for tf in tfs:
-            df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
-            if df.empty or len(df) < 600:
-                print(f"[WARN] not enough data {sym} {tf} (rows={len(df)})")
-                continue
+            try:
+                df = _fetch_df_with_retry(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec, retries=5)
+                if df.empty or len(df) < 600:
+                    print(f"[WARN] not enough data {sym} {tf} (rows={len(df)})", flush=True)
+                    continue
 
-            best = None
-            for cfg in grid:
-                res = _wfa(df, cfg, folds, fee_bps, slip_bps, spread_bps, sr_filter, position_mode)
-                score = (res["sh_oos_mean"], res["pf_oos_mean"])
-                if (best is None) or (score > best[0]):
-                    best = (score, cfg, res)
+                best = None
+                for cfg in grid:
+                    res = _wfa(df, cfg, folds, fee_bps, slip_bps, spread_bps, sr_filter, position_mode)
+                    score = (res["sh_oos_mean"], res["pf_oos_mean"])
+                    if (best is None) or (score > best[0]):
+                        best = (score, cfg, res)
 
-            if best is None:
-                print(f"[WARN] no result {sym} {tf}")
-                continue
+                if best is None:
+                    print(f"[WARN] no result {sym} {tf}", flush=True)
+                    continue
 
-            score, cfg, res = best
-            row = {
-                "symbol": sym, "tf": tf,
-                "strategy": "CONSENSUS",
-                "config": cfg,
-                "metrics": res,
-                "costs_bps": {"fee": fee_bps, "slip": slip_bps, "spread": spread_bps},
-                "sr_filter": sr_filter, "position_mode": position_mode,
-                "trained_at": int(time.time())
-            }
-            registry.append(row)
-            print(f"[OK] {sym} {tf} -> sh={res['sh_oos_mean']:.3f} pf={res['pf_oos_mean']:.2f} thr={cfg['threshold']} cfg={cfg['params']}")
-            time.sleep(0.8)
+                score, cfg, res = best
+                row = {
+                    "symbol": sym, "tf": tf,
+                    "strategy": "CONSENSUS",
+                    "config": cfg,
+                    "metrics": res,
+                    "costs_bps": {"fee": fee_bps, "slip": slip_bps, "spread": spread_bps},
+                    "sr_filter": sr_filter, "position_mode": position_mode,
+                    "trained_at": int(time.time())
+                }
+                registry.append(row)
+                print(f"[OK] {sym} {tf} -> sh={res['sh_oos_mean']:.3f} pf={res['pf_oos_mean']:.2f} thr={cfg['threshold']} cfg={cfg['params']}", flush=True)
+                time.sleep(0.8)
+            except Exception as e:
+                print(f"[ERROR] training failed for {sym} {tf}: {e}", flush=True)
+                # jatketaan seuraavaan TF:ään/symboliin
 
+    # Kirjoita mitä saatiin – ei kaadeta ajuria vaikka osa epäonnistui
     with open(REG_PATH, "w") as f:
         json.dump({"models": registry}, f, ensure_ascii=False, indent=2)
-    print(f"[DONE] models -> {REG_PATH} (count={len(registry)})")
+    print(f"[DONE] models -> {REG_PATH} (count={len(registry)})", flush=True)
 
 if __name__ == "__main__":
     main()
