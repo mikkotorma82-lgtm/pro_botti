@@ -11,6 +11,8 @@ from tools.consensus_engine import consensus_signal
 from tools.signal_executor import execute_action
 from tools.frequency_controller import record_trade, calibrate_thresholds
 from tools.symbol_resolver import read_symbols
+# UUSI: adoptoi avoimet ja käynnistä hallinta jos pyydetty
+from tools.capital_client import connect_and_prepare
 
 STATE = Path(__file__).resolve().parents[1] / "state"
 STATE.mkdir(parents=True, exist_ok=True)
@@ -43,11 +45,13 @@ def _bar_align(tf: str) -> int:
 def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
 
-    # Login retry (ei kaadu jos hetkellinen virhe)
+    # Login + adoption/management
     sess_try = 0
     while True:
         try:
             capital_rest_login()
+            # kutsu adoption/management bootstrap – kun env-liput päällä, tämä adoptoi ja käynnistää hallintasilmukan
+            connect_and_prepare()
             break
         except Exception as e:
             sess_try += 1
@@ -68,12 +72,7 @@ def main_loop():
         try:
             now = int(time.time())
 
-            # Viikkotreeni (taustalle, ei blokkaa loopkia)
-            if now - last_train > 12 * 3600 and time.gmtime(now).tm_wday == 6 and time.gmtime(now).tm_hour == 2:
-                last_train = now
-                os.system("python -m tools.train_wfa_pro >/dev/null 2>&1 &")
-
-            # Päivittäinen kynnyskalibrointi kohti freq-targetia
+            # Päivittäinen kynnyskalibrointi
             if now - last_calib > 3600:
                 last_calib = now
                 changed = calibrate_thresholds(k=0.05)
