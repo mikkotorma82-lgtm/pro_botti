@@ -17,8 +17,7 @@ def label_meta_from_entries(
     """
     Binary meta-label:
       1 -> TP osuu ennen SL:ää
-      0 -> SL osuu ensin T:n sisällä T=max_holding; jos ei kumpikaan, 0 (konservatiivinen)
-    Toteutus bar-close tasolla ilman intrabar-dataa (live-yhteensopiva).
+      0 -> SL osuu ensin T:n sisällä; jos kumpikaan ei osu, 0 (konservatiivinen)
     """
     close = df["close"].values
     n = len(close)
@@ -29,13 +28,12 @@ def label_meta_from_entries(
     for k, i in enumerate(entries_idx):
         d = 1 if directions[k] >= 0 else -1
         entry = close[i]
-        # Suhteuta barrierit vola:an, lisää pieni minimi, jottei nollavola riko
         vol_i = vol[i] if np.isfinite(vol[i]) and vol[i] > 1e-6 else 1e-3
-        tp = entry * (1 + d * pt_mult * vol_i)  # BUY: ylös, SELL: alas (miinus)
-        sl = entry * (1 - d * sl_mult * vol_i)  # BUY: alas, SELL: ylös (miinus kääntää suunnan)
+        # BUY: tp>entry, sl<entry; SELL: tp<entry, sl>entry (d kääntää suunnan)
+        tp = entry * (1 + d * pt_mult * vol_i)
+        sl = entry * (1 - d * sl_mult * vol_i)
         j_end = horizon[k]
         hit = 0
-        # Iteroi eteenpäin kunnes yksi osuu
         for j in range(i + 1, j_end + 1):
             px = close[j]
             if d == 1:
