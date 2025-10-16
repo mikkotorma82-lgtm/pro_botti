@@ -5,7 +5,6 @@ from typing import Dict, Any, List, Tuple
 import numpy as np
 import pandas as pd
 from joblib import dump
-from sklearn.metrics import roc_auc_score
 from sklearn.ensemble import GradientBoostingClassifier
 from tools.capital_session import capital_rest_login, capital_get_candles_df
 from tools.symbol_resolver import read_symbols
@@ -40,28 +39,43 @@ def _entry_points(df: pd.DataFrame, cfg: Dict[str, Any]) -> Tuple[np.ndarray, np
     idx = np.where((buy | sell).values)[0]; dirs = np.where(buy.values[idx], 1, -1)
     return idx, dirs
 
-def _purged_auc(X: pd.DataFrame, y: np.ndarray, n_splits: int, embargo: int) -> float:
-    aucs = []; cv = PurgedTimeSeriesSplit(n_splits=n_splits, embargo=embargo)
-    id_all = np.arange(len(X))
-    for tr, te in cv.split(id_all):
-        if len(np.unique(y[tr]))<2 or len(np.unique(y[te]))<2: continue
-        clf = GradientBoostingClassifier(random_state=42)
-        clf.fit(X.iloc[tr], y[tr]); p = clf.predict_proba(X.iloc[te])[:,1]
-        aucs.append(roc_auc_score(y[te], p))
-    return float(np.mean(aucs)) if aucs else 0.5
+def _pf_proxy(y_true: np.ndarray, p: np.ndarray, thr: float) -> float:
+    yhat = (p >= thr).astype(int)
+    tp = int(((yhat==1) & (y_true==1)).sum())
+    fp = int(((yhat==1) & (y_true==0)).sum())
+    return tp / (fp + 1.0)
 
-def _best_threshold(y_true: np.ndarray, p: np.ndarray) -> float:
-    grid = [0.5, 0.55, 0.6, 0.65, 0.7]; best, best_thr = -1e9, 0.6
+def _cv_choose_threshold(X: pd.DataFrame, y: np.ndarray, splits: int, embargo: int) -> Tuple[float, float]:
+    # Rakennetaan purged-CV probat ja haetaan thr, joka maksimoisi PF-proxyn
+    cv = PurgedTimeSeriesSplit(n_splits=splits, embargo=embargo)
+    idx = np.arange(len(X))
+    probs, truths = [], []
+    for tr, te in cv.split(idx):
+        if len(np.unique(y[tr])) < 2 or len(np.unique(y[te])) < 2:
+            continue
+        clf = GradientBoostingClassifier(random_state=42)
+        clf.fit(X.iloc[tr], y[tr])
+        p = clf.predict_proba(X.iloc[te])[:,1]
+        p = np.clip(p, 0.02, 0.98)
+        probs.append(p.astype(float))
+        truths.append(y[te].astype(int))
+    if not probs:
+        return 0.6, 0.0
+    grid = np.arange(0.50, 0.81, 0.02)
+    best_thr, best_score = 0.6, -1
     for thr in grid:
-        yhat = (p >= thr).astype(int)
-        tp = int(((yhat==1)&(y_true==1)).sum()); fp = int(((yhat==1)&(y_true==0)).sum())
-        score = tp - 0.5*fp
-        if score > best: best = score; best_thr = thr
-    return best_thr
+        score = 0.0
+        for p, t in zip(probs, truths):
+            score += _pf_proxy(t, p, thr)
+        score /= len(probs)
+        if score > best_score:
+            best_score, best_thr = score, float(thr)
+    return best_thr, best_score
 
 def main():
     capital_rest_login()
     symbols = read_symbols()
+    # Halutessasi voit rajoittaa treenattavia symboleja ajossa: export SYMBOLS='BTC/USD,ETH/USD'
     tfs = [s.strip() for s in (os.getenv("TRAIN_TFS") or "15m,1h,4h").split(",") if s.strip()]
     max_total = int(os.getenv("TRAIN_MAX_TOTAL", "10000"))
     page_size = int(os.getenv("TRAIN_PAGE_SIZE", "200"))
@@ -71,8 +85,11 @@ def main():
     max_hold = int(os.getenv("TB_MAX_HOLD", "48"))
     cv_splits = int(os.getenv("META_CV_SPLITS", "5"))
     embargo = int(os.getenv("META_EMBARGO", str(max_hold)))
+    decay = float(os.getenv("TIME_DECAY", "0.995"))
+
     registry: List[Dict[str, Any]] = []
-    print(f"[META-TRAIN] start symbols={len(symbols)} tfs={tfs} pt={pt_mult} sl={sl_mult} hold={max_hold} cv={cv_splits} embargo={embargo}", flush=True)
+    print(f"[META-TRAIN] start symbols={len(symbols)} tfs={tfs} pt={pt_mult} sl={sl_mult} hold={max_hold} cv={cv_splits} embargo={embargo} feature_set={os.getenv('FEATURE_SET','minimal')}", flush=True)
+
     for sym in symbols:
         for tf in tfs:
             try:
@@ -80,26 +97,41 @@ def main():
                 if not cfg: print(f"[SKIP] no base config for {sym} {tf}", flush=True); continue
                 df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
                 if df.empty or len(df) < 600: print(f"[WARN] insufficient data {sym} {tf} ({len(df)})", flush=True); continue
+
                 feats = compute_features(df)
                 idx, dirs = _entry_points(df, cfg)
                 if len(idx) < 50: print(f"[WARN] too few entries {sym} {tf} ({len(idx)})", flush=True); continue
-                y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
+
                 X = feats.iloc[idx].replace([np.inf,-np.inf], np.nan).fillna(method="ffill").fillna(method="bfill").fillna(0.0)
-                auc = _purged_auc(X, y, n_splits=cv_splits, embargo=embargo)
-                clf = GradientBoostingClassifier(random_state=42); clf.fit(X, y); p = clf.predict_proba(X)[:,1]
-                thr = _best_threshold(y, p)
+                y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
+
+                # Valitse kynnys CV:n PF-proxyn mukaan
+                thr, cv_score = _cv_choose_threshold(X, y, splits=cv_splits, embargo=embargo)
+
+                # Lopullinen malli aikapainotuksella
+                n = len(X)
+                weights = (decay ** (np.arange(n)[::-1])).astype(float)
+                clf = GradientBoostingClassifier(random_state=42)
+                clf.fit(X, y, sample_weight=weights)
                 key = _safe_key(sym, tf)
-                outp = META_DIR / f"{key}.joblib"; dump(clf, outp)
-                row = {"key": key, "symbol": sym, "tf": tf, "threshold": float(thr),
-                       "auc_purged": float(auc), "pt_mult": pt_mult, "sl_mult": sl_mult,
-                       "max_hold": max_hold, "trained_at": int(time.time()),
-                       "features": list(X.columns), "entries": int(len(idx)), "class_balance": float(y.mean())}
+                dump(clf, META_DIR / f"{key}.joblib")
+
+                row = {"key": key, "symbol": sym, "tf": tf,
+                       "threshold": float(thr), "cv_pf_score": float(cv_score),
+                       "pt_mult": pt_mult, "sl_mult": sl_mult, "max_hold": max_hold,
+                       "trained_at": int(time.time()),
+                       "features": list(X.columns), "entries": int(len(idx)),
+                       "class_balance": float(y.mean()),
+                       "feature_set": os.getenv("FEATURE_SET","minimal")}
                 registry.append(row)
-                print(f"[OK][META] {sym} {tf} -> AUC={auc:.3f} thr={thr:.2f} entries={len(idx)} pos_rate={y.mean():.2f}", flush=True)
+                print(f"[OK][META] {sym} {tf} -> thr={thr:.2f} cv_pf={cv_score:.3f} entries={len(idx)} pos_rate={y.mean():.2f}", flush=True)
                 time.sleep(0.2)
             except Exception as e:
                 print(f"[ERROR][META] {sym} {tf}: {e}", flush=True)
-    tmp = META_REG.with_suffix(".tmp"); open(tmp,"w").write(json.dumps({"models": registry}, ensure_ascii=False, indent=2)); os.replace(tmp, META_REG)
+
+    tmp = META_REG.with_suffix(".tmp")
+    open(tmp,"w").write(json.dumps({"models": registry}, ensure_ascii=False, indent=2))
+    os.replace(tmp, META_REG)
     print(f"[DONE][META] saved -> {META_REG} count={len(registry)}", flush=True)
 
 if __name__ == "__main__":
