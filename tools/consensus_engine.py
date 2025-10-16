@@ -7,16 +7,6 @@ from typing import Dict, Any
 from tools.strategies_pack import signal_sma, signal_ema, signal_rsi, signal_macd
 
 def consensus_signal(df: pd.DataFrame, cfg: Dict[str, Any]) -> np.ndarray:
-    """
-    cfg:
-      weights: {"sma":1.0,"ema":1.0,"rsi":0.5,"macd":1.0}
-      params:
-        sma_n: 20
-        ema_n: 21
-        rsi_n: 14; rsi_low:30; rsi_high:70
-        macd_fast:12; macd_slow:26; macd_sig:9
-      threshold: 0.5  (sum-weight > thr => +1, < -thr => -1, else 0)
-    """
     w = cfg.get("weights", {"sma": 1.0, "ema": 1.0, "rsi": 0.5, "macd": 1.0})
     p = cfg.get("params", {})
     thr = float(cfg.get("threshold", 0.5))
