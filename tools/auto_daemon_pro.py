@@ -15,6 +15,8 @@ from tools.meta_filter import should_take_trade
 STATE = Path(__file__).resolve().parents[1] / "state"
 LIVE_STATE = STATE / "live_state.json"
 SELECTED = STATE / "selected_universe.json"
+# UUSI: käytä aggregoitua PRO-rekisteriä jos se on olemassa
+PRO_AGG = STATE / "agg_models_pro.json"
 
 def _load_json(p: Path, default: Any) -> Any:
     try:
@@ -58,6 +60,11 @@ def _selected_universe() -> Dict[str, List[str]]:
     except Exception as e:
         print(f"[WARN] failed parsing selected_universe: {e}", flush=True)
         return {}
+
+def _pro_registry() -> Dict[str, Any]:
+    """Lataa PRO-rekisterin: käytä aggregaattia jos saatavilla, muuten per-ajo rekisteriä."""
+    path = PRO_AGG if PRO_AGG.exists() else (STATE / "models_pro.json")
+    return _load_json(path, {"models": []})
 
 def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
@@ -107,11 +114,13 @@ def main_loop():
                 if changed:
                     print(f"[AUTO] frequency controller adjusted thresholds on {changed} model(s)", flush=True)
 
+            # Lue PRO-rekisteri kerran per iteraatio (aggregoitu jos olemassa)
+            pro_reg = _pro_registry()
+
             for sym in symbols:
                 tfs = tf_map.get(sym, [])
                 for tf in tfs:
-                    reg = _load_json(STATE / "models_pro.json", {"models": []})
-                    rows = [m for m in reg.get("models", []) if m.get("symbol") == sym and m.get("tf") == tf and m.get("strategy") == "CONSENSUS"]
+                    rows = [m for m in pro_reg.get("models", []) if m.get("symbol") == sym and m.get("tf") == tf and m.get("strategy") == "CONSENSUS"]
                     if not rows:
                         continue
                     rows.sort(key=lambda r: int(r.get("trained_at", 0)), reverse=True)
