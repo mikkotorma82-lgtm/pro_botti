@@ -2,12 +2,16 @@
 from __future__ import annotations
 import os, json, time
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set, Tuple
 
 STATE = Path(__file__).resolve().parents[1] / "state"
-# UUSI: käytä aggregaattia jos olemassa
+# META: käytä aggregaattia jos olemassa
 META_AGG = STATE / "agg_models_meta.json"
 META_REG = META_AGG if META_AGG.exists() else (STATE / "models_meta.json")
+# PRO: käytä aggregaattia jos olemassa (suodatetaan valinta PRO:n mukaan)
+PRO_AGG = STATE / "agg_models_pro.json"
+PRO_REG = PRO_AGG if PRO_AGG.exists() else (STATE / "models_pro.json")
+
 SELECTED = STATE / "selected_universe.json"
 ENV_OUT = STATE / "live_universe.env"
 
@@ -16,6 +20,13 @@ def load_meta() -> List[Dict[str, Any]]:
         raise SystemExit(f"[SELECT] missing {META_REG}")
     obj = json.loads(META_REG.read_text() or "{}")
     return obj.get("models", [])
+
+def load_pro_set() -> Set[Tuple[str, str]]:
+    if not PRO_REG.exists():
+        return set()
+    obj = json.loads(PRO_REG.read_text() or "{}")
+    rows = obj.get("models", [])
+    return {(r.get("symbol"), r.get("tf")) for r in rows if r.get("strategy") == "CONSENSUS" and r.get("symbol") and r.get("tf")}
 
 def group_by_symbol(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
     by: Dict[str, List[Dict[str, Any]]] = {}
@@ -31,16 +42,23 @@ def main():
     prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h")).split(",") if s.strip()]
 
     rows = load_meta()
+    pro_set = load_pro_set()
+
     filt = []
     for r in rows:
         cvpf = float(r.get("cv_pf_score", r.get("auc_purged", 0.0)))
         ent = int(r.get("entries", 0))
         tf = r["tf"]
-        if cvpf < min_cvf: 
+        sym = r["symbol"]
+        # Suodata sääntöjen mukaan
+        if cvpf < min_cvf:
             continue
         if ent < min_entries:
             continue
         if (tf == "15m") and not allow_15m:
+            continue
+        # UUSI: pidä vain kombot, joilta löytyy PRO-konfigi
+        if (sym, tf) not in pro_set:
             continue
         filt.append(r)
 
@@ -80,7 +98,7 @@ def main():
     os.replace(tmp, SELECTED)
     print(f"[SELECT] wrote {SELECTED} combos={len(out['combos'])}")
 
-    # päivitettävä env out
+    # päivitetään env out valintoja vastaavaksi
     symbols = []
     tfs = set()
     for r in selected:
