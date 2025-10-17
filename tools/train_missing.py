@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, json, subprocess, shlex, time
+import os, json, subprocess, time
 from pathlib import Path
 from typing import Dict, Any, List, Set, Tuple
 
@@ -14,7 +14,6 @@ def load_missing() -> Dict[str, Any]:
     return json.loads(MISS.read_text() or "{}")
 
 def plan_runs(missing: Dict[str, Any]) -> List[Tuple[str, Set[str]]]:
-    # Palauta lista (symboli, tf_joukko), joille pitää ajaa PRO+META
     buckets = ["missing_both", "missing_pro", "missing_meta"]
     per_symbol: Dict[str, Set[str]] = {}
     for b in buckets:
@@ -37,7 +36,6 @@ def main():
     print(f"[TRAIN-MISSING] symbols={len(runs)}")
     for sym, tfs in runs:
         tfs_csv = ",".join(sorted(tfs))
-        # Aja PRO ja META vain tälle symbolille ja puuttuviin TF:iin
         env = {
             "SYMBOLS": sym,
             "TRAIN_TFS": tfs_csv,
@@ -46,6 +44,14 @@ def main():
         rc1 = run("./venv/bin/python -m tools.train_wfa_pro", env)
         rc2 = run("./venv/bin/python -m tools.train_meta", env)
         print(f"[TRAIN-MISSING] {sym} tfs={tfs_csv} -> PRO rc={rc1} META rc={rc2}")
+        # UUSI: upsertoi juuri tuotetut rekisterit aggregaatteihin ilman että muutat treenereitä
+        try:
+            from tools.reg_agg import merge_from_current
+            p_count, p_chg = merge_from_current("pro")
+            m_count, m_chg = merge_from_current("meta")
+            print(f"[AGG] upsert -> PRO count={p_count} (+{p_chg}) | META count={m_count} (+{m_chg})")
+        except Exception as e:
+            print(f"[AGG][WARN] merge failed: {e}")
         time.sleep(0.2)
     print("[TRAIN-MISSING] done")
 
