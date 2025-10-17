@@ -2,10 +2,12 @@
 from __future__ import annotations
 import os, json, time
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 
 STATE = Path(__file__).resolve().parents[1] / "state"
-META_REG = STATE / "models_meta.json"
+# UUSI: käytä aggregaattia jos olemassa
+META_AGG = STATE / "agg_models_meta.json"
+META_REG = META_AGG if META_AGG.exists() else (STATE / "models_meta.json")
 SELECTED = STATE / "selected_universe.json"
 ENV_OUT = STATE / "live_universe.env"
 
@@ -16,20 +18,19 @@ def load_meta() -> List[Dict[str, Any]]:
     return obj.get("models", [])
 
 def group_by_symbol(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    by = {}
+    by: Dict[str, List[Dict[str, Any]]] = {}
     for r in rows:
         by.setdefault(r["symbol"], []).append(r)
     return by
 
 def main():
-    min_cvf = float(os.getenv("SELECT_MIN_CVPF", "1.20"))        # min cvPF to keep
-    min_entries = int(os.getenv("SELECT_MIN_ENTRIES", "200"))    # min trades
-    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "2"))   # cap TFs per symbol
-    allow_15m = int(os.getenv("SELECT_ALLOW_15M", "0")) == 1     # default: avoid 15m
-    prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h")).split(",") if s.strip()]  # order preference
+    min_cvf = float(os.getenv("SELECT_MIN_CVPF", "1.20"))
+    min_entries = int(os.getenv("SELECT_MIN_ENTRIES", "200"))
+    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "2"))
+    allow_15m = int(os.getenv("SELECT_ALLOW_15M", "0")) == 1
+    prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h")).split(",") if s.strip()]
 
     rows = load_meta()
-    # Suodata kombot perussäännöillä
     filt = []
     for r in rows:
         cvpf = float(r.get("cv_pf_score", r.get("auc_purged", 0.0)))
@@ -43,7 +44,6 @@ def main():
             continue
         filt.append(r)
 
-    # Järjestä prioriteetilla: cvPF desc, entries desc, preferred TF
     def tf_rank(tf: str) -> int:
         try:
             return prefer_set.index(tf)
@@ -51,18 +51,12 @@ def main():
             return len(prefer_set)
     filt.sort(key=lambda r: (float(r.get("cv_pf_score", 0.0)), int(r.get("entries", 0)), -tf_rank(r["tf"])), reverse=True)
 
-    # Valitse max_tfs per symboli
     by = group_by_symbol(filt)
     selected: List[Dict[str, Any]] = []
     for sym, lst in by.items():
-        taken = []
-        for r in sorted(lst, key=lambda x: (float(x.get("cv_pf_score",0.0)), int(x.get("entries",0))), reverse=True):
-            if len(taken) >= max_tfs:
-                break
-            taken.append(r)
-        selected.extend(taken)
+        lst2 = sorted(lst, key=lambda x: (float(x.get("cv_pf_score",0.0)), int(x.get("entries",0))), reverse=True)
+        selected.extend(lst2[:max_tfs])
 
-    # Kirjoita JSON
     out = {
         "selected_at": int(time.time()),
         "rules": {
@@ -86,8 +80,7 @@ def main():
     os.replace(tmp, SELECTED)
     print(f"[SELECT] wrote {SELECTED} combos={len(out['combos'])}")
 
-    # Tuota myös .env (valinnainen), jos haluat käyttää env-pohjaista rajaa
-    # Rakennetaan SYMBOLS-lista ja TF-setti niistä mikäli halutaan
+    # päivitettävä env out
     symbols = []
     tfs = set()
     for r in selected:
