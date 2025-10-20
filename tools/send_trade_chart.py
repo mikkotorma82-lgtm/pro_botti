@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, io, sys, argparse, json, time, urllib.request
+import os, io, sys, argparse, json, time, urllib.request, math
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
@@ -53,7 +53,6 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
     if isinstance(d.index, pd.DatetimeIndex):
         return d
-    # Tyypilliset aikakentät
     for col in ("time","timestamp","ts","date"):
         if col in d.columns:
             s = d[col]
@@ -67,27 +66,67 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
                 return d
             except Exception:
                 pass
-    # Fallback: parsi indeksistä
     try:
         d.index = pd.to_datetime(d.index, utc=True, errors="coerce")
     except Exception:
         pass
     return d
 
-def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], exit_: Optional[float], action: Optional[str]) -> bytes:
-    d = _ensure_dtindex(df).copy()
+def _tf_seconds(tf: str) -> int:
+    return {"15m":900, "1h":3600, "4h":14400}.get(tf, 3600)
+
+def _parse_ts(val: Optional[str]) -> Optional[int]:
+    if not val: return None
+    val = str(val).strip()
+    # epoch seconds
+    if val.isdigit():
+        try: return int(val)
+        except Exception: return None
+    # ISO8601
+    try:
+        return int(pd.Timestamp(val).tz_convert("UTC").timestamp())
+    except Exception:
+        try:
+            return int(pd.Timestamp(val, tz="UTC").timestamp())
+        except Exception:
+            return None
+
+def _slice_window(d: pd.DataFrame, entry_ts: int, exit_ts: int, pad_bars: int = 6) -> pd.DataFrame:
+    # d index on UTC DatetimeIndex
+    t = d.index.view("int64") // 10**9
+    # lähin bar >= ts
+    start_idx = int(np.searchsorted(t.values, entry_ts, side="left"))
+    end_idx   = int(np.searchsorted(t.values, exit_ts, side="left"))
+    start = max(0, start_idx - pad_bars)
+    end   = min(len(d)-1, max(end_idx, start_idx) + pad_bars)
+    return d.iloc[start:end+1].copy()
+
+def build_chart(symbol: str, tf: str,
+                entry_px: Optional[float], exit_px: Optional[float],
+                entry_ts: Optional[int], exit_ts: Optional[int]) -> Tuple[bytes, str]:
+    # Päätä hakumäärä ajanjakson mukaan
+    bars = 200
+    if entry_ts and exit_ts:
+        dur = max(0, exit_ts - entry_ts)
+        bars = int(math.ceil(dur / _tf_seconds(tf))) + 20  # +puskuri
+
+    df = capital_get_candles_df(symbol, tf, total_limit=bars if bars>0 else 200)
+    if df.empty or not all(c in df.columns for c in ("open","high","low","close")):
+        raise RuntimeError("empty or missing OHLC data")
+
+    d = _ensure_dtindex(df)
+    if entry_ts and exit_ts:
+        d = _slice_window(d, entry_ts, exit_ts, pad_bars=6)
+
     addplots = []
     title = f"{symbol} {tf}  bars={len(d)}"
-    if entry and action:
-        color = "g" if action.upper()=="BUY" else "r"
-        addplots.append(mpf.make_addplot([entry]*len(d), type='line', color=color))
-        title += f"  entry={entry:.5f}"
-    if exit_ and action:
-        color = "r" if action.upper()=="BUY" else "g"
-        addplots.append(mpf.make_addplot([exit_]*len(d), type='line', color=color))
-        title += f"  exit={exit_:.5f}"
+    if entry_px:
+        addplots.append(mpf.make_addplot([entry_px]*len(d), type='line', color="g"))
+        title += f"  entry={entry_px:.5f}"
+    if exit_px:
+        addplots.append(mpf.make_addplot([exit_px]*len(d), type='line', color="r"))
+        title += f"  exit={exit_px:.5f}"
 
-    # Käytä returnfig=True + figscale/figratio (ei dpi/figsize-kwargs)
     fig, _ = mpf.plot(
         d, type='candle', style='charles',
         addplot=addplots, volume=False,
@@ -97,34 +136,36 @@ def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], 
     fig.suptitle(title)
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
-    return buf.getvalue()
+    # caption + tulos
+    pnl_txt = ""
+    if entry_px and exit_px and (entry_ts and exit_ts):
+        # suunta päätellään hinnoista; voidaan laajentaa jos tarjoat action
+        pnl = exit_px - entry_px
+        pnl_txt = f"\nResult: {pnl:+.5f}"
+    cap = f"{symbol} {tf}\nWindow: " \
+          f"{(pd.to_datetime(entry_ts, unit='s', utc=True).strftime('%Y-%m-%d %H:%M') if entry_ts else '?')} → " \
+          f"{(pd.to_datetime(exit_ts,  unit='s', utc=True).strftime('%Y-%m-%d %H:%M') if exit_ts else '?')}" \
+          f"{pnl_txt}"
+    return buf.getvalue(), cap
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--symbol", required=True)
     ap.add_argument("--tf", required=True, choices=["15m","1h","4h"])
-    ap.add_argument("--bars", type=int, default=200)
-    ap.add_argument("--entry", type=float, default=None)
-    ap.add_argument("--exit",  type=float, default=None)
-    ap.add_argument("--action", type=str, default=None, choices=["BUY","SELL"])
+    ap.add_argument("--entry", type=float, default=None, help="Entry price (for horizontal guide)")
+    ap.add_argument("--exit",  type=float, default=None, help="Exit price (for horizontal guide)")
+    ap.add_argument("--entry_ts", type=str, default=None, help="Entry time (epoch seconds or ISO8601)")
+    ap.add_argument("--exit_ts",  type=str, default=None, help="Exit time (epoch seconds or ISO8601)")
     args = ap.parse_args()
 
-    df = capital_get_candles_df(args.symbol, args.tf, total_limit=args.bars)
-    if df.empty or not all(c in df.columns for c in ("open","high","low","close")):
-        print("[ERR] empty or missing OHLC data", file=sys.stderr); sys.exit(1)
+    ent_ts = _parse_ts(args.entry_ts)
+    exi_ts = _parse_ts(args.exit_ts)
 
-    png = build_chart(df.tail(args.bars), args.symbol, args.tf, args.entry, args.exit, args.action)
+    png, caption = build_chart(args.symbol, args.tf, args.entry, args.exit, ent_ts, exi_ts)
     ts = int(time.time())
     p = OUTDIR / f"{args.symbol.replace('/','_')}__{args.tf}__{ts}.png"
     p.write_bytes(png)
-
-    pnl_txt = ""
-    if args.entry and args.exit and args.action:
-        pnl = (args.exit - args.entry) * (1 if args.action=="BUY" else -1)
-        pnl_txt = f"\nResult: {pnl:+.5f}"
-
-    cap = f"{args.symbol} {args.tf}\nOpenAI pattern gating: {'ON' if os.getenv('OPENAI_PATTERN_ENABLED','0')=='1' else 'OFF'}\nBars={args.bars}{pnl_txt}"
-    ok = _send_telegram_photo(png, cap)
+    ok = _send_telegram_photo(png, caption)
     print(f"[CHART] saved={p} sent={ok}")
 
 if __name__ == "__main__":
