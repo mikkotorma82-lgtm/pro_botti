@@ -9,8 +9,9 @@ User=root
 WorkingDirectory=/root/pro_botti
 EnvironmentFile=/root/pro_botti/secrets.env
 EnvironmentFile=/root/pro_botti/botti.env
-# ASETTAA symbols.txt:n eksplisiittisesti. VAIHDA polkuun jossa sinun tiedostosi on.
+# Aseta symbols.txt polku. VAIHDA jos tiedosto on eri paikassa.
 Environment=META_SYMBOLS_FILE=/root/pro_botti/symbols.txt
+# Esimerkkiasetuksia (avaa tarvittaessa):
 # Environment=META_TFS=15m,1h,4h
 # Environment=META_PARALLEL=6
 # Environment=META_MIN_CANDLES=300
