@@ -22,9 +22,12 @@ jobs:
           script: |
             set -euo pipefail
             ROOT=/root/pro_botti
-            cd "$ROOT" || exit 1
+            if [ ! -d "$ROOT/.git" ]; then
+              echo "[ERROR] Repo not found at $ROOT"; exit 1
+            fi
+            cd "$ROOT"
 
-            echo "[DEPLOY] Fetch & reset"
+            echo "[DEPLOY] Sync to origin/main"
             git fetch origin
             git reset --hard origin/main
 
@@ -39,7 +42,7 @@ jobs:
             chmod +x tools/meta_train_bg.sh 2>/dev/null || true
             chmod +x tools/train_bundle_guard.sh 2>/dev/null || true
 
-            echo "[DEPLOY] Install META units if present"
+            echo "[DEPLOY] Install META units (if present)"
             if [ -f deploy/systemd/pro-botti-meta-train.service ]; then
               install -m 0644 -D deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/pro-botti-meta-train.service
             fi
@@ -67,19 +70,4 @@ jobs:
               echo "[DEPLOY] No live unit found; skipping live restart"
             fi
 
-            echo "[DEPLOY] Import self-check (non-fatal)"
-            ./venv/bin/python - <<'PY' || true
-import importlib, sys
-try:
-    importlib.import_module('tools.meta_ensemble')
-    print('OK: import tools.meta_ensemble')
-except Exception as e:
-    print('WARN: import tools.meta_ensemble failed:', e, file=sys.stderr)
-PY
-
-            echo "[DEPLOY] Post-checks"
-            systemctl status pro-botti-meta-train.timer --no-pager || true
-            systemctl status pro-botti-meta-train.service --no-pager || true
-            systemctl status pro-botti.service --no-pager || true
-            journalctl -u pro-botti-meta-train.service -n 60 --no-pager || true
             echo "[DEPLOY] done"
