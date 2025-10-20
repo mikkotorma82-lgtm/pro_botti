@@ -9,16 +9,8 @@ User=root
 WorkingDirectory=/root/pro_botti
 EnvironmentFile=/root/pro_botti/secrets.env
 EnvironmentFile=/root/pro_botti/botti.env
-# Aseta symbolit ja kouluttajan polku eksplisiittisesti (voit muuttaa ympäristöön ilman koodimuutoksia)
 Environment=META_SYMBOLS_FILE=/root/pro_botti/config/symbols.txt
 Environment=META_EXCHANGE_ID=capitalcom
-# Esimerkit (avaa tarvittaessa)
-# Environment=META_TFS=15m,1h,4h
-# Environment=META_PARALLEL=6
-# Environment=META_MIN_CANDLES=300
-# Environment=META_MAX_SYMBOLS=0
-# Osoita projektin koulutusfunktio: moduuli:funktio
-# esim. jos teillä on tools/meta_ensemble.py jossa def train_symbol_tf(...):
 Environment=META_TRAINER_PATH=tools.meta_ensemble:train_symbol_tf
 ExecStart=/root/pro_botti/venv/bin/python -m tools.meta_train_all
 Nice=10

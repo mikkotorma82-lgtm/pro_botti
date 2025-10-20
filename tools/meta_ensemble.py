@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+feat/meta-simplify-and-fix
+from __future__ import annotations
+import os, json, time, re, warnings
+from pathlib import Path
+from typing import Dict, Any, List, Tuple
+=======
 """
 Wrapper for meta ensemble training to provide train_symbol_tf function.
 This serves as the default trainer for META_TRAINER_PATH.
@@ -12,10 +18,28 @@ import re
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 
+main
 import numpy as np
 import pandas as pd
 from joblib import dump
 
+feat/meta-simplify-and-fix
+# Project imports (present in this repo as used by tools/train_meta_ens.py)
+from tools.capital_session import capital_rest_login, capital_get_candles_df
+from tools.consensus_engine import consensus_signal
+from tools.ml.features import compute_features
+from tools.ml.labels import label_meta_from_entries
+from tools.ml.purged_cv import PurgedTimeSeriesSplit
+from tools.ml.asset_class import resolve_asset_class
+
+warnings.filterwarnings("ignore")
+
+ROOT = Path(__file__).resolve().parents[1]
+STATE = ROOT / "state"; STATE.mkdir(parents=True, exist_ok=True)
+META_DIR = STATE / "models_meta"; META_DIR.mkdir(parents=True, exist_ok=True)
+META_REG = STATE / "models_meta.json"
+PRO_REG  = STATE / "models_pro.json"
+=======
 warnings.filterwarnings("ignore")
 
 # Optional dependencies flags
@@ -96,6 +120,7 @@ META_DIR = STATE / "models_meta"
 META_DIR.mkdir(parents=True, exist_ok=True)
 META_REG = STATE / "models_meta.json"
 PRO_REG = STATE / "models_pro.json"
+main
 
 def _safe_key(symbol: str, tf: str) -> str:
     k = f"{symbol}__{tf}"
@@ -107,6 +132,15 @@ def _load_pro_config(symbol: str, tf: str) -> Dict[str, Any]:
         return {}
     try:
         obj = json.loads(PRO_REG.read_text() or '{"models":[]}')
+    except Exception:
+        return {}
+    rows = [r for r in obj.get("models", []) if r.get("symbol")==symbol and r.get("tf")==tf and r.get("strategy")=="CONSENSUS"]
+    if not rows:
+        return {}
+    rows.sort(key=lambda r: int(r.get("trained_at", 0)), reverse=True)
+    return rows[0].get("config") or {}
+
+def _entry_points(df: pd.DataFrame, cfg: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray]:
         rows = [
             r for r in obj.get("models", [])
             if r.get("symbol") == symbol and r.get("tf") == tf and r.get("strategy") == "CONSENSUS"
@@ -132,6 +166,14 @@ def _entry_points(df: pd.DataFrame, cfg: Dict[str, Any]) -> Tuple[np.ndarray, np
     return idx, dirs
 
 def _purged_pf(p_list: List[np.ndarray], y_list: List[np.ndarray], thr: float) -> float:
+    TP, FP = 0, 0
+    for p,y in zip(p_list,y_list):
+        yhat = (p >= thr).astype(int)
+        TP += int(((yhat==1)&(y==1)).sum())
+        FP += int(((yhat==1)&(y==0)).sum())
+    return TP / (FP + 1.0)
+
+def _cv_preds(model, X: pd.DataFrame, y: np.ndarray, splits: int, embargo: int) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """Purged profit factor for a set of CV predictions."""
     TP, FP = 0, 0
     for p, y in zip(p_list, y_list):
@@ -162,6 +204,37 @@ def _cv_preds(model, X: pd.DataFrame, y: np.ndarray, splits: int, embargo: int) 
     p_list: List[np.ndarray] = []
     y_list: List[np.ndarray] = []
     for tr, te in cv.split(idx):
+        if len(np.unique(y[tr]))<2 or len(np.unique(y[te]))<2:
+            continue
+        m = model.__class__(**getattr(model, "get_params", lambda: {})())
+        if hasattr(m, "random_state"):
+            try: m.random_state = 42
+            except Exception: pass
+        m.fit(X.iloc[tr], y[tr])
+        try:
+            p = m.predict_proba(X.iloc[te])[:,1]
+        except Exception:
+            p = m.predict(X.iloc[te]).astype(float)
+            p = np.clip(p, 0.0, 1.0)
+        p_list.append(p.astype(float)); y_list.append(y[te].astype(int))
+    return p_list, y_list
+
+def _optuna_ensemble(pdict: Dict[str, List[np.ndarray]], y_list: List[np.ndarray], base_thr: float = 0.6) -> Tuple[Dict[str,float], float, float]:
+    names = sorted(pdict.keys()); k = len(names)
+    try:
+        import optuna
+    except Exception:
+        optuna = None
+    if not optuna or k == 0:
+        if k == 0:
+            return {}, base_thr, 0.0
+        w = {n: 1.0/k for n in names}
+        p_ens = [sum(w[n]*pdict[n][i] for n in names) for i in range(len(y_list))]
+        return w, base_thr, float(_purged_pf(p_ens, y_list, base_thr))
+    def make_ens(wv: List[float]) -> List[np.ndarray]:
+        s = sum(wv) + 1e-9; wn = [x/s for x in wv]
+        return [sum(wn[j]*pdict[names[j]][i] for j in range(k)) for i in range(len(y_list))]
+    study = optuna.create_study(direction="maximize", study_name="meta_ensemble")
         if len(np.unique(y[tr])) < 2 or len(np.unique(y[te])) < 2:
             continue
         m = model.__class__(**getattr(model, "get_params", lambda: {})())
@@ -212,6 +285,23 @@ def _optuna_ensemble(
         thr = trial.suggest_float("thr", 0.50, 0.80, step=0.02)
         p_ens = make_ens(ws)
         return float(_purged_pf(p_ens, y_list, thr))
+    study.optimize(objective, n_trials=int(os.getenv("ENS_TUNER_TRIALS","60")), show_progress_bar=False)
+    best = study.best_params
+    ws = [best.get(f"w_{n}", 1.0) for n in names]; s = sum(ws) + 1e-9; wn = [x/s for x in ws]
+    w = {names[j]: float(wn[j]) for j in range(k)}
+    thr = float(best.get("thr", base_thr))
+    p_ens = [sum(w[n]*pdict[n][i] for n in names) for i in range(len(y_list))]
+    score = float(_purged_pf(p_ens, y_list, thr))
+    return w, thr, score
+
+def train_symbol_tf(symbol: str, timeframe: str, ens_pf: float = 1.0, thr: float = 0.6, models: List[str] | None = None, **kwargs) -> Dict[str, Any]:
+    """
+    Train META models for a single (symbol, timeframe) and update registry.
+    Returns metrics dict for orchestration.
+    """
+    capital_rest_login()
+
+    # Config/env (align with train_meta_ens.py)
 
     study.optimize(objective, n_trials=int(os.getenv("ENS_TUNER_TRIALS", "60")), show_progress_bar=False)
     best = study.best_params
@@ -262,6 +352,58 @@ def train_symbol_tf(
     embargo = int(os.getenv("META_EMBARGO", str(max_hold)))
     decay = float(os.getenv("TIME_DECAY", "0.995"))
 
+    model_list = [m.strip() for m in (",".join(models) if models else os.getenv("META_MODELS","gbdt,xgb,lgbm,lr")).split(",") if m.strip()]
+
+    # Optional availability checks (xgb, lgbm)
+    if "xgb" in model_list:
+        try: import xgboost as xgb  # noqa
+        except Exception: model_list = [m for m in model_list if m!="xgb"]
+    if "lgbm" in model_list:
+        try: import lightgbm as lgb  # noqa
+        except Exception: model_list = [m for m in model_list if m!="lgbm"]
+
+    # Base config for consensus entries
+    cfg = _load_pro_config(symbol, timeframe)
+    if not cfg:
+        raise RuntimeError(f"no base config for {symbol} {timeframe}; train consensus PRO first")
+
+    # Data
+    df = capital_get_candles_df(symbol, timeframe, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
+    if df.empty or len(df) < 600:
+        raise RuntimeError(f"insufficient data {symbol} {timeframe} ({len(df)})")
+
+    feats_all = compute_features(df).replace([np.inf,-np.inf], np.nan).ffill().bfill().fillna(0.0)
+    idx, dirs = _entry_points(df, cfg)
+    if len(idx) < 50:
+        raise RuntimeError(f"too few entries {symbol} {timeframe} ({len(idx)})")
+
+    asset_class = resolve_asset_class(symbol)
+
+    # feature columns per asset class (mirror of train_meta_ens defaults)
+    def _features_for_class(ac: str) -> List[str]:
+        if ac == "crypto":
+            return ["sma_diff","ema_diff","rsi14","macd_hist","atr14","obv"]
+        if ac == "index":
+            return ["ema_diff","rsi14","adx14","vola50","atr14"]
+        if ac == "stock":
+            return ["ema_diff","rsi14","stoch_k","obv","atr14"]
+        if ac in ("metal","energy","fx"):
+            return ["ema_diff","rsi14","atr14","vola50","rng_pct"]
+        return ["ema_diff","rsi14","vola50","rng_pct"]
+
+    want_cols = _features_for_class(asset_class)
+    X = feats_all.iloc[idx].reindex(columns=want_cols).fillna(0.0)
+    y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
+
+    n = len(X)
+    weights = (decay ** (np.arange(n)[::-1])).astype(float)
+
+    models_trained: Dict[str, Any] = {}
+    cv_pl: Dict[str, List[np.ndarray]] = {}
+    cv_yl: List[np.ndarray] | None = None
+
+    # Train GBDT
+    if "gbdt" in model_list:
     # Base PRO config for consensus entries
     cfg = _load_pro_config(symbol, timeframe)
     if not cfg:
@@ -314,6 +456,10 @@ def train_symbol_tf(
         gbdt.fit(X, y, sample_weight=weights)
         dump(gbdt, META_DIR / f"{_safe_key(symbol, timeframe)}__gbdt.joblib")
         p_list, y_list = _cv_preds(gbdt, X, y, cv_splits, embargo)
+        models_trained["gbdt"] = True; cv_pl["gbdt"] = p_list; cv_yl = y_list
+
+    # Train LR
+    if "lr" in model_list:
         trained_models["gbdt"] = True
         cv_pl["gbdt"] = p_list
         cv_yl = y_list
@@ -325,6 +471,13 @@ def train_symbol_tf(
         lr.fit(X, y, sample_weight=weights)
         dump(lr, META_DIR / f"{_safe_key(symbol, timeframe)}__lr.joblib")
         p_list, y_list = _cv_preds(lr, X, y, cv_splits, embargo)
+        models_trained["lr"] = True; cv_pl["lr"] = p_list; cv_yl = y_list
+
+    # Train XGBoost
+    if "xgb" in model_list:
+        import xgboost as xgb
+        xgbm = xgb.XGBClassifier(
+            n_estimators=200, max_depth=4, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
         trained_models["lr"] = True
         cv_pl["lr"] = p_list
         cv_yl = y_list
@@ -340,6 +493,13 @@ def train_symbol_tf(
         xgbm.fit(X, y, sample_weight=weights)
         dump(xgbm, META_DIR / f"{_safe_key(symbol, timeframe)}__xgb.joblib")
         p_list, y_list = _cv_preds(xgbm, X, y, cv_splits, embargo)
+        models_trained["xgb"] = True; cv_pl["xgb"] = p_list; cv_yl = y_list
+
+    # Train LightGBM
+    if "lgbm" in model_list:
+        import lightgbm as lgb
+        lgbm = lgb.LGBMClassifier(
+            n_estimators=300, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
         trained_models["xgb"] = True
         cv_pl["xgb"] = p_list
         cv_yl = y_list
@@ -355,6 +515,16 @@ def train_symbol_tf(
         lgbm.fit(X, y, sample_weight=weights)
         dump(lgbm, META_DIR / f"{_safe_key(symbol, timeframe)}__lgbm.joblib")
         p_list, y_list = _cv_preds(lgbm, X, y, cv_splits, embargo)
+        models_trained["lgbm"] = True; cv_pl["lgbm"] = p_list; cv_yl = y_list
+
+    if not models_trained:
+        raise RuntimeError(f"no models trained for {symbol} {timeframe}")
+
+    # per-model PF and ensemble
+    model_cvpf: Dict[str, float] = {}
+    for mname, p_list in cv_pl.items():
+        model_cvpf[mname] = float(_purged_pf(p_list, cv_yl or [], 0.6))
+
         trained_models["lgbm"] = True
         cv_pl["lgbm"] = p_list
         cv_yl = y_list
@@ -372,6 +542,31 @@ def train_symbol_tf(
 
     # Upsert registry
     row = {
+        "key": _safe_key(symbol, timeframe), "symbol": symbol, "tf": timeframe,
+        "asset_class": asset_class, "features": want_cols,
+        "entries": int(len(idx)), "trained_at": int(time.time()),
+        "models": { m: {"file": f"{_safe_key(symbol, timeframe)}__{m}.joblib", "cv_pf": float(model_cvpf.get(m, 0.0))} for m in models_trained.keys() },
+        "ens_weights": w, "threshold_ens": float(thr_ens), "cv_pf_score_ens": float(score_ens),
+        "threshold": float(thr), "cv_pf_score": float(max(model_cvpf.values()) if model_cvpf else 0.0)
+    }
+    obj = {"models": []}
+    if META_REG.exists():
+        try: obj = json.loads(META_REG.read_text() or '{"models":[]}')
+        except Exception: obj = {"models":[]}
+    obj["models"] = [r for r in obj.get("models", []) if r.get("key") != row["key"]]
+    obj["models"].append(row)
+    tmp = META_REG.with_suffix(".tmp")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2)); os.replace(tmp, META_REG)
+
+    # return metrics used by orchestrator logs
+    return {
+        "entries": int(len(idx)),
+        "models": list(models_trained.keys()),
+        "model_cv_pf": model_cvpf,
+        "ens_weights": w,
+        "threshold_ens": float(thr_ens),
+        "cv_pf_score_ens": float(score_ens),
+    }
         "key": _safe_key(symbol, timeframe),
         "symbol": symbol,
         "tf": timeframe,
