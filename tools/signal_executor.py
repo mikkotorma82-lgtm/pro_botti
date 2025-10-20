@@ -22,7 +22,7 @@ def _resolve_broker_func() -> Optional[Callable]:
     candidates = [
         "place_market_order",
         "place_market_order_capital",
-        "market_order",            # capital_client.py:ssa tämä on olemassa
+        "market_order",            # löytyi capital_client.py:stä
         "open_position",
         "send_order",
     ]
@@ -61,10 +61,9 @@ def _map_kwargs(fn: Callable, kwargs: Dict[str, Any]) -> Dict[str, Any]:
                 assigned = True
                 break
         if not assigned:
-            # jätä ylimääräinen parametri pois
             pass
 
-    # Lisää mahdolliset pakolliset oletukset
+    # Pakolliset oletukset
     for name, p in params.items():
         if p.default is inspect._empty and name not in mapped:
             if name in ("price", "priceHint", "price_hint"):
@@ -92,7 +91,8 @@ def execute_action(symbol: str, tf: str, action: str, entry_px: float, equity: f
             print("[EXEC] No broker order function found in tools.capital_client", flush=True)
             return False
 
-        base_kwargs = dict(symbol=symbol, side=side, size=size, price_hint=entry_px, stop_loss=sl, take_profit=tp, tf=tf)
+        base_kwargs = dict(symbol= symbol, side= side, size= size, price_hint= entry_px,
+                           stop_loss= sl, take_profit= tp, tf= tf)
         call_kwargs = _map_kwargs(broker_fn, base_kwargs)
         ok = broker_fn(**call_kwargs)
         return bool(ok)
