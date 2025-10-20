@@ -308,6 +308,214 @@ python -m cli show-active
 tail -f logs/live.log
 ```
 
+## META Ensemble Training & Multi-AI Trading Engine
+
+### Overview
+
+The META ensemble training system enables automated training of multiple AI models (GBDT, LR, XGBoost, LightGBM) across all symbols and timeframes with minimal configuration. The trade engine combines signals from these models to make intelligent trading decisions.
+
+### META Training
+
+#### Quick Start
+
+```bash
+# Train all symbols from symbols.txt on Capital.com
+META_SYMBOLS_FILE=config/symbols.txt \
+META_EXCHANGE_ID=capitalcom \
+META_TRAINER_PATH=tools.meta_ensemble:train_symbol_tf \
+python -m tools.meta_train_all
+
+# Limit to specific timeframes
+META_TFS=15m,1h python -m tools.meta_train_all
+
+# Increase parallelism
+META_PARALLEL=8 python -m tools.meta_train_all
+
+# Test with limited symbols
+META_MAX_SYMBOLS=5 python -m tools.meta_train_all
+```
+
+#### Configuration
+
+All configuration is environment-driven:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `META_EXCHANGE_ID` | `capitalcom` | Exchange identifier (capitalcom, kraken, etc.) |
+| `META_SYMBOLS_FILE` | `./config/symbols.txt` | Path to symbols file |
+| `META_TFS` | `15m,1h,4h` | Comma-separated timeframes |
+| `META_PARALLEL` | `4` | Number of parallel training workers |
+| `META_MIN_CANDLES` | `300` | Minimum candles required per timeframe |
+| `META_MAX_SYMBOLS` | `0` | Limit symbols for testing (0 = unlimited) |
+| `META_TRAINER_PATH` | `tools.meta_ensemble:train_symbol_tf` | Trainer module:function |
+| `META_ENS_PF` | `1.0` | Ensemble profit factor target |
+| `META_THR` | `0.6` | Base prediction threshold |
+| `META_MODELS` | `gbdt,lr,xgb,lgbm` | Models to train |
+
+#### Symbol Normalization
+
+The system automatically normalizes symbol formats:
+- `BTCUSD` → `BTC/USD`
+- `ETHUSDT` → `ETH/USDT`
+- Kraken-specific aliases (e.g., `BTC` → `XBT`)
+
+For Capital.com, all symbols are accepted for data-based validation (not ccxt-based).
+
+#### Systemd Automation
+
+Install and enable the META training timer:
+
+```bash
+# Copy service files
+sudo cp deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/
+sudo cp deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/
+
+# Enable and start timer (runs every 30 minutes)
+sudo systemctl enable pro-botti-meta-train.timer
+sudo systemctl start pro-botti-meta-train.timer
+
+# Check status
+sudo systemctl status pro-botti-meta-train.timer
+sudo systemctl list-timers pro-botti-meta-train.timer
+
+# View logs
+sudo journalctl -u pro-botti-meta-train.service -f
+```
+
+The timer configuration is in `deploy/systemd/pro-botti-meta-train.timer`:
+- Runs 5 minutes after boot
+- Runs every 30 minutes thereafter
+- Randomized delay of 2 minutes to prevent thundering herd
+
+#### Training Output
+
+The trainer logs each symbol/timeframe with:
+- ✅ **OK**: Successfully trained
+- ⚠️ **SKIP**: Skipped (insufficient data, unsupported, etc.)
+- ❌ **FAIL**: Failed with error
+
+Results are stored in:
+- `state/models_meta/` - Model files (`.joblib`)
+- `state/models_meta.json` - Registry with metrics and weights
+
+Example output:
+```
+2025-10-20 09:09:13,934 INFO META-ensemble start symbols=32 (supported) rejected=0 tfs=15m,1h,4h models=gbdt,lr,xgb,lgbm
+2025-10-20 09:09:13,936 WARNING ⚠️ [META ENS SKIP] US500 15m reason=not-enough-candles(0<300)
+2025-10-20 09:15:42,123 INFO ✅ [META ENS OK] BTC/USD 1h metrics={'ens_pf': 2.34, 'threshold': 0.62, 'entries': 156}
+2025-10-20 09:09:13,936 INFO 📣 META-ensemble koulutus valmis | OK=24 SKIP=6 FAIL=2
+```
+
+### Multi-AI Trading Engine
+
+The trade engine combines signals from multiple AI models to execute trades on Capital.com.
+
+#### Quick Start
+
+```bash
+# Dry run (no actual orders)
+DRY_RUN=true python -m tools.trade_engine --symbol BTC/USD --tf 1h --run-once
+
+# Real trading (requires Capital.com credentials)
+python -m tools.trade_engine --symbol ETH/USD --tf 1h --run-once
+
+# Daemon mode (continuous monitoring)
+python -m tools.trade_engine --symbol BTC/USD,ETH/USD --tf 1h,4h --daemon --interval 300
+```
+
+#### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DRY_RUN` | `false` | Dry run mode (no actual orders) |
+| `ORDER_SIZE` | `0.01` | Fixed order size |
+| `ORDER_SIZE_PCT` | `0.0` | Order size as % of balance (overrides ORDER_SIZE if > 0) |
+| `MAX_LEVERAGE` | `1.0` | Maximum leverage |
+| `STOP_LOSS_PCT` | `2.0` | Stop loss percentage |
+| `TAKE_PROFIT_PCT` | `4.0` | Take profit percentage |
+| `META_THR` | `0.6` | Decision threshold for signals |
+| `VOTE_TYPE` | `weighted` | Voting method: `majority` or `weighted` |
+| `MIN_MODELS` | `2` | Minimum models required for decision |
+
+#### Signal Combination
+
+**Majority Vote** (`VOTE_TYPE=majority`):
+- Decision requires >50% of models to agree
+- BUY if majority predicts ≥ threshold
+- SELL if majority predicts ≤ (1 - threshold)
+
+**Weighted Vote** (`VOTE_TYPE=weighted`):
+- Uses ensemble weights from training
+- Weighted average of all predictions
+- BUY if weighted_avg ≥ threshold
+- SELL if weighted_avg ≤ (1 - threshold)
+
+#### Risk Controls
+
+1. **Idempotency**: Prevents duplicate orders for same symbol/timeframe
+2. **Position Limits**: Respects MAX_LEVERAGE
+3. **Stop Loss**: Automatic SL at STOP_LOSS_PCT
+4. **Take Profit**: Automatic TP at TAKE_PROFIT_PCT
+5. **Minimum Models**: Requires MIN_MODELS models for decision
+
+#### Order Logging
+
+All orders are logged to `state/trade_engine_orders.json`:
+
+```json
+{
+  "timestamp": 1729414173,
+  "symbol": "BTC/USD",
+  "signal": "BUY",
+  "confidence": 0.75,
+  "predictions": {
+    "gbdt": 0.78,
+    "lr": 0.72,
+    "xgb": 0.76,
+    "lgbm": 0.74
+  },
+  "status": "executed",
+  "order": {
+    "side": "buy",
+    "size": 0.01,
+    "stop_loss_pct": 2.0,
+    "take_profit_pct": 4.0
+  }
+}
+```
+
+#### Telegram Notifications
+
+If Telegram is configured, the trade engine sends notifications:
+- 🟢 BUY orders with confidence and risk levels
+- 🔴 SELL orders with confidence and risk levels
+- 🔍 DRY RUN orders (for testing)
+- ❌ Order failures with error details
+
+### Troubleshooting
+
+**Import errors (ModuleNotFoundError: No module named 'tools.meta_ensemble')**
+- Ensure `META_TRAINER_PATH` points to existing module:function
+- Default: `tools.meta_ensemble:train_symbol_tf`
+
+**Symbol normalization issues**
+- Check `config/symbols.txt` format (one per line)
+- Use standard formats: `BTCUSD`, `BTC/USD`, `ETHUSDT`
+- Comments with `#` are supported
+
+**Capital.com authentication errors**
+- Set required environment variables:
+  - `CAPITAL_API_BASE`
+  - `CAPITAL_API_KEY`
+  - `CAPITAL_USERNAME`
+  - `CAPITAL_PASSWORD`
+- Check credentials in Capital.com dashboard
+
+**Datetime handling in send_trade_chart**
+- Now supports both numpy arrays and pandas Series/Index
+- Handles datetime64 with automatic unit detection
+- Works with ISO timestamps and epoch seconds
+
 ## Layout
 
 - `config.yaml` – all params
