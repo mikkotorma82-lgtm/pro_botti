@@ -1,15 +1,30 @@
 import concurrent.futures as fut
 import logging
 import importlib
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Any, Optional
 
-import ccxt
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("meta.train")
+
+# Try to import ccxt, but it's optional
+try:
+    import ccxt
+    _ccxt_available = True
+except ImportError:
+    ccxt = None
+    _ccxt_available = False
+
+# Try to import Capital.com tools
+try:
+    from tools.capital_session import capital_rest_login, capital_get_candles_df
+    _capital_available = True
+except ImportError:
+    capital_rest_login = None
+    capital_get_candles_df = None
+    _capital_available = False
 
 from meta.config import MetaConfig
 from meta.symbols import load_symbols_file, normalize_symbols, filter_supported_symbols
-
-log = logging.getLogger("meta.train")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 def _resolve_callable(path: str):
     """
@@ -22,9 +37,45 @@ def _resolve_callable(path: str):
     func = getattr(mod, func_name)
     return func
 
-def _has_enough_data(ex, symbol: str, tf: str, min_candles: int) -> Tuple[bool, int]:
+def _has_enough_data(exchange_id: str, symbol: str, tf: str, min_candles: int) -> Tuple[bool, int]:
+    """
+    Check if symbol has enough data.
+    
+    Args:
+        exchange_id: Exchange identifier (e.g., 'capitalcom', 'kraken')
+        symbol: Trading symbol
+        tf: Timeframe
+        min_candles: Minimum number of candles required
+    
+    Returns:
+        Tuple of (has_enough, count)
+    """
     limit = min(max(min_candles, 200), 1000)
+    
+    # Special handling for Capital.com
+    if exchange_id.lower() == "capitalcom":
+        if not _capital_available:
+            log.warning("Capital.com tools not available for %s %s", symbol, tf)
+            return (False, 0)
+        try:
+            # Login if needed
+            capital_rest_login()
+            # Fetch limited data to check availability
+            df = capital_get_candles_df(symbol, tf, total_limit=limit, page_size=min(limit, 200), sleep_sec=0.5)
+            n = len(df) if df is not None else 0
+            return (n >= min_candles), n
+        except Exception as e:
+            log.warning("Data check failed for %s %s: %s", symbol, tf, e)
+            return (False, 0)
+    
+    # For ccxt exchanges
+    if not _ccxt_available:
+        log.warning("ccxt not available for %s %s", symbol, tf)
+        return (False, 0)
+    
     try:
+        ex_cls = getattr(ccxt, exchange_id)
+        ex = ex_cls()
         ohlcv = ex.fetch_ohlcv(symbol, tf, limit=limit)
         n = len(ohlcv or [])
         return (n >= min_candles), n
@@ -33,9 +84,8 @@ def _has_enough_data(ex, symbol: str, tf: str, min_candles: int) -> Tuple[bool, 
         return (False, 0)
 
 def _train_one(symbol: str, tf: str, cfg: MetaConfig, trainer) -> Dict:
-    ex_cls = getattr(ccxt, cfg.exchange_id)
-    ex = ex_cls()
-    enough, n = _has_enough_data(ex, symbol, tf, cfg.min_candles)
+    """Train a single symbol/timeframe pair."""
+    enough, n = _has_enough_data(cfg.exchange_id, symbol, tf, cfg.min_candles)
     if not enough:
         return {"symbol": symbol, "tf": tf, "status": "SKIP",
                 "reason": f"not-enough-candles({n}<{cfg.min_candles})", "metrics": {}}
@@ -54,9 +104,23 @@ def run_all(cfg: MetaConfig) -> Dict:
         raw_symbols = raw_symbols[: cfg.max_symbols]
     symbols = normalize_symbols(cfg.exchange_id, raw_symbols)
 
-    ex_cls = getattr(ccxt, cfg.exchange_id)
-    ex = ex_cls()
-    supported, rejected = filter_supported_symbols(ex, symbols)
+    # Create exchange instance for validation (if ccxt)
+    exchange: Optional[Any] = None
+    if cfg.exchange_id.lower() == "capitalcom":
+        # Capital.com doesn't use ccxt, so we skip exchange-based filtering
+        log.info("Using Capital.com - accepting all symbols for data-based validation")
+        supported, rejected = filter_supported_symbols(None, symbols, cfg.exchange_id)
+    elif _ccxt_available:
+        try:
+            ex_cls = getattr(ccxt, cfg.exchange_id)
+            exchange = ex_cls()
+            supported, rejected = filter_supported_symbols(exchange, symbols, cfg.exchange_id)
+        except AttributeError:
+            log.warning("Unknown exchange %s, accepting all symbols", cfg.exchange_id)
+            supported, rejected = symbols[:], {}
+    else:
+        log.warning("ccxt not available, accepting all symbols")
+        supported, rejected = symbols[:], {}
 
     # Lataa koulutusfunktio env:stä
     try:

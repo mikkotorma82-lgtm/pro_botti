@@ -14,13 +14,37 @@ def fetch(symbol, tf, since_s, bars=600):
  ex=ccxt.kraken(); s=since_s - bars*tf_secs(tf); o=ex.fetch_ohlcv(symbol, tf, since=max(0,s)*1000, limit=bars)
  df=pd.DataFrame(o, columns=['t','o','h','l','c','v']); df['t']=pd.to_datetime(df['t'], unit='ms', utc=True); return df
 def slice_idx(t, ent_s, exi_s, pad=6):
- arr = t.values if hasattr(t,'values') else np.asarray(t)
- if np.issubdtype(arr.dtype, np.datetime64):
-  unit=np.datetime_data(arr.dtype)[0]; ek=np.datetime64(ent_s, unit); xk=np.datetime64(exi_s, unit)
- else:
-  ek, xk = int(ent_s), int(exi_s)
- i0=int(np.searchsorted(arr, ek,'left')); i1=int(np.searchsorted(arr, xk,'right'))
- L=max(0,i0-pad); R=min(len(arr), i1+pad); return L,R
+    """
+    Slice time array to find indices for entry and exit timestamps.
+    Handles both pandas Series/Index and numpy arrays, including datetime64 types.
+    """
+    # Convert to numpy array
+    arr = t.values if hasattr(t, 'values') else np.asarray(t)
+    
+    # Handle datetime64 types
+    if np.issubdtype(arr.dtype, np.datetime64):
+        # Get the unit of the datetime64 dtype
+        unit, _ = np.datetime_data(arr.dtype)
+        # Convert timestamps to datetime64 with appropriate unit
+        try:
+            ek = np.datetime64(int(ent_s), 's')
+            xk = np.datetime64(int(exi_s), 's')
+        except (ValueError, TypeError):
+            # If conversion fails, try string format
+            ek = np.datetime64(str(ent_s), unit)
+            xk = np.datetime64(str(exi_s), unit)
+    else:
+        # For numeric/epoch timestamps
+        ek, xk = int(ent_s), int(exi_s)
+    
+    # Find indices using binary search
+    i0 = int(np.searchsorted(arr, ek, 'left'))
+    i1 = int(np.searchsorted(arr, xk, 'right'))
+    
+    # Apply padding
+    L = max(0, i0 - pad)
+    R = min(len(arr), i1 + pad)
+    return L, R
 def build_chart(symbol, tf, entry, exit, ent_ts, exi_ts, out='/tmp/trade.png'):
  ent_s,exi_s=parse_ts(ent_ts),parse_ts(exi_ts); df=fetch(symbol, tf, ent_s); L,R=slice_idx(df['t'], ent_s, exi_s)
  d=df.iloc[L:R]; fig,ax=plt.subplots(figsize=(8,4)); ax.plot(d['t'], d['c'], color='#1f77b4')
