@@ -15,6 +15,7 @@ from tools.ml.features import compute_features
 from tools.ml.labels import label_meta_from_entries
 from tools.ml.purged_cv import PurgedTimeSeriesSplit
 from tools.ml.asset_class import resolve_asset_class
+from tools.notifier import send_telegram, send_big
 
 try:
     import optuna
@@ -47,10 +48,6 @@ def _entry_points(df: pd.DataFrame, cfg: Dict[str, Any]) -> Tuple[np.ndarray, np
     idx = np.where((buy | sell).values)[0]; dirs = np.where(buy.values[idx], 1, -1)
     return idx, dirs
 
-def _pf_proxy(y_true: np.ndarray, p: np.ndarray, thr: float) -> float:
-    yhat = (p >= thr).astype(int); tp=int(((yhat==1)&(y_true==1)).sum()); fp=int(((yhat==1)&(y_true==0)).sum())
-    return tp / (fp + 1.0)
-
 def _purged_pf(p_list: List[np.ndarray], y_list: List[np.ndarray], thr: float) -> float:
     TP, FP = 0, 0
     for p,y in zip(p_list,y_list):
@@ -76,33 +73,31 @@ def _cv_preds(model, X: pd.DataFrame, y: np.ndarray, splits: int, embargo: int) 
     for tr, te in cv.split(idx):
         if len(np.unique(y[tr]))<2 or len(np.unique(y[te]))<2: continue
         m = model.__class__(**getattr(model, "get_params", lambda: {})())
-        m.random_state = getattr(model, "random_state", 42) if hasattr(m, "random_state") else None
+        if hasattr(m, "random_state"):
+            try: m.random_state = 42
+            except Exception: pass
         m.fit(X.iloc[tr], y[tr])
         try:
             p = m.predict_proba(X.iloc[te])[:,1]
         except Exception:
-            p = m.predict(X.iloc[te]).astype(float)
-            p = np.clip(p, 0.0, 1.0)
+            p = m.predict(X.iloc[te]).astype(float); p = np.clip(p, 0.0, 1.0)
         p_list.append(p.astype(float)); y_list.append(y[te].astype(int))
     return p_list, y_list
 
 def _optuna_ensemble(pdict: Dict[str, List[np.ndarray]], y_list: List[np.ndarray], base_thr: float = 0.6) -> Tuple[Dict[str,float], float, float]:
-    # returns (weights, thr, score)
     names = sorted(pdict.keys()); k = len(names)
     if not optuna:
         w = {n: 1.0/k for n in names}
         p_ens = [sum(w[n]*pdict[n][i] for n in names) for i in range(len(y_list))]
-        best_thr = base_thr; best = _purged_pf(p_ens, y_list, best_thr)
-        return w, best_thr, float(best)
+        return w, base_thr, float(_purged_pf(p_ens, y_list, base_thr))
     def make_ens(wv: List[float]) -> List[np.ndarray]:
         s = sum(wv) + 1e-9; wn = [x/s for x in wv]
         return [sum(wn[j]*pdict[names[j]][i] for j in range(k)) for i in range(len(y_list))]
     study = optuna.create_study(direction="maximize", study_name="meta_ensemble")
-    def objective(trial: optuna.Trial) -> float:
+    def objective(trial: "optuna.Trial") -> float:
         ws = [trial.suggest_float(f"w_{n}", 0.0, 1.0) for n in names]
         thr = trial.suggest_float("thr", 0.50, 0.80, step=0.02)
-        p_ens = make_ens(ws)
-        return float(_purged_pf(p_ens, y_list, thr))
+        p_ens = make_ens(ws); return float(_purged_pf(p_ens, y_list, thr))
     study.optimize(objective, n_trials=int(os.getenv("ENS_TUNER_TRIALS","60")), show_progress_bar=False)
     best = study.best_params
     ws = [best.get(f"w_{n}", 1.0) for n in names]; s = sum(ws) + 1e-9; wn = [x/s for x in ws]
@@ -127,47 +122,47 @@ def main():
     decay = float(os.getenv("TIME_DECAY", "0.995"))
     model_list = [m.strip() for m in (os.getenv("META_MODELS","gbdt,xgb,lgbm,lr")).split(",") if m.strip()]
 
-    have_xgb = False; have_lgb = False
+    # Tilanneviesti
+    send_telegram(f"🚀 META-ensemble start symbols={len(symbols)} tfs={','.join(tfs)} models={','.join(model_list)}")
+
+    # Saatavuudet
     if "xgb" in model_list:
-        try:
-            import xgboost as xgb  # noqa
-            have_xgb = True
-        except Exception:
-            model_list = [m for m in model_list if m!="xgb"]
+        try: import xgboost as xgb  # noqa
+        except Exception: model_list = [m for m in model_list if m!="xgb"]
     if "lgbm" in model_list:
-        try:
-            import lightgbm as lgb  # noqa
-            have_lgb = True
-        except Exception:
-            model_list = [m for m in model_list if m!="lgbm"]
+        try: import lightgbm as lgb  # noqa
+        except Exception: model_list = [m for m in model_list if m!="lgbm"]
 
-    registry: List[Dict[str, Any]] = []
-    print(f"[META-ENS] start symbols={len(symbols)} tfs={tfs} models={model_list} cv={cv_splits} embargo={embargo}", flush=True)
-
+    ok_lines: List[str] = []
     for sym in symbols:
         for tf in tfs:
             try:
                 cfg = _load_pro_config(sym, tf)
-                if not cfg: print(f"[SKIP] no base config for {sym} {tf}", flush=True); continue
+                if not cfg: 
+                    print(f"[SKIP] no base config for {sym} {tf}", flush=True); 
+                    continue
                 df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
-                if df.empty or len(df) < 600: print(f"[WARN] insufficient data {sym} {tf} ({len(df)})", flush=True); continue
+                if df.empty or len(df) < 600: 
+                    print(f"[WARN] insufficient data {sym} {tf} ({len(df)})", flush=True); 
+                    continue
 
                 feats_all = compute_features(df).replace([np.inf,-np.inf], np.nan).ffill().bfill().fillna(0.0)
                 idx, dirs = _entry_points(df, cfg)
-                if len(idx) < 50: print(f"[WARN] too few entries {sym} {tf} ({len(idx)})", flush=True); continue
+                if len(idx) < 50: 
+                    print(f"[WARN] too few entries {sym} {tf} ({len(idx)})", flush=True); 
+                    continue
 
                 asset_class = resolve_asset_class(sym)
                 want_cols = _features_for_class(asset_class)
                 X = feats_all.iloc[idx].reindex(columns=want_cols).fillna(0.0)
                 y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
 
-                # aikapainotus
+                # painotus
                 n = len(X); weights = (decay ** (np.arange(n)[::-1])).astype(float)
 
-                # kouluta mallit
                 models: Dict[str, Any] = {}
                 cv_pl: Dict[str, List[np.ndarray]] = {}
-                cv_yl: List[np.ndarray] = None  # shared ref
+                cv_yl: List[np.ndarray] = None
 
                 # GBDT
                 if "gbdt" in model_list:
@@ -179,14 +174,14 @@ def main():
 
                 # Logistic Regression
                 if "lr" in model_list:
-                    lr = LogisticRegression(max_iter=200, n_jobs=None if "n_jobs" not in LogisticRegression().get_params() else -1)
+                    lr = LogisticRegression(max_iter=200)
                     lr.fit(X, y, sample_weight=weights)
                     dump(lr, META_DIR / f"{_safe_key(sym, tf)}__lr.joblib")
                     p_list, y_list = _cv_preds(lr, X, y, cv_splits, embargo)
                     models["lr"] = True; cv_pl["lr"] = p_list; cv_yl = y_list
 
                 # XGBoost
-                if "xgb" in model_list and have_xgb:
+                if "xgb" in model_list:
                     import xgboost as xgb
                     xgbm = xgb.XGBClassifier(
                         n_estimators=200, max_depth=4, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
@@ -198,10 +193,10 @@ def main():
                     models["xgb"] = True; cv_pl["xgb"] = p_list; cv_yl = y_list
 
                 # LightGBM
-                if "lgbm" in model_list and have_lgb:
+                if "lgbm" in model_list:
                     import lightgbm as lgb
                     lgbm = lgb.LGBMClassifier(
-                        n_estimators=300, max_depth=-1, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
+                        n_estimators=300, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8,
                         random_state=42, n_jobs=2
                     )
                     lgbm.fit(X, y, sample_weight=weights)
@@ -210,46 +205,44 @@ def main():
                     models["lgbm"] = True; cv_pl["lgbm"] = p_list; cv_yl = y_list
 
                 if not models:
-                    print(f"[SKIP] no models trained for {sym} {tf}", flush=True); continue
+                    print(f"[SKIP] no models trained for {sym} {tf}", flush=True); 
+                    continue
 
-                # per-malli PF + ensemble painotus ja thr
+                # per-malli PF + ensemble
                 model_cvpf: Dict[str, float] = {}
                 for mname, p_list in cv_pl.items():
                     model_cvpf[mname] = float(_purged_pf(p_list, cv_yl, 0.6))
 
                 w, thr_ens, score_ens = _optuna_ensemble(cv_pl, cv_yl, base_thr=0.6)
 
-                # rekisteri
+                # rekisteri upsert
                 row = {
                     "key": _safe_key(sym, tf), "symbol": sym, "tf": tf,
                     "asset_class": asset_class, "features": want_cols,
                     "entries": int(len(idx)), "trained_at": int(time.time()),
-                    # per-malli polut ja cvpf
                     "models": { m: {"file": f"{_safe_key(sym, tf)}__{m}.joblib", "cv_pf": float(model_cvpf.get(m, 0.0))} for m in models.keys() },
-                    # ensemble
-                    "ens_weights": w,
-                    "threshold_ens": float(thr_ens),
-                    "cv_pf_score_ens": float(score_ens)
+                    "ens_weights": w, "threshold_ens": float(thr_ens), "cv_pf_score_ens": float(score_ens),
+                    "threshold": 0.60, "cv_pf_score": float(max(model_cvpf.values()) if model_cvpf else 0.0)
                 }
-                # säilytä taaksepäinyhteensopiva yksittäinen "threshold"/"cv_pf_score" (esim. gbdt)
-                row["threshold"] = float(os.getenv("META_FALLBACK_THR","0.60"))
-                row["cv_pf_score"] = float(max(model_cvpf.values()) if model_cvpf else 0.0)
-
-                # päivitä rekisteri (upsert key)
                 obj = {"models": []}
                 if META_REG.exists():
                     try: obj = json.loads(META_REG.read_text() or '{"models":[]}')
                     except Exception: obj = {"models":[]}
-                # poista vanhat samalla key:llä
                 obj["models"] = [r for r in obj.get("models", []) if r.get("key") != row["key"]]
                 obj["models"].append(row)
                 tmp = META_REG.with_suffix(".tmp")
                 tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=2)); os.replace(tmp, META_REG)
-                print(f"[OK][ENS] {sym} {tf} -> ens_pf={score_ens:.3f} w={w} thr_ens={thr_ens:.2f}", flush=True)
+
+                # Telegram rivi
+                msg = f"{sym} {tf} ens_pf={score_ens:.3f} thr={thr_ens:.2f} entries={len(idx)} models={','.join(models.keys())}"
+                send_telegram(f"✅ [META ENS OK] {msg}")
+                ok_lines.append(f"✅ {msg}")
+                print(f"[OK][ENS] {msg}", flush=True)
                 time.sleep(0.2)
             except Exception as e:
                 print(f"[ERROR][ENS] {sym} {tf}: {e}", flush=True)
 
+    send_big("📣 META-ensemble koulutus valmis", ok_lines, max_lines=200)
     print(f"[DONE][ENS] updated -> {META_REG}", flush=True)
 
 if __name__ == "__main__":
