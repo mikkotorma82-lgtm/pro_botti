@@ -9,7 +9,8 @@ User=root
 WorkingDirectory=/root/pro_botti
 EnvironmentFile=/root/pro_botti/secrets.env
 EnvironmentFile=/root/pro_botti/botti.env
-# Ympäristömuuttujia (avaa rivit tarvittaessa):
+# ASETTAA symbols.txt:n eksplisiittisesti. VAIHDA polkuun jossa sinun tiedostosi on.
+Environment=META_SYMBOLS_FILE=/root/pro_botti/symbols.txt
 # Environment=META_TFS=15m,1h,4h
 # Environment=META_PARALLEL=6
 # Environment=META_MIN_CANDLES=300
