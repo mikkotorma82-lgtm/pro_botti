@@ -47,17 +47,14 @@ def _send_telegram_photo(png_bytes: bytes, caption: str) -> bool:
 
 def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-    # Jos index jo datetime
     if isinstance(d.index, pd.DatetimeIndex):
         return d
-    # Yritä yleisiä aikakenttiä
     for col in ("ts", "timestamp", "time", "date"):
         if col in d.columns:
             s = d[col]
-            # Arvaa yksikkö: s vaikuttaa sekunteina? jos > 10^12 -> ms
             try:
                 if np.issubdtype(s.dtype, np.number):
-                    unit = "ms" if s.iloc[-1] > 10**12 else "s"
+                    unit = "ms" if float(s.iloc[-1]) > 1e12 else "s"
                     dt = pd.to_datetime(s, unit=unit, utc=True)
                 else:
                     dt = pd.to_datetime(s, utc=True, errors="coerce")
@@ -66,7 +63,6 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
                 return d
             except Exception:
                 pass
-    # Fallback: parsi indeksin merkkijonot
     try:
         dt = pd.to_datetime(d.index, utc=True, errors="coerce")
         d.index = dt
@@ -76,8 +72,6 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], exit_: Optional[float], action: Optional[str]) -> bytes:
     d = _ensure_dtindex(df).copy()
-    # mplfinance odottaa OHLC sarakkeet nimetettynä tietysti:
-    # käytetään oletusta että df sisältää open/high/low/close -kolumnit jo valmiiksi
     addplots = []
     title = f"{symbol} {tf}  bars={len(d)}"
     if entry and action:
@@ -115,7 +109,6 @@ def main():
     p = OUTDIR / f"{args.symbol.replace('/','_')}__{args.tf}__{ts}.png"
     p.write_bytes(png)
 
-    # Laske tulos jos entry & exit annettu
     pnl_txt = ""
     if args.entry and args.exit and args.action:
         pnl = (args.exit - args.entry) * (1 if args.action=="BUY" else -1)
