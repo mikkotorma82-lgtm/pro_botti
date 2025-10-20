@@ -3,6 +3,7 @@ from __future__ import annotations
 import os, json, time
 from pathlib import Path
 from typing import Dict, Any, List, Set, Tuple
+from tools.notifier import send_telegram, send_big  # UUSI
 
 STATE = Path(__file__).resolve().parents[1] / "state"
 META_AGG = STATE / "agg_models_meta.json"
@@ -34,7 +35,7 @@ def group_by_symbol(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]
 def main():
     min_cvf = float(os.getenv("SELECT_MIN_CVPF", "1.20"))
     min_entries = int(os.getenv("SELECT_MIN_ENTRIES", "200"))
-    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "3"))
+    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "1"))  # oletuksena 1
     allow_15m = int(os.getenv("SELECT_ALLOW_15M", "1")) == 1
     prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h,15m")).split(",") if s.strip()]
 
@@ -53,9 +54,10 @@ def main():
         filt.append(r)
 
     def tf_rank(tf: str) -> int:
-        try: return prefer_set.index(tf)
-        except ValueError: return len(prefer_set)
-
+        try:
+            return prefer_set.index(tf)
+        except ValueError:
+            return len(prefer_set)
     filt.sort(key=lambda r: (float(r.get("cv_pf_score", 0.0)), int(r.get("entries", 0)), -tf_rank(r["tf"])), reverse=True)
 
     by = group_by_symbol(filt)
@@ -95,6 +97,11 @@ def main():
         tfs.add(r["tf"])
     ENV_OUT.write_text(f"SYMBOLS='{','.join(symbols)}'\nLIVE_TFS='{','.join(sorted(tfs))}'\n")
     print(f"[SELECT] wrote {ENV_OUT}")
+
+    # Telegram-yhteenveto
+    lines = [f"{r['symbol']} {r['tf']} cv_pf={float(r.get('cv_pf_score',0.0)):.3f} thr={float(r.get('threshold',0.6)):.2f}"
+             for r in selected]
+    send_big(f"📊 Valinta valmis (combos={len(selected)})", lines, max_lines=120)
 
 if __name__ == "__main__":
     main()
