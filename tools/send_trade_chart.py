@@ -26,8 +26,7 @@ def _send_telegram_photo(png_bytes: bytes, caption: str) -> bool:
                 data.append(f"Content-Type: {ctype}\r\n\r\n".encode())
             else:
                 data.append(b"\r\n")
-            data.append(v)
-            data.append(b"\r\n")
+            data.append(v); data.append(b"\r\n")
         else:
             data.append(f'Content-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
     part("chat_id", chat)
@@ -58,8 +57,7 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
                     dt = pd.to_datetime(s, unit=unit, utc=True)
                 else:
                     dt = pd.to_datetime(s, utc=True, errors="coerce")
-                d = d.set_index(dt)
-                d.index.name = None
+                d = d.set_index(dt); d.index.name = None
                 return d
             except Exception:
                 pass
@@ -82,11 +80,11 @@ def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], 
         color = "r" if action.upper()=="BUY" else "g"
         addplots.append(mpf.make_addplot([exit_]*len(d), type='line', color=color))
         title += f"  exit={exit_:.5f}"
-    fig = mpf.figure(figsize=(10,6), dpi=160)
-    ax = fig.add_subplot(1,1,1)
-    mpf.plot(d, type='candle', style='charles', addplot=addplots, ax=ax, volume=False, datetime_format='%Y-%m-%d %H:%M')
-    ax.set_title(title)
+    fig, _ = mpf.plot(d, type='candle', style='charles', addplot=addplots,
+                      volume=False, datetime_format='%Y-%m-%d %H:%M',
+                      returnfig=True, figsize=(10,6), dpi=160)
     buf = io.BytesIO()
+    fig.suptitle(title)
     fig.savefig(buf, format="png", bbox_inches="tight")
     return buf.getvalue()
 
