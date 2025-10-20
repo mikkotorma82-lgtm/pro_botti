@@ -3,6 +3,7 @@ from typing import Dict, Any, List, Tuple
 import itertools
 import numpy as np
 import pandas as pd
+import os  # *** KORJAUS: os import lisätty ***
 from joblib import dump
 from tools.capital_session import capital_rest_login, capital_get_candles_df
 from tools.exec_sim import simulate_returns
