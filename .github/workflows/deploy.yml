@@ -106,7 +106,7 @@ jobs:
             systemctl try-restart pro-botti-meta-train.service || true
           fi
 
-          # Live service: prefer hyphenated name; fall back to legacy if present
+          # Live service: prefer hyphen name; fall back to legacy if present
           if systemctl list-unit-files | grep -q '^pro-botti.service'; then
             systemctl enable pro-botti.service || true
             systemctl reload-or-restart pro-botti.service || true
@@ -121,7 +121,6 @@ jobs:
           ./venv/bin/python - <<'PY' || true
 import importlib, sys
 try:
-    import importlib
     importlib.import_module('tools.meta_ensemble')
     print('[deploy] OK: import tools.meta_ensemble')
 except Exception as e:
