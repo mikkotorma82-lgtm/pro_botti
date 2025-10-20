@@ -4,9 +4,33 @@ def _split_csv(v, default):
     s = (v or "").strip()
     return [x.strip() for x in s.split(",") if x.strip()] if s else default
 
+def _resolve_symbols_file():
+    # 1) Ympäristömuuttuja voittaa
+    env = os.getenv("META_SYMBOLS_FILE", "").strip()
+    if env:
+        return env
+    # 2) Yleisimmät fallback-polut (WorkingDirectorysta)
+    candidates = [
+        "./symbols.txt",
+        "./config/symbols.txt",
+        "./data/symbols.txt",
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return c
+    # 3) Viimeinen haku CWD:stä absoluuttisilla poluilla
+    cwd = os.getcwd()
+    for c in [os.path.join(cwd, "symbols.txt"),
+              os.path.join(cwd, "config", "symbols.txt"),
+              os.path.join(cwd, "data", "symbols.txt")]:
+        if os.path.isfile(c):
+            return c
+    # 4) Palauta oletus; loader antaa selkeän virheen jos puuttuu
+    return "./symbols.txt"
+
 class MetaConfig:
     def __init__(self):
-        self.symbols_file = os.getenv("META_SYMBOLS_FILE", "./symbols.txt")
+        self.symbols_file = _resolve_symbols_file()
         self.timeframes = _split_csv(os.getenv("META_TFS"), ["15m", "1h", "4h"])
         self.exchange_id = os.getenv("EXCHANGE_ID", os.getenv("META_EXCHANGE_ID", "kraken")).lower()
         self.max_workers = int(os.getenv("META_PARALLEL", "4"))
