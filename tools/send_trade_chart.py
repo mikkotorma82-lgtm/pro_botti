@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Optional
 import numpy as np
 import pandas as pd
+
+# Headless-renderointi
+import matplotlib
+matplotlib.use("Agg")
 import mplfinance as mpf
+
 from tools.capital_session import capital_get_candles_df
 
 STATE = Path(__file__).resolve().parents[1] / "state"
@@ -46,9 +51,11 @@ def _send_telegram_photo(png_bytes: bytes, caption: str) -> bool:
 
 def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
+    # Jos index jo datetime
     if isinstance(d.index, pd.DatetimeIndex):
         return d
-    for col in ("ts", "timestamp", "time", "date"):
+    # Tyypilliset aikakentät
+    for col in ("time","timestamp","ts","date"):
         if col in d.columns:
             s = d[col]
             try:
@@ -57,16 +64,17 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
                     dt = pd.to_datetime(s, unit=unit, utc=True)
                 else:
                     dt = pd.to_datetime(s, utc=True, errors="coerce")
-                d = d.set_index(dt); d.index.name = None
+                d = d.set_index(dt)
+                d.index.name = None
                 return d
             except Exception:
                 pass
+    # Fallback: parsi indeksistä
     try:
-        dt = pd.to_datetime(d.index, utc=True, errors="coerce")
-        d.index = dt
-        return d
+        d.index = pd.to_datetime(d.index, utc=True, errors="coerce")
     except Exception:
-        return d
+        pass
+    return d
 
 def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], exit_: Optional[float], action: Optional[str]) -> bytes:
     d = _ensure_dtindex(df).copy()
@@ -80,11 +88,15 @@ def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], 
         color = "r" if action.upper()=="BUY" else "g"
         addplots.append(mpf.make_addplot([exit_]*len(d), type='line', color=color))
         title += f"  exit={exit_:.5f}"
-    fig, _ = mpf.plot(d, type='candle', style='charles', addplot=addplots,
-                      volume=False, datetime_format='%Y-%m-%d %H:%M',
-                      returnfig=True, figsize=(10,6), dpi=160)
-    buf = io.BytesIO()
+
+    fig, _ = mpf.plot(
+        d, type='candle', style='charles',
+        addplot=addplots, volume=False,
+        datetime_format='%Y-%m-%d %H:%M',
+        returnfig=True, figsize=(10,6), dpi=160
+    )
     fig.suptitle(title)
+    buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     return buf.getvalue()
 
