@@ -27,17 +27,14 @@ def _train_one(symbol: str, tf: str, cfg: MetaConfig) -> Dict:
     if not enough:
         return {"symbol": symbol, "tf": tf, "status": "SKIP",
                 "reason": f"not-enough-candles({n}<{cfg.min_candles})", "metrics": {}}
-
-    # Vaihda import siihen funktioon, jota TEILLÄ oikeasti käytetään
     try:
-        from meta.ensemble import train_symbol_tf  # jos teillä on tämä
+        from meta.ensemble import train_symbol_tf
     except Exception:
         try:
-            from tools.meta_ensemble import train_symbol_tf  # tai tämä
+            from tools.meta_ensemble import train_symbol_tf
         except Exception as e:
             return {"symbol": symbol, "tf": tf, "status": "FAIL",
                     "reason": f"cannot-import-trainer:{type(e).__name__}:{e}", "metrics": {}}
-
     try:
         metrics = train_symbol_tf(symbol=symbol, timeframe=tf, **cfg.train_kwargs)
         return {"symbol": symbol, "tf": tf, "status": "OK", "reason": "", "metrics": metrics or {}}
@@ -46,19 +43,19 @@ def _train_one(symbol: str, tf: str, cfg: MetaConfig) -> Dict:
                 "reason": f"{type(e).__name__}:{e}", "metrics": {}}
 
 def run_all(cfg: MetaConfig) -> Dict:
-    log.info("Using symbols file: %s", cfg.symbols_file)  # LOG: käytetty polku
-
+    log.info("Using symbols file: %s", cfg.symbols_file)
     raw_symbols = load_symbols_file(cfg.symbols_file)
     if cfg.max_symbols:
         raw_symbols = raw_symbols[: cfg.max_symbols]
-    symbols = normalize_symbols(cfg.exchange_id, raw_symbols)
+    # Normalisoi (lisää /-merkki, aliasoi XBT jne.)
+    norm_syms = normalize_symbols(cfg.exchange_id, raw_symbols)
 
     ex_cls = getattr(ccxt, cfg.exchange_id)
     ex = ex_cls()
-    supported, rejected = filter_supported_symbols(ex, symbols)
+    supported, rejected = filter_supported_symbols(ex, norm_syms)
 
-    log.info("META-ensemble start symbols=%d tfs=%s models=%s",
-             len(supported), ",".join(cfg.timeframes), ",".join(cfg.train_kwargs.get("models", [])))
+    log.info("META-ensemble start symbols=%d (supported) rejected=%d tfs=%s models=%s",
+             len(supported), len(rejected), ",".join(cfg.timeframes), ",".join(cfg.train_kwargs.get("models", [])))
     for s, r in rejected.items():
         log.warning("SKIP %s reason=%s", s, r)
 
