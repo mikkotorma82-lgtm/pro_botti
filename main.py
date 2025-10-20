@@ -20,7 +20,7 @@ from utils.backtest_engine import BacktestEngine
 from utils.time_utils import utc_now
 from tools.exchange_api import ExchangeAPI
 from tools.strategies.ml_agents import ml_signal, build_features, BEST_FEATURES   # KORJATTU POLKU!
-from tools.position_watcher import PositionWatcher
+from utils.position_watcher import PositionWatcher
 from tools.tele import setup as tele_setup, send as tele_send
 
 config = ConfigManager("config.yaml")
