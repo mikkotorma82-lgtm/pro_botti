@@ -13,6 +13,7 @@ from tools.ml.features import compute_features
 from tools.ml.labels import label_meta_from_entries
 from tools.ml.purged_cv import PurgedTimeSeriesSplit
 from tools.ml.asset_class import resolve_asset_class
+from tools.notifier import send_telegram, send_big  # UUSI
 
 warnings.filterwarnings("ignore")
 
@@ -72,16 +73,12 @@ def _cv_choose_threshold(X: pd.DataFrame, y: np.ndarray, splits: int, embargo: i
 def _features_for_class(asset_class: str) -> List[str]:
     ac = asset_class
     if ac == "crypto":
-        # trend + momentum + vola + volyymi
         return ["sma_diff","ema_diff","rsi14","macd_hist","atr14","obv"]
     if ac == "index":
-        # trend + trendin vahvuus + vola
         return ["ema_diff","rsi14","adx14","vola50","atr14"]
     if ac == "stock":
-        # trend + ajoitus + volyymi + vola
         return ["ema_diff","rsi14","stoch_k","obv","atr14"]
     if ac in ("metal","energy","fx"):
-        # konservatiivisempi: trend + vola + momentti
         return ["ema_diff","rsi14","atr14","vola50","rng_pct"]
     return ["ema_diff","rsi14","vola50","rng_pct"]
 
@@ -102,21 +99,25 @@ def main():
     registry: List[Dict[str, Any]] = []
     print(f"[META-TRAIN] start symbols={len(symbols)} tfs={tfs} pt={pt_mult} sl={sl_mult} hold={max_hold} cv={cv_splits} embargo={embargo}", flush=True)
 
+    ok_lines: List[str] = []  # Telegram-yhteenveto
+
     for sym in symbols:
         for tf in tfs:
             try:
                 cfg = _load_pro_config(sym, tf)
-                if not cfg: print(f"[SKIP] no base config for {sym} {tf}", flush=True); continue
+                if not cfg:
+                    print(f"[SKIP] no base config for {sym} {tf}", flush=True); continue
                 df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
-                if df.empty or len(df) < 600: print(f"[WARN] insufficient data {sym} {tf} ({len(df)})", flush=True); continue
+                if df.empty or len(df) < 600:
+                    print(f"[WARN] insufficient data {sym} {tf} ({len(df)})", flush=True); continue
 
                 feats_all = compute_features(df)
                 idx, dirs = _entry_points(df, cfg)
-                if len(idx) < 50: print(f"[WARN] too few entries {sym} {tf} ({len(idx)})", flush=True); continue
+                if len(idx) < 50:
+                    print(f"[WARN] too few entries {sym} {tf} ({len(idx)})", flush=True); continue
 
                 asset_class = resolve_asset_class(sym)
                 want_cols = _features_for_class(asset_class)
-                # Kohdista featurit haluttuihin; puuttuvat korvataan 0.0
                 feats_all = feats_all.replace([np.inf,-np.inf], np.nan).fillna(method="ffill").fillna(method="bfill")
                 feats_all = feats_all.fillna(0.0)
                 X = feats_all.iloc[idx]
@@ -125,7 +126,6 @@ def main():
                 y,_ = label_meta_from_entries(df, idx, dirs, pt_mult=pt_mult, sl_mult=sl_mult, max_holding=max_hold)
                 thr, cv_score = _cv_choose_threshold(X, y, splits=cv_splits, embargo=embargo)
 
-                # Aikapainotus
                 n = len(X)
                 weights = (decay ** (np.arange(n)[::-1])).astype(float)
                 clf = GradientBoostingClassifier(random_state=42)
@@ -140,7 +140,10 @@ def main():
                        "features": list(X.columns), "entries": int(len(idx)),
                        "class_balance": float(y.mean())}
                 registry.append(row)
-                print(f"[OK][META] {sym} {tf} [{asset_class}] -> thr={thr:.2f} cv_pf={cv_score:.3f} feats={len(X.columns)} entries={len(idx)}", flush=True)
+                msg_line = f"{sym} {tf} thr={thr:.2f} cv_pf={cv_score:.3f} entries={len(idx)}"
+                ok_lines.append(f"✅ {msg_line}")
+                send_telegram(f"✅ [META OK] {msg_line}")
+                print(f"[OK][META] {msg_line}", flush=True)
                 time.sleep(0.2)
             except Exception as e:
                 print(f"[ERROR][META] {sym} {tf}: {e}", flush=True)
@@ -148,6 +151,9 @@ def main():
     tmp = META_REG.with_suffix(".tmp")
     open(tmp,"w").write(json.dumps({"models": registry}, ensure_ascii=False, indent=2))
     os.replace(tmp, META_REG)
+    send_big("📣 META-koulutus valmis", ok_lines, max_lines=120)
+    send_telegram(f"📦 Tallennettu -> {META_REG} count={len(registry)}")
+
     print(f"[DONE][META] saved -> {META_REG} count={len(registry)}", flush=True)
 
 if __name__ == "__main__":
