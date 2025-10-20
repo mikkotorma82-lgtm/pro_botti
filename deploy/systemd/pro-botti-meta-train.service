@@ -1,1 +1,23 @@
 # (liitä koko service sisällön blokki tästä)
+[Unit]
+Description=pro_botti META ensemble training (all symbols)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+EnvironmentFile=/root/pro_botti/botti.env
+Environment=META_EXCHANGE_ID=capitalcom
+Environment=META_TRAINER_PATH=tools.meta_ensemble:train_symbol_tf
+Environment=META_PARALLEL=2
+Environment=META_NOTIFY_SUMMARY=1
+Environment=META_NOTIFY_EACH=0
+ExecStart=/root/pro_botti/tools/meta_train_service.sh
+CPUWeight=50
+IOWeight=50
+Nice=10
+IOSchedulingClass=2
+IOSchedulingPriority=7
