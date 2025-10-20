@@ -66,12 +66,10 @@ jobs:
 
             echo "[DEPLOY] systemd reload & start"
             systemctl daemon-reload
-
             if systemctl list-unit-files | grep -q '^pro-botti-meta-train.timer'; then
               systemctl enable --now pro-botti-meta-train.timer || true
               systemctl try-restart pro-botti-meta-train.service || true
             fi
-
             if systemctl list-unit-files | grep -q '^pro-botti.service'; then
               systemctl enable pro-botti.service || true
               systemctl reload-or-restart pro-botti.service || true
