@@ -12,7 +12,6 @@ jobs:
     - name: Checkout (for context only)
       uses: actions/checkout@v4
 
-    # Näytä onko kukin arvo SET/MISSING (ei paljasta sisältöä)
     - name: Debug — show which inputs were read
       env:
         SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
@@ -99,7 +98,6 @@ jobs:
           systemctl daemon-reload
           systemctl enable --now pro-botti-meta-train.timer || true
           systemctl try-restart pro-botti-meta-train.service || true
-          # Live restart only if unit exists
           if systemctl list-unit-files | grep -q '^pro_botti.service'; then
             systemctl reload-or-restart pro_botti.service || true
           fi
