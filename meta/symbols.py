@@ -33,7 +33,7 @@ def normalize_symbols(exchange_id: str, symbols: List[str]) -> List[str]:
 
 def filter_supported_symbols(exchange, symbols: List[str]) -> Tuple[List[str], Dict[str, str]]:
     supported = []; rejected: Dict[str, str] = {}
-    markets = exchange.load_markets()  # noqa: F841
+    exchange.load_markets()  # lataa markkinalista
     ex_syms = set(exchange.symbols or [])
     for s in symbols:
         if s in ex_syms:
