@@ -1,12 +1,1 @@
-[Unit]
-Description=Run pro_botti META training periodically
-
-[Timer]
-OnBootSec=5m
-OnUnitActiveSec=30m
-RandomizedDelaySec=2m
-Persistent=true
-Unit=pro-botti-meta-train.service
-
-[Install]
-WantedBy=timers.target
+# (liitä koko timer sisällön blokki tästä)
