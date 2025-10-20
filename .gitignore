@@ -1,1 +1,15 @@
-# (liitä koko .gitignore sisällön blokki tästä)
+# local runtime env files
+botti.env
+.env
+secrets.env
+
+# state and generated configs
+state/*
+!state/.gitkeep
+logs/*
+data/broker_specs.json
+
+# OS/editor
+.DS_Store
+*.swp
+*.tmp
