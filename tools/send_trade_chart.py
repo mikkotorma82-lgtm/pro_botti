@@ -51,7 +51,6 @@ def _send_telegram_photo(png_bytes: bytes, caption: str) -> bool:
 
 def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-    # Jos index jo datetime
     if isinstance(d.index, pd.DatetimeIndex):
         return d
     # Tyypilliset aikakentät
@@ -64,8 +63,7 @@ def _ensure_dtindex(df: pd.DataFrame) -> pd.DataFrame:
                     dt = pd.to_datetime(s, unit=unit, utc=True)
                 else:
                     dt = pd.to_datetime(s, utc=True, errors="coerce")
-                d = d.set_index(dt)
-                d.index.name = None
+                d = d.set_index(dt); d.index.name = None
                 return d
             except Exception:
                 pass
@@ -89,11 +87,12 @@ def build_chart(df: pd.DataFrame, symbol: str, tf: str, entry: Optional[float], 
         addplots.append(mpf.make_addplot([exit_]*len(d), type='line', color=color))
         title += f"  exit={exit_:.5f}"
 
+    # Käytä returnfig=True + figscale/figratio (ei dpi/figsize-kwargs)
     fig, _ = mpf.plot(
         d, type='candle', style='charles',
         addplot=addplots, volume=False,
         datetime_format='%Y-%m-%d %H:%M',
-        returnfig=True, figsize=(10,6), dpi=160
+        returnfig=True, figscale=1.1, figratio=(16,9)
     )
     fig.suptitle(title)
     buf = io.BytesIO()
