@@ -9,116 +9,116 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout (for context only)
-      uses: actions/checkout@v4
+      - name: Checkout (for context only)
+        uses: actions/checkout@v4
 
-    - name: Debug — show which inputs were read
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER || vars.SSH_USER }}
-        SSH_PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
-        SSH_KEY:  ${{ secrets.SSH_KEY }}
-      run: |
-        set -euo pipefail
-        for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
-          if [ -n "${!v:-}" ]; then echo "$v=SET"; else echo "$v=MISSING"; fi
-        done
-
-    - name: Preflight — check required secrets/vars
-      env:
-        SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER || vars.SSH_USER }}
-        SSH_PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
-        SSH_KEY:  ${{ secrets.SSH_KEY }}
-      run: |
-        set -euo pipefail
-        missing=0
-        for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
-          if [ -z "${!v:-}" ]; then
-            echo "::error:: Missing required value: $v (repo Settings → Secrets and variables → Actions)"
-            missing=1
-          fi
-        done
-        if [ -z "${SSH_KEY:-}" ]; then
-          echo "::error:: SSH_KEY must be set as a Secret (not a Variable)."
-        fi
-        exit $missing
-
-    - name: Deploy over SSH
-      uses: appleboy/ssh-action@v1.2.0
-      with:
-        host: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
-        username: ${{ secrets.SSH_USER || vars.SSH_USER }}
-        port: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
-        key: ${{ secrets.SSH_KEY }}
-        script: |
+      - name: Debug — show which inputs were read
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER || vars.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
+          SSH_KEY:  ${{ secrets.SSH_KEY }}
+        run: |
           set -euo pipefail
-          ROOT=/root/pro_botti
-          REPO="https://github.com/${{ github.repository }}"
+          for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
+            if [ -n "${!v:-}" ]; then echo "$v=SET"; else echo "$v=MISSING"; fi
+          done
 
-          if [ ! -d "$ROOT/.git" ]; then
-            echo "[DEPLOY] Cloning repository into $ROOT"
-            rm -rf "$ROOT"
-            git clone --depth 1 "$REPO" "$ROOT"
+      - name: Preflight — check required secrets/vars
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER || vars.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
+          SSH_KEY:  ${{ secrets.SSH_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error:: Missing required value: $v (repo Settings → Secrets and variables → Actions)"
+              missing=1
+            fi
+          done
+          if [ -z "${SSH_KEY:-}" ]; then
+            echo "::error:: SSH_KEY must be set as a Secret (not a Variable)."
           fi
+          exit $missing
 
-          cd "$ROOT"
-          git config --global --add safe.directory "$ROOT" || true
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+          username: ${{ secrets.SSH_USER || vars.SSH_USER }}
+          port: ${{ secrets.SSH_PORT || vars.SSH_PORT }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            ROOT=/root/pro_botti
+            REPO="https://github.com/${{ github.repository }}"
 
-          echo "[DEPLOY] Fetch & reset to origin/main"
-          git fetch origin
-          git checkout main || true
-          git reset --hard origin/main
+            if [ ! -d "$ROOT/.git" ]; then
+              echo "[DEPLOY] Cloning repository into $ROOT"
+              rm -rf "$ROOT"
+              git clone --depth 1 "$REPO" "$ROOT"
+            fi
 
-          echo "[DEPLOY] Ensure venv and deps"
-          if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
-          source venv/bin/activate
-          pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+            cd "$ROOT"
+            git config --global --add safe.directory "$ROOT" || true
 
-          echo "[DEPLOY] Set script permissions (ignore if missing)"
-          chmod +x tools/meta_train_service.sh 2>/dev/null || true
-          chmod +x tools/meta_train_bg.sh 2>/dev/null || true
-          chmod +x tools/train_bundle_guard.sh 2>/dev/null || true
+            echo "[DEPLOY] Fetch & reset to origin/main"
+            git fetch origin
+            git checkout main || true
+            git reset --hard origin/main
 
-          echo "[DEPLOY] Install/refresh META training units"
-          if [ -f deploy/systemd/pro-botti-meta-train.service ]; then
-            install -m 0644 -D deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/pro-botti-meta-train.service
-          fi
-          if [ -f deploy/systemd/pro-botti-meta-train.timer ]; then
-            install -m 0644 -D deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/pro-botti-meta-train.timer
-          fi
+            echo "[DEPLOY] Ensure venv and deps"
+            if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
+            . venv/bin/activate
+            pip install --upgrade pip
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-          echo "[DEPLOY] Install/refresh live unit if available"
-          if [ -f deploy/systemd/pro-botti.service ]; then
-            install -m 0644 -D deploy/systemd/pro-botti.service /etc/systemd/system/pro-botti.service
-          elif [ -f deploy/pro_botti.service ]; then
-            # legacy path support
-            install -m 0644 -D deploy/pro_botti.service /etc/systemd/system/pro-botti.service
-          fi
+            echo "[DEPLOY] Set script permissions (ignore if missing)"
+            chmod +x tools/meta_train_service.sh 2>/dev/null || true
+            chmod +x tools/meta_train_bg.sh 2>/dev/null || true
+            chmod +x tools/train_bundle_guard.sh 2>/dev/null || true
 
-          echo "[DEPLOY] systemd reload & start"
-          systemctl daemon-reload
+            echo "[DEPLOY] Install/refresh META training units"
+            if [ -f deploy/systemd/pro-botti-meta-train.service ]; then
+              install -m 0644 -D deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/pro-botti-meta-train.service
+            fi
+            if [ -f deploy/systemd/pro-botti-meta-train.timer ]; then
+              install -m 0644 -D deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/pro-botti-meta-train.timer
+            fi
 
-          # Enable META timer if present
-          if systemctl list-unit-files | grep -q '^pro-botti-meta-train.timer'; then
-            systemctl enable --now pro-botti-meta-train.timer || true
-            systemctl try-restart pro-botti-meta-train.service || true
-          fi
+            echo "[DEPLOY] Install/refresh live unit if available"
+            if [ -f deploy/systemd/pro-botti.service ]; then
+              install -m 0644 -D deploy/systemd/pro-botti.service /etc/systemd/system/pro-botti.service
+            elif [ -f deploy/pro_botti.service ]; then
+              # legacy path support
+              install -m 0644 -D deploy/pro_botti.service /etc/systemd/system/pro-botti.service
+            fi
 
-          # Live service: prefer hyphen name; fall back to legacy if present
-          if systemctl list-unit-files | grep -q '^pro-botti.service'; then
-            systemctl enable pro-botti.service || true
-            systemctl reload-or-restart pro-botti.service || true
-          elif systemctl list-unit-files | grep -q '^pro_botti.service'; then
-            systemctl enable pro_botti.service || true
-            systemctl reload-or-restart pro_botti.service || true
-          else
-            echo "[DEPLOY] No live unit found; skipping live restart"
-          fi
+            echo "[DEPLOY] systemd reload & start"
+            systemctl daemon-reload
 
-          echo "[DEPLOY] Quick import self-check (non-fatal)"
-          ./venv/bin/python - <<'PY' || true
+            # Enable META timer if present
+            if systemctl list-unit-files | grep -q '^pro-botti-meta-train.timer'; then
+              systemctl enable --now pro-botti-meta-train.timer || true
+              systemctl try-restart pro-botti-meta-train.service || true
+            fi
+
+            # Live service: prefer hyphen; fallback to legacy underscore if present
+            if systemctl list-unit-files | grep -q '^pro-botti.service'; then
+              systemctl enable pro-botti.service || true
+              systemctl reload-or-restart pro-botti.service || true
+            elif systemctl list-unit-files | grep -q '^pro_botti.service'; then
+              systemctl enable pro_botti.service || true
+              systemctl reload-or-restart pro_botti.service || true
+            else
+              echo "[DEPLOY] No live unit found; skipping live restart"
+            fi
+
+            echo "[DEPLOY] Quick import self-check (non-fatal)"
+            ./venv/bin/python - <<'PY' || true
 import importlib, sys
 try:
     importlib.import_module('tools.meta_ensemble')
@@ -127,9 +127,9 @@ except Exception as e:
     print('[deploy] WARN: meta_ensemble import failed:', e, file=sys.stderr)
 PY
 
-          echo "[DEPLOY] Post-checks"
-          systemctl status pro-botti-meta-train.timer --no-pager || true
-          systemctl status pro-botti-meta-train.service --no-pager || true
-          systemctl status pro-botti.service --no-pager || systemctl status pro_botti.service --no-pager || true
-          journalctl -u pro-botti-meta-train.service -n 80 --no-pager || true
-          echo "[DEPLOY] done"
+            echo "[DEPLOY] Post-checks"
+            systemctl status pro-botti-meta-train.timer --no-pager || true
+            systemctl status pro-botti-meta-train.service --no-pager || true
+            systemctl status pro-botti.service --no-pager || systemctl status pro_botti.service --no-pager || true
+            journalctl -u pro-botti-meta-train.service -n 80 --no-pager || true
+            echo "[deploy] done"
