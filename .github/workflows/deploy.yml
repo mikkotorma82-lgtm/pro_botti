@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy over SSH
+      - name: SSH deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -22,23 +22,13 @@ jobs:
           script: |
             set -euo pipefail
             ROOT=/root/pro_botti
-            REPO="https://github.com/${{ github.repository }}"
+            cd "$ROOT" || exit 1
 
-            if [ ! -d "$ROOT/.git" ]; then
-              echo "[DEPLOY] Clone repo to $ROOT"
-              rm -rf "$ROOT"
-              git clone --depth 1 "$REPO" "$ROOT"
-            fi
-
-            cd "$ROOT"
-            git config --global --add safe.directory "$ROOT" || true
-
-            echo "[DEPLOY] Sync to origin/main"
+            echo "[DEPLOY] Fetch & reset"
             git fetch origin
-            git checkout main || true
             git reset --hard origin/main
 
-            echo "[DEPLOY] Ensure venv and deps"
+            echo "[DEPLOY] Ensure venv & deps"
             if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
             . venv/bin/activate
             pip install --upgrade pip
@@ -49,7 +39,7 @@ jobs:
             chmod +x tools/meta_train_bg.sh 2>/dev/null || true
             chmod +x tools/train_bundle_guard.sh 2>/dev/null || true
 
-            echo "[DEPLOY] Install META units (if present)"
+            echo "[DEPLOY] Install META units if present"
             if [ -f deploy/systemd/pro-botti-meta-train.service ]; then
               install -m 0644 -D deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/pro-botti-meta-train.service
             fi
@@ -57,7 +47,7 @@ jobs:
               install -m 0644 -D deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/pro-botti-meta-train.timer
             fi
 
-            echo "[DEPLOY] Install live unit if available"
+            echo "[DEPLOY] Install live unit if present"
             if [ -f deploy/systemd/pro-botti.service ]; then
               install -m 0644 -D deploy/systemd/pro-botti.service /etc/systemd/system/pro-botti.service
             elif [ -f deploy/pro_botti.service ]; then
@@ -66,21 +56,18 @@ jobs:
 
             echo "[DEPLOY] systemd reload & start"
             systemctl daemon-reload
-            if systemctl list-unit-files | grep -q '^pro-botti-meta-train.timer'; then
+            if systemctl list-unit-files | awk '{print $1}' | grep -Fxq pro-botti-meta-train.timer; then
               systemctl enable --now pro-botti-meta-train.timer || true
               systemctl try-restart pro-botti-meta-train.service || true
             fi
-            if systemctl list-unit-files | grep -q '^pro-botti.service'; then
+            if systemctl list-unit-files | awk '{print $1}' | grep -Fxq pro-botti.service; then
               systemctl enable pro-botti.service || true
               systemctl reload-or-restart pro-botti.service || true
-            elif systemctl list-unit-files | grep -q '^pro_botti.service'; then
-              systemctl enable pro_botti.service || true
-              systemctl reload-or-restart pro_botti.service || true
             else
               echo "[DEPLOY] No live unit found; skipping live restart"
             fi
 
-            echo "[DEPLOY] Quick import self-check (non-fatal)"
+            echo "[DEPLOY] Import self-check (non-fatal)"
             ./venv/bin/python - <<'PY' || true
 import importlib, sys
 try:
@@ -93,6 +80,6 @@ PY
             echo "[DEPLOY] Post-checks"
             systemctl status pro-botti-meta-train.timer --no-pager || true
             systemctl status pro-botti-meta-train.service --no-pager || true
-            systemctl status pro-botti.service --no-pager || systemctl status pro_botti.service --no-pager || true
+            systemctl status pro-botti.service --no-pager || true
             journalctl -u pro-botti-meta-train.service -n 60 --no-pager || true
             echo "[DEPLOY] done"
