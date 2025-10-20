@@ -54,29 +54,68 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script: |
           set -euo pipefail
-          cd /root/pro_botti
-          git fetch --all
-          git checkout main
+          ROOT=/root/pro_botti
+          REPO="https://github.com/${{ github.repository }}"
+
+          if [ ! -d "$ROOT/.git" ]; then
+            echo "[DEPLOY] Cloning repository into $ROOT"
+            rm -rf "$ROOT"
+            git clone --depth 1 "$REPO" "$ROOT"
+          fi
+
+          cd "$ROOT"
+          git config --global --add safe.directory "$ROOT" || true
+
+          echo "[DEPLOY] Fetch & reset to origin/main"
+          git fetch origin
+          git checkout main || true
           git reset --hard origin/main
 
-          # Venv ja riippuvuudet
+          echo "[DEPLOY] Ensure venv and deps"
           if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
           source venv/bin/activate
           pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-          # Palvelut
-          cp deploy/pro_botti.service /etc/systemd/system/ || true
-          systemctl daemon-reload
-          systemctl enable --now pro_botti
+          echo "[DEPLOY] Set script permissions (ignore if missing)"
+          chmod +x tools/meta_train_service.sh 2>/dev/null || true
+          chmod +x tools/meta_train_bg.sh 2>/dev/null || true
+          chmod +x tools/train_bundle_guard.sh 2>/dev/null || true
 
-          # Ajastin (valinnainen)
-          if [ -f deploy/pro_botti-retrain.service ] && [ -f deploy/pro_botti-retrain.timer ]; then
-            cp deploy/pro_botti-retrain.service /etc/systemd/system/ || true
-            cp deploy/pro_botti-retrain.timer /etc/systemd/system/ || true
-            systemctl daemon-reload
-            systemctl enable --now pro_botti-retrain.timer || true
+          echo "[DEPLOY] Install/refresh META training units"
+          if [ -f deploy/systemd/pro-botti-meta-train.service ]; then
+            install -m 0644 -D deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/pro-botti-meta-train.service
+          fi
+          if [ -f deploy/systemd/pro-botti-meta-train.timer ]; then
+            install -m 0644 -D deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/pro-botti-meta-train.timer
           fi
 
-          systemctl restart pro_botti
+          echo "[DEPLOY] Refresh live service if present"
+          if [ -f deploy/pro_botti.service ]; then
+            install -m 0644 -D deploy/pro_botti.service /etc/systemd/system/pro_botti.service
+          fi
+
+          echo "[DEPLOY] systemd reload & start"
+          systemctl daemon-reload
+          systemctl enable --now pro-botti-meta-train.timer || true
+          systemctl try-restart pro-botti-meta-train.service || true
+          # Live restart only if unit exists
+          if systemctl list-unit-files | grep -q '^pro_botti.service'; then
+            systemctl reload-or-restart pro_botti.service || true
+          fi
+
+          echo "[DEPLOY] Quick import self-check (non-fatal)"
+          ./venv/bin/python - <<'PY' || true
+import importlib, sys
+try:
+    importlib.import_module('tools.meta_ensemble')
+    print('[deploy] OK: import tools.meta_ensemble')
+except Exception as e:
+    print('[deploy] WARN: meta_ensemble import failed:', e, file=sys.stderr)
+PY
+
+          echo "[DEPLOY] Post-checks"
+          systemctl status pro-botti-meta-train.timer --no-pager || true
+          systemctl status pro-botti-meta-train.service --no-pager || true
+          journalctl -u pro-botti-meta-train.service -n 80 --no-pager || true
           echo "[deploy] done"
