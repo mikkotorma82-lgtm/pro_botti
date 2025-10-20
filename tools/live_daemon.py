@@ -14,9 +14,17 @@ from tools.position_guard import guard_positions
 from tools.tele import send as send_telegram, send_photo as send_telegram_photo
 from tools.send_trade_chart import build_chart
 from tools.tp_sl import compute_levels
-# Lisää myöhemmin portfolio_manager, dashboard, backtest_engine jne.
+from tools.data_sources import fetch_ohlcv
 
-# --- Strategioiden yhdistäjä ---
+# Ammattilaistason symbolilista – kattaa kaikki markkinat
+SYMBOLS_ALL = [
+    "US500", "NAS100", "GER40", "UK100", "FRA40", "EU50", "JPN225",
+    "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD", "EURJPY", "GBPJPY",
+    "XAUUSD", "XAGUSD", "XTIUSD", "XBRUSD", "XNGUSD",
+    "BTCUSD", "ETHUSD", "XRPUSD",
+    "AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN"
+]
+
 def select_strategy(df, params):
     sigs = {
         "momentum": momentum_signal(df, params),
@@ -24,7 +32,6 @@ def select_strategy(df, params):
         "ml": ml_signal(df, params),
         "stat_arb": stat_arb_signal(df, params),
     }
-    # Voit tehdä enemmän meta-oppijaa/ensembleä jatkossa
     best = max(sigs, key=lambda k: abs(sigs[k]))
     return sigs[best], best
 
@@ -33,7 +40,12 @@ def log(s: str):
     print(f"[{ts}] {s}", flush=True)
 
 def main():
-    SYMBOLS = os.getenv("SYMBOLS", "BTCUSDT,ETHUSDT,ADAUSDT,SOLUSDT,XRPUSDT").split(",")
+    # Käytä joko ympäristömuuttujaa (SYMBOLS), tiedostoa, tai fallbackina yllä olevaa listaa
+    symbols_env = os.getenv("SYMBOLS")
+    if symbols_env:
+        SYMBOLS = symbols_env.split(",")
+    else:
+        SYMBOLS = SYMBOLS_ALL
     TFS = os.getenv("TFS", "15m,1h,4h").split(",")
     POLL = int(os.getenv("POLL_SECS","60"))
 
@@ -45,27 +57,27 @@ def main():
         try:
             for s in SYMBOLS:
                 for tf in TFS:
-                    # --- Hae data ---
                     df = fetch_ohlcv(s, tf, lookback_days=365)
                     if df is None or df.empty: continue
-                    params = {} # Voit laajentaa strategioiden parametrit
+                    params = {}
                     signal, strat = select_strategy(df, params)
-                    # --- Kauppa ---
+                    entry_px = float(df["close"].iloc[-1])
+
                     if signal == 1:
                         log(f"[TRADE] {s} {tf}: BUY ({strat})")
-                        # Luo kauppa, kirjaa kauppa, riskienhallinta, TP/SL
-                        entry_px = float(df["close"].iloc[-1])
                         levels = compute_levels(s, "BUY", entry_px)
-                        # ... broker.create_order jne ...
+                        chart = build_chart(df, s, tf, signal, entry_px)
+                        send_telegram(f"BUY {s} {tf} @ {entry_px} strat={strat}")
+                        send_telegram_photo(chart)
                     elif signal == -1:
                         log(f"[TRADE] {s} {tf}: SELL ({strat})")
-                        entry_px = float(df["close"].iloc[-1])
                         levels = compute_levels(s, "SELL", entry_px)
-                        # ... broker.create_order jne ...
+                        chart = build_chart(df, s, tf, signal, entry_px)
+                        send_telegram(f"SELL {s} {tf} @ {entry_px} strat={strat}")
+                        send_telegram_photo(chart)
                     else:
                         log(f"[HOLD] {s} {tf}: HOLD ({strat})")
 
-            # --- PositionWatcher: TP/SL/Trail + Telegram + chart ---
             if position_watcher.should_check():
                 position_watcher.check_and_manage_positions(SYMBOLS)
 
