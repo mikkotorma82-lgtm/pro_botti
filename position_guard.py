@@ -1,10 +1,19 @@
 import os
+import time
 import json
 from tools.send_trade_chart import build_chart
 from tools.tele import send as send_telegram, send_photo as send_telegram_photo
-# ... muu alkuperäinen sisältö ...
 
-def guard_positions(capital_client, cfg: Dict = None):
+# ... muu alkuperäinen sisältö ja DEFAULTS ...
+
+_memory = {}
+
+def _pct(pl: float, open_level: float) -> float:
+    if not open_level:
+        return 0.0
+    return (pl / open_level) * 100.0
+
+def guard_positions(capital_client, cfg: dict = None):
     """Käy läpi avoimet positiot ja sulkee TP/SL/Trail-logiikalla + telegram ilmoitus + chart."""
     if cfg is None:
         cfg = {}
@@ -26,9 +35,9 @@ def guard_positions(capital_client, cfg: Dict = None):
             open_level = pos.get("openLevel") or pos.get("open_price") or 0.0
             upl = pos.get("unrealizedPL") or pos.get("profit") or 0.0
             pct_now = _pct(upl, open_level)
-            entry_ts = pos.get("openTime") or pos.get("entry_ts") or pos.get("opened") or None
+            entry_ts = pos.get("openTime") or pos.get("entry_ts") or pos.get("opened") or int(time.time()) - 3600
             exit_ts = int(time.time())
-            tf = pos.get("tf") or "1h" # oletus jos ei löydy
+            tf = pos.get("tf") or "1h"
 
             mem = _memory.setdefault(epic, {"best_pct": 0.0, "trail_anchor": None})
             if pct_now > mem["best_pct"]:
@@ -36,7 +45,6 @@ def guard_positions(capital_client, cfg: Dict = None):
 
             def send_position_close_telegram(reason):
                 try:
-                    # Generoi chart
                     entry = open_level
                     exit = pos.get("closeLevel") or pos.get("close_price") or open_level + upl
                     path, caption = build_chart(epic, tf, entry, exit, entry_ts, exit_ts, "trade_chart.png")
