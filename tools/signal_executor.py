@@ -1,65 +1,39 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 import os
-from typing import Optional, Tuple
+from typing import Optional
+from tools.capital_client import place_market_order  # olettaa olemassaolon
+# Jos teillä on eri nimi funktiolle, vaihda import ja kutsu sen mukaan
 
-from tools.position_sizer import pick_size  # AUTO-tila laskee riskin treenistä
+def _pos_size(equity: float, risk_pct: float, sl_px: Optional[float], entry_px: float, symbol: str) -> float:
+    # Yksinkertainen riskipohjainen positio: risk_pct * equity
+    # Jos SL tunnetaan, skaalaa etäisyyden mukaan. Muutoin käytä kiinteää vipua/lot-kokoa env:stä.
+    base = equity * risk_pct
+    if sl_px and sl_px > 0:
+        dist = abs(entry_px - sl_px)
+        if dist > 0:
+            # arvioitu koko: risk euroissa / dist, ilman vipukäsittelyä (voi lisätä instrumentin sopivaksi)
+            return max(base / dist, 0.0)
+    # fallback: kiinteä koko
+    return float(os.getenv("LIVE_FIXED_SIZE", "1"))
 
-# Yritä tuoda risk_guard apurit; fallback jos puuttuvat
-try:
-    from tools.risk_guard import can_open_more  # type: ignore
-except Exception:
-    can_open_more = None  # type: ignore[assignment]
-
-try:
-    from tools.risk_guard import todays_realized_R  # type: ignore
-except Exception:
-    todays_realized_R = None  # type: ignore[assignment]
-
-def _fallback_can_open_more(symbol: str, tf: str, equity: float) -> bool:
-    """Päästetään uusi avaus, ellei päivän R ole alle rajan (oletus -3.0 R)."""
-    try:
-        limit_r = float(os.getenv("RISK_MAX_DAILY_R", "-3.0"))
-    except Exception:
-        limit_r = -3.0
-    try:
-        r_today = todays_realized_R() if callable(todays_realized_R) else 0.0  # type: ignore[misc]
-    except Exception:
-        r_today = 0.0
-    if r_today is None:
-        r_today = 0.0
-    return float(r_today) > float(limit_r)
-
-def _can_open(symbol: str, tf: str, equity: float) -> bool:
-    if callable(can_open_more):
-        try:
-            return bool(can_open_more(symbol, tf, equity))  # type: ignore[misc]
-        except Exception:
-            pass
-    return _fallback_can_open_more(symbol, tf, equity)
-
-def execute_action(symbol: str, tf: str, action: str, price: float, equity: float) -> Optional[Tuple[str, float]]:
+def execute_action(symbol: str, tf: str, action: str, entry_px: float, equity: float,
+                   sl_px: Optional[float] = None, tp_px: Optional[float] = None) -> bool:
     """
-    action: BUY / SELL / HOLD
-    Palauttaa (side, qty) jos order lähetettiin.
+    Toteuta toimeksianto. Jos sl_px/tp_px on annettu ja LIVE_TP_SL=1, liitä SL/TP.
+    Palauta True, jos toimeksianto lähetettiin onnistuneesti.
     """
-    if action not in ("BUY","SELL"):
-        return None
-    if not _can_open(symbol, tf, equity):
-        return None
-
-    side = "BUY" if action == "BUY" else "SELL"
-    qty = pick_size(symbol, tf, price, equity)
-    if qty <= 0:
-        return None
-
     try:
-        from tools.order_router import route_order
-    except Exception:
-        route_order = None  # type: ignore[assignment]
+        side = "BUY" if action == "BUY" else "SELL"
+        risk_pct = float(os.getenv("LIVE_RISK_PCT", "0.01"))  # 1% oletus
+        size = _pos_size(equity, risk_pct, sl_px, entry_px, symbol)
+        attach = (os.getenv("LIVE_TP_SL", "0") == "1")
+        sl = float(sl_px) if (attach and sl_px and sl_px > 0) else None
+        tp = float(tp_px) if (attach and tp_px and tp_px > 0) else None
 
-    if callable(route_order):
-        ok = bool(route_order(symbol=symbol, side=side, qty=qty, tf=tf))  # type: ignore[misc]
-        if ok:
-            return side, qty
-    return None
+        # Broker-ajo: jos place_market_order tukee SL/TP, välitä ne, muuten ignoroi ylimääräiset
+        ok = place_market_order(symbol=symbol, side=side, size=size, price_hint=entry_px, stop_loss=sl, take_profit=tp, tf=tf)
+        return bool(ok)
+    except Exception as e:
+        print(f"[EXEC] failed {symbol} {tf} {action}: {e}", flush=True)
+        return False
