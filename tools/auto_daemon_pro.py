@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import os, json, time, traceback, threading, subprocess, shlex
+import os, json, time, traceback, threading
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
+import numpy as np
 import pandas as pd
 from tools.capital_session import capital_rest_login, capital_get_candles_df, capital_get_bid_ask
 from tools.consensus_engine import consensus_signal
@@ -15,7 +16,7 @@ from tools.meta_filter import should_take_trade
 STATE = Path(__file__).resolve().parents[1] / "state"
 LIVE_STATE = STATE / "live_state.json"
 SELECTED = STATE / "selected_universe.json"
-PRO_AGG = STATE / "agg_models_pro.json"  # uusi: preferoi aggregaattia
+PRO_AGG = STATE / "agg_models_pro.json"
 
 def _load_json(p: Path, default: Any) -> Any:
     try:
@@ -52,6 +53,57 @@ def _selected_universe() -> Dict[str, List[str]]:
 def _pro_registry() -> Dict[str, Any]:
     path = PRO_AGG if PRO_AGG.exists() else (STATE / "models_pro.json")
     return _load_json(path, {"models": []})
+
+def _atr(df: pd.DataFrame, n: int) -> float:
+    high, low, close = df["high"], df["low"], df["close"]
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        (high - low).abs(),
+        (high - prev_close).abs(),
+        (low - prev_close).abs()
+    ], axis=1).max(axis=1)
+    return float(tr.rolling(n, min_periods=max(3, n//2)).mean().iloc[-1])
+
+def _tick_for_symbol(symbol: str) -> float:
+    # Kevyt tick-koko asset-luokan perusteella (voi säätää env:llä)
+    s = symbol.upper()
+    if "/" in s and (len(s.split("/")[0])==3 or len(s.split("/")[1])==3):
+        return float(os.getenv("LIVE_TICK_FX", "0.0001"))
+    if any(k in s for k in ("US SPX", "TECH 100", "GERMANY", "FRANCE", "EU STOCKS", "UK 100", "JAPAN")):
+        return float(os.getenv("LIVE_TICK_INDEX", "1"))
+    if any(k in s for k in ("BTC", "ETH", "XRP", "SOL", "ADA", "CRYPTO")):
+        return float(os.getenv("LIVE_TICK_CRYPTO", "0.01"))
+    # osakkeet/metallit/energia oletus
+    return float(os.getenv("LIVE_TICK_STOCK", "0.01"))
+
+def _round_to_tick(px: float, tick: float) -> float:
+    return float(np.round(px / tick) * tick)
+
+def _calc_sl_tp(df: pd.DataFrame, symbol: str, tf: str, action: str, entry_px: float) -> Tuple[float, float]:
+    if os.getenv("LIVE_TP_SL", "0") != "1":
+        return (0.0, 0.0)
+    mode_sl = os.getenv("LIVE_SL_MODE", "atr")
+    mode_tp = os.getenv("LIVE_TP_MODE", "atr")
+    atr_n = int(os.getenv("LIVE_ATR_N", "14"))
+    sl_mult = float(os.getenv("LIVE_SL_ATR_MULT", "2.0"))
+    tp_mult = float(os.getenv("LIVE_TP_ATR_MULT", "3.0"))
+    min_sl_pct = float(os.getenv("LIVE_MIN_SL_PCT", "0.001"))
+    min_tp_pct = float(os.getenv("LIVE_MIN_TP_PCT", "0.001"))
+
+    atrv = _atr(df, atr_n)
+    tick = _tick_for_symbol(symbol)
+
+    # ATR-pohjainen etäisyys (voit laajentaa meta-moodiin myöhemmin)
+    sl_dist = max(atrv * sl_mult, entry_px * min_sl_pct)
+    tp_dist = max(atrv * tp_mult, entry_px * min_tp_pct)
+
+    if action == "BUY":
+        sl = _round_to_tick(entry_px - sl_dist, tick)
+        tp = _round_to_tick(entry_px + tp_dist, tick)
+    else:  # SELL / short
+        sl = _round_to_tick(entry_px + sl_dist, tick)
+        tp = _round_to_tick(entry_px - tp_dist, tick)
+    return (sl, tp)
 
 def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
@@ -118,7 +170,7 @@ def main_loop():
 
                     action = "HOLD"
                     if prev <= 0 and last_sig > 0: action = "BUY"
-                    if prev >= 0 and last_sig < 0 and os.getenv("LIVE_SHORTS", "0") == "1": action = "SELL"
+                    if prev >= 0 and last_sig < 0 and os.getenv("LIVE_SHORTS","0")=="1": action = "SELL"
 
                     if action in ("BUY", "SELL"):
                         ok, p = should_take_trade(sym, tf, action, df)
@@ -127,10 +179,12 @@ def main_loop():
                         else:
                             ba = capital_get_bid_ask(sym)
                             px = (ba[1] if action == "BUY" else ba[0]) if ba else float(df["close"].iloc[-1])
-                            res = execute_action(sym, tf, action, px, equity=_equity())
+                            sl_px, tp_px = _calc_sl_tp(df, sym, tf, action, px)
+                            res = execute_action(sym, tf, action, px, equity=_equity(), sl_px=sl_px, tp_px=tp_px)
                             if res:
                                 record_trade(sym, tf)
-                                print(f"[AUTO] {sym} {tf}: {action} executed (p_meta={p:.2f})", flush=True)
+                                extra = f" sl={sl_px:.5f} tp={tp_px:.5f}" if (sl_px and tp_px) else ""
+                                print(f"[AUTO] {sym} {tf}: {action} executed (p_meta={p:.2f}){extra}", flush=True)
                             else:
                                 print(f"[AUTO] {sym} {tf}: {action} skipped (risk/guard/router)", flush=True)
 
