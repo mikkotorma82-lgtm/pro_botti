@@ -100,13 +100,13 @@ jobs:
           echo "[DEPLOY] systemd reload & start"
           systemctl daemon-reload
 
-          # Enable timer if present
+          # Enable META timer if present
           if systemctl list-unit-files | grep -q '^pro-botti-meta-train.timer'; then
             systemctl enable --now pro-botti-meta-train.timer || true
             systemctl try-restart pro-botti-meta-train.service || true
           fi
 
-          # Live service: prefer hyphenated name
+          # Live service: prefer hyphenated name; fall back to legacy if present
           if systemctl list-unit-files | grep -q '^pro-botti.service'; then
             systemctl enable pro-botti.service || true
             systemctl reload-or-restart pro-botti.service || true
@@ -121,6 +121,7 @@ jobs:
           ./venv/bin/python - <<'PY' || true
 import importlib, sys
 try:
+    import importlib
     importlib.import_module('tools.meta_ensemble')
     print('[deploy] OK: import tools.meta_ensemble')
 except Exception as e:
@@ -132,4 +133,4 @@ PY
           systemctl status pro-botti-meta-train.service --no-pager || true
           systemctl status pro-botti.service --no-pager || systemctl status pro_botti.service --no-pager || true
           journalctl -u pro-botti-meta-train.service -n 80 --no-pager || true
-          echo "[deploy] done"
+          echo "[DEPLOY] done"
