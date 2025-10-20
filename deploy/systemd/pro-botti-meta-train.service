@@ -1,0 +1,20 @@
+[Unit]
+Description=pro_botti META ensemble training (all symbols)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+EnvironmentFile=/root/pro_botti/botti.env
+# Ympäristömuuttujia (avaa rivit tarvittaessa):
+# Environment=META_TFS=15m,1h,4h
+# Environment=META_PARALLEL=6
+# Environment=META_MIN_CANDLES=300
+# Environment=META_MAX_SYMBOLS=0
+ExecStart=/root/pro_botti/venv/bin/python -m tools.meta_train_all
+Nice=10
+IOSchedulingClass=2
+IOSchedulingPriority=7
