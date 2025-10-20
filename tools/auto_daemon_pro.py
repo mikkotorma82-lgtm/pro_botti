@@ -15,8 +15,7 @@ from tools.meta_filter import should_take_trade
 STATE = Path(__file__).resolve().parents[1] / "state"
 LIVE_STATE = STATE / "live_state.json"
 SELECTED = STATE / "selected_universe.json"
-# UUSI: käytä aggregoitua PRO-rekisteriä jos se on olemassa
-PRO_AGG = STATE / "agg_models_pro.json"
+PRO_AGG = STATE / "agg_models_pro.json"  # uusi: preferoi aggregaattia
 
 def _load_json(p: Path, default: Any) -> Any:
     try:
@@ -34,18 +33,7 @@ def _equity() -> float:
 def _bar_align(tf: str) -> int:
     return {"15m": 900, "1h": 3600, "4h": 14400}.get(tf, 3600)
 
-def _int_env(key: str, default: int) -> int:
-    raw = os.getenv(key, str(default))
-    try:
-        return int(str(raw).split("#",1)[0].strip())
-    except Exception:
-        print(f"[WARN] invalid int env {key}={raw!r} -> default {default}", flush=True)
-        return default
-
 def _selected_universe() -> Dict[str, List[str]]:
-    """
-    Palauttaa mappingin symbol -> [tfs] valitusta universumista, jos tiedosto löytyy.
-    """
     if not SELECTED.exists():
         return {}
     try:
@@ -62,7 +50,6 @@ def _selected_universe() -> Dict[str, List[str]]:
         return {}
 
 def _pro_registry() -> Dict[str, Any]:
-    """Lataa PRO-rekisterin: käytä aggregaattia jos saatavilla, muuten per-ajo rekisteriä."""
     path = PRO_AGG if PRO_AGG.exists() else (STATE / "models_pro.json")
     return _load_json(path, {"models": []})
 
@@ -70,29 +57,24 @@ def main_loop():
     print("[AUTO] starting auto_daemon_pro loop…", flush=True)
 
     # Login
-    sess_try = 0
     while True:
         try:
             capital_rest_login()
             connect_and_prepare()
             break
         except Exception as e:
-            sess_try += 1
-            wait = min(300, 5 * sess_try)
+            wait = 15
             print(f"[AUTO] capital_rest_login failed: {e} -> retry in {wait}s", flush=True)
             time.sleep(wait)
 
-    # Ei enää TRAIN_BG oletuksena
     if os.getenv("TRAIN_BG", "0") == "1":
-        t = threading.Thread(target=lambda: None, daemon=True)  # poistettu käytöstä
+        t = threading.Thread(target=lambda: None, daemon=True)
         t.start()
         print("[TRAIN_BG] disabled by config", flush=True)
 
-    # Universumi: käytä selected_universe jos saatavilla, muuten env
     mapping = _selected_universe()
     if mapping:
-        symbols = list(mapping.keys())
-        tf_map = mapping
+        symbols = list(mapping.keys()); tf_map = mapping
         print(f"[AUTO] using selected_universe.json (symbols={len(symbols)})", flush=True)
     else:
         symbols = read_symbols()
@@ -114,13 +96,12 @@ def main_loop():
                 if changed:
                     print(f"[AUTO] frequency controller adjusted thresholds on {changed} model(s)", flush=True)
 
-            # Lue PRO-rekisteri kerran per iteraatio (aggregoitu jos olemassa)
             pro_reg = _pro_registry()
 
             for sym in symbols:
-                tfs = tf_map.get(sym, [])
-                for tf in tfs:
-                    rows = [m for m in pro_reg.get("models", []) if m.get("symbol") == sym and m.get("tf") == tf and m.get("strategy") == "CONSENSUS"]
+                for tf in tf_map.get(sym, []):
+                    rows = [m for m in pro_reg.get("models", [])
+                            if m.get("symbol") == sym and m.get("tf") == tf and m.get("strategy") == "CONSENSUS"]
                     if not rows:
                         continue
                     rows.sort(key=lambda r: int(r.get("trained_at", 0)), reverse=True)
@@ -136,10 +117,8 @@ def main_loop():
                     prev = int(live_state.get(key, {}).get("last_sig", 0))
 
                     action = "HOLD"
-                    if prev <= 0 and last_sig > 0:
-                        action = "BUY"
-                    if prev >= 0 and last_sig < 0:
-                        action = "SELL" if os.getenv("LIVE_SHORTS", "0") == "1" else "HOLD"
+                    if prev <= 0 and last_sig > 0: action = "BUY"
+                    if prev >= 0 and last_sig < 0 and os.getenv("LIVE_SHORTS", "0") == "1": action = "SELL"
 
                     if action in ("BUY", "SELL"):
                         ok, p = should_take_trade(sym, tf, action, df)
@@ -163,8 +142,7 @@ def main_loop():
             print("[AUTO] loop error:", e, flush=True)
             traceback.print_exc()
 
-        # vaiheistus
-        min_step = min(_bar_align(tf) for tfs in tf_map.values() for tf in tfs) if tf_map else 60
+        min_step = min({"15m":900, "1h":3600, "4h":14400}[tf] for tfs in tf_map.values() for tf in tfs) if tf_map else 60
         time.sleep(max(sleep_min, min_step // 5))
 
 if __name__ == "__main__":
