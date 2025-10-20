@@ -33,10 +33,8 @@ def main():
     pro_set = {(r.get("symbol"), r.get("tf")) for r in pro_rows if r.get("strategy") == "CONSENSUS"}
     sel_set = {(r.get("symbol"), r.get("tf")) for r in combos}
 
-    def cvpf_of(r):
-        return float(r.get("cv_pf_score", r.get("auc_purged", 0.0)))
-    def entries_of(r):
-        return int(r.get("entries", 0))
+    def cvpf_of(r): return float(r.get("cv_pf_score", r.get("auc_purged", 0.0)))
+    def entries_of(r): return int(r.get("entries", 0))
 
     def reject_reasons(r):
         sym, tf = r["symbol"], r["tf"]
