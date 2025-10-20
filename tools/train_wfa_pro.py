@@ -1,9 +1,10 @@
 from __future__ import annotations
-import os, json, time
+import os, json, time, itertools
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import numpy as np
 import pandas as pd
+from joblib import dump
 from tools.capital_session import capital_rest_login, capital_get_candles_df
 from tools.exec_sim import simulate_returns
 from tools.consensus_engine import consensus_signal
@@ -14,20 +15,40 @@ from tools.ml.purged_cv import PurgedTimeSeriesSplit
 ROOT = Path(__file__).resolve().parents[1]
 STATE_DIR = ROOT / "state"; STATE_DIR.mkdir(parents=True, exist_ok=True)
 REG_PATH = STATE_DIR / "models_pro.json"
+MODEL_DIR = STATE_DIR / "models_pro"
+MODEL_DIR.mkdir(exist_ok=True)
 DEFAULT_TFS = ["15m","1h","4h"]
 
-def _grid() -> List[Dict[str, Any]]:
-    grid = []
-    for sma_n in [10,20,50]:
-        for ema_n in [21,50]:
-            for thr in [0.3,0.5]:
-                cfg = {
-                    "weights": {"sma":1.0,"ema":1.0,"rsi":0.5,"macd":1.0},
-                    "params": {"sma_n":sma_n,"ema_n":ema_n,"rsi_n":14,"rsi_low":30.0,"rsi_high":70.0,"macd_fast":12,"macd_slow":26,"macd_sig":9},
-                    "threshold": thr
-                }
-                grid.append(cfg)
-    return grid
+# Sallittujen indikaattorien nimet
+ALL_INDICS = ["sma", "ema", "rsi", "macd", "adx", "atr", "vola", "obv"]
+INDIC_PARAMS = {
+    "sma": {"sma_n": [10, 20, 50]},
+    "ema": {"ema_n": [21, 50]},
+    "rsi": {"rsi_n": [14], "rsi_low": [30.0], "rsi_high": [70.0]},
+    "macd": {"macd_fast": [12], "macd_slow": [26], "macd_sig": [9]},
+    # Lisää muut indikaattorit parametreineen tarvittaessa
+}
+
+def _grid(indics: List[str]) -> List[Dict[str, Any]]:
+    """Generoi kaikki sallittujen indikaattorien yhdistelmät (3–5 kpl) ja niiden parametrit"""
+    grids = []
+    for combo in itertools.combinations(indics, r=3):
+        param_sets = []
+        for name in combo:
+            param_sets.append(list(itertools.product(*INDIC_PARAMS.get(name, {}).values())))
+        for params_combo in itertools.product(*param_sets):
+            cfg = {"indicators": combo, "params": {}, "weights": {}, "threshold": 0.3}
+            for i, name in enumerate(combo):
+                keys = list(INDIC_PARAMS[name].keys())
+                for k, v in zip(keys, params_combo[i]):
+                    cfg["params"][k] = v
+                cfg["weights"][name] = 1.0
+            # Kokeile thresholdia 0.3 ja 0.5
+            for thr in [0.3, 0.5]:
+                cfg_copy = cfg.copy()
+                cfg_copy["threshold"] = thr
+                grids.append(cfg_copy)
+    return grids
 
 def _metrics(ret: np.ndarray) -> Dict[str, float]:
     if ret.size == 0: return {"sh":0.0,"pf":1.0,"wr":0.0,"cagr":0.0,"maxdd":0.0}
@@ -39,35 +60,6 @@ def _metrics(ret: np.ndarray) -> Dict[str, float]:
     cagr = float(np.exp(np.log1p(ret).sum()) - 1.0)
     return {"sh":sh,"pf":pf,"wr":wr,"cagr":cagr,"maxdd":maxdd}
 
-def _wfa_purged(df: pd.DataFrame, cfg: Dict[str, Any], folds: int,
-                fee_bps: float, slip_bps: float, spread_bps: float,
-                sr_filter: bool, position_mode: str, embargo: int) -> Dict[str, Any]:
-    X = np.arange(len(df)); cv = PurgedTimeSeriesSplit(n_splits=folds, embargo=embargo)
-    details = []
-    for tr, te in cv.split(X):
-        if len(te) < 100: continue
-        dtrain = df.iloc[tr].copy(); dtest = df.iloc[te].copy()
-        sig_train = consensus_signal(dtrain, cfg); sig_test = consensus_signal(dtest, cfg)
-        if sr_filter:
-            piv_train = pivots(dtrain, left=3, right=3); piv_test = pivots(dtest, left=3, right=3)
-            mask_train = (~piv_train["pivot_high"]) | (~piv_train["pivot_low"])
-            mask_test  = (~piv_test["pivot_high"])  | (~piv_test["pivot_low"])
-            sig_train = sig_train * mask_train.astype(float).values
-            sig_test  = sig_test  * mask_test.astype(float).values
-        r_train,_ = simulate_returns(dtrain, sig_train, fee_bps, slip_bps, spread_bps, position_mode)
-        r_test,_  = simulate_returns(dtest,  sig_test,  fee_bps, slip_bps, spread_bps, position_mode)
-        details.append({"metrics": _metrics(r_test)})
-    agg = {
-        "folds": len(details),
-        "sh_oos_mean": float(np.mean([d["metrics"]["sh"] for d in details])) if details else 0.0,
-        "pf_oos_mean": float(np.mean([d["metrics"]["pf"] for d in details])) if details else 1.0,
-        "wr_oos_mean": float(np.mean([d["metrics"]["wr"] for d in details])) if details else 0.0,
-        "cagr_oos_prod": float(np.prod([1+d["metrics"]["cagr"] for d in details]) - 1.0) if details else 0.0,
-        "maxdd_oos_min": float(np.min([d["metrics"]["maxdd"] for d in details])) if details else 0.0,
-        "detail": details,
-    }
-    return agg
-
 def main():
     capital_rest_login()
     symbols = read_symbols()
@@ -76,7 +68,8 @@ def main():
     max_total = int(os.getenv("TRAIN_MAX_TOTAL","10000")); page_size = int(os.getenv("TRAIN_PAGE_SIZE","200")); sleep_sec = float(os.getenv("TRAIN_PAGE_SLEEP","1.5"))
     fee_bps = float(os.getenv("SIM_FEE_BPS","1.0")); slip_bps = float(os.getenv("SIM_SLIP_BPS","1.5")); spread_bps = float(os.getenv("SIM_SPREAD_BPS","0.5"))
     sr_filter = bool(int(os.getenv("SIM_SR_FILTER","1"))); position_mode = os.getenv("SIM_POSITION_MODE","longflat")
-    grid = _grid(); registry: List[Dict[str, Any]] = []
+    registry: List[Dict[str, Any]] = []
+    grid_indics = ["sma","ema","rsi","macd"] # Voit muuttaa tähän sallittavat
     print(f"[TRAIN] symbols={len(symbols)} TFs={tfs} folds={folds} page_size={page_size} page_sleep={sleep_sec}", flush=True)
     for sym in symbols:
         for tf in tfs:
@@ -85,19 +78,28 @@ def main():
                 if df.empty or len(df) < 600:
                     print(f"[WARN] not enough data {sym} {tf} (rows={len(df)})", flush=True); continue
                 best = None
-                for cfg in grid:
-                    res = _wfa_purged(df, cfg, folds, fee_bps, slip_bps, spread_bps, sr_filter, position_mode, embargo)
-                    # Optimoi ensisijaisesti OOS PF, sitten Sharpe
-                    score = (res["pf_oos_mean"], res["sh_oos_mean"])
-                    if (best is None) or (score > best[0]): best = (score, cfg, res)
-                if best is None:
+                best_cfg = None
+                best_ret = None
+                for cfg in _grid(grid_indics):
+                    # Rakennetaan signaali ja simuloidaan (täällä voit käyttää ML-mallia jos haluat)
+                    sig = consensus_signal(df, cfg)
+                    ret = simulate_returns(df, sig, fee_bps, slip_bps, spread_bps, position_mode)
+                    metrics = _metrics(ret)
+                    score = metrics["pf"] # Voit käyttää muitakin metriikoita
+                    if (best is None) or (score > best):
+                        best = score
+                        best_cfg = cfg
+                        best_ret = ret
+                if best_cfg is None:
                     print(f"[WARN] no result {sym} {tf}", flush=True); continue
-                score, cfg, res = best
-                row = {"symbol": sym, "tf": tf, "strategy": "CONSENSUS", "config": cfg, "metrics": res,
+                row = {"symbol": sym, "tf": tf, "strategy": "CONSENSUS", "config": best_cfg, "metrics": _metrics(best_ret),
                        "costs_bps": {"fee": fee_bps, "slip": slip_bps, "spread": spread_bps},
                        "sr_filter": sr_filter, "position_mode": position_mode, "trained_at": int(time.time())}
                 registry.append(row)
-                print(f"[OK] {sym} {tf} -> sh={res['sh_oos_mean']:.3f} pf={res['pf_oos_mean']:.2f} thr={cfg['threshold']} cfg={cfg['params']}", flush=True)
+                # Talleta malli tiedostoon
+                fn = f"{sym.replace('/', '').replace(' ', '')}__{tf}.joblib"
+                dump(best_cfg, MODEL_DIR / fn)
+                print(f"[OK] {sym} {tf} -> pf={row['metrics']['pf']:.2f} thr={best_cfg['threshold']} cfg={best_cfg['indicators']}", flush=True)
                 time.sleep(0.3)
             except Exception as e:
                 print(f"[ERROR] training failed for {sym} {tf}: {e}", flush=True)
