@@ -3,9 +3,7 @@ from typing import List, Tuple, Dict
 import ccxt
 
 KRAKEN_TICKER_MAP = {
-    # Kraken käyttää XBT/USD eikä BTC/USD
     r"\bBTC/USD\b": "XBT/USD",
-    # Lisää tarvittaessa muita poikkeuksia
 }
 
 def load_symbols_file(path: str) -> List[str]:
@@ -16,13 +14,10 @@ def load_symbols_file(path: str) -> List[str]:
             if not s or s.startswith("#"):
                 continue
             syms.append(s)
-    # duplikaatit pois, säilytä järjestys
-    seen = set()
-    out = []
+    seen = set(); out = []
     for s in syms:
         if s not in seen:
-            out.append(s)
-            seen.add(s)
+            out.append(s); seen.add(s)
     return out
 
 def normalize_for_kraken(symbol: str) -> str:
@@ -37,12 +32,8 @@ def normalize_symbols(exchange_id: str, symbols: List[str]) -> List[str]:
     return symbols
 
 def filter_supported_symbols(exchange, symbols: List[str]) -> Tuple[List[str], Dict[str, str]]:
-    """
-    Palauttaa (supported, rejected_reasons)
-    """
-    supported = []
-    rejected = {}
-    markets = exchange.load_markets()
+    supported = []; rejected: Dict[str, str] = {}
+    markets = exchange.load_markets()  # noqa: F841
     ex_syms = set(exchange.symbols or [])
     for s in symbols:
         if s in ex_syms:
