@@ -1,7 +1,6 @@
 import concurrent.futures as fut
 import logging
 from typing import Dict, Tuple, List
-from datetime import datetime, timezone
 
 import ccxt
 
@@ -29,11 +28,12 @@ def _train_one(symbol: str, tf: str, cfg: MetaConfig) -> Dict:
         return {"symbol": symbol, "tf": tf, "status": "SKIP",
                 "reason": f"not-enough-candles({n}<{cfg.min_candles})", "metrics": {}}
 
+    # Vaihda import siihen funktioon, jota TEILLÄ oikeasti käytetään
     try:
-        from meta.ensemble import train_symbol_tf  # Vaihda polku teidän toteutukseen, jos eri
+        from meta.ensemble import train_symbol_tf  # jos teillä on tämä
     except Exception:
         try:
-            from tools.meta_ensemble import train_symbol_tf
+            from tools.meta_ensemble import train_symbol_tf  # tai tämä
         except Exception as e:
             return {"symbol": symbol, "tf": tf, "status": "FAIL",
                     "reason": f"cannot-import-trainer:{type(e).__name__}:{e}", "metrics": {}}
@@ -46,8 +46,7 @@ def _train_one(symbol: str, tf: str, cfg: MetaConfig) -> Dict:
                 "reason": f"{type(e).__name__}:{e}", "metrics": {}}
 
 def run_all(cfg: MetaConfig) -> Dict:
-    # LOGGAA käytetty symbols-tiedosto
-    log.info("Using symbols file: %s", cfg.symbols_file)
+    log.info("Using symbols file: %s", cfg.symbols_file)  # LOG: käytetty polku
 
     raw_symbols = load_symbols_file(cfg.symbols_file)
     if cfg.max_symbols:
