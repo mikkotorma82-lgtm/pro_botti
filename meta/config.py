@@ -9,7 +9,7 @@ def _resolve_symbols_file():
     env = os.getenv("META_SYMBOLS_FILE", "").strip()
     if env:
         return env
-    # 2) Yleisimmät fallback-polut (WorkingDirectorysta)
+    # 2) Yleisimmät fallback-polut (WorkingDirectoryn alta)
     candidates = [
         "./symbols.txt",
         "./config/symbols.txt",
@@ -18,14 +18,14 @@ def _resolve_symbols_file():
     for c in candidates:
         if os.path.isfile(c):
             return c
-    # 3) Viimeinen haku CWD:stä absoluuttisilla poluilla
+    # 3) Viimeinen yritys: absoluuttiset polut CWD:stä
     cwd = os.getcwd()
     for c in [os.path.join(cwd, "symbols.txt"),
               os.path.join(cwd, "config", "symbols.txt"),
               os.path.join(cwd, "data", "symbols.txt")]:
         if os.path.isfile(c):
             return c
-    # 4) Palauta oletus; loader antaa selkeän virheen jos puuttuu
+    # 4) Palauta oletus (loader antaa selkeän virheen jos puuttuu)
     return "./symbols.txt"
 
 class MetaConfig:
