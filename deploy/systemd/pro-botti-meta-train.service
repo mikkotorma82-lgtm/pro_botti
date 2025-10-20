@@ -1,1 +1,18 @@
-# (paste the entire service content from above)
+[Unit]
+Description=pro_botti META ensemble training (all symbols)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+EnvironmentFile=/root/pro_botti/botti.env
+Environment=META_SYMBOLS_FILE=/root/pro_botti/config/symbols.txt
+Environment=META_EXCHANGE_ID=capitalcom
+Environment=META_TRAINER_PATH=tools.meta_ensemble:train_symbol_tf
+ExecStart=/root/pro_botti/venv/bin/python -m tools.meta_train_all
+Nice=10
+IOSchedulingClass=2
+IOSchedulingPriority=7
