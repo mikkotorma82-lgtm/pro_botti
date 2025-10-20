@@ -30,10 +30,10 @@ def _train_one(symbol: str, tf: str, cfg: MetaConfig) -> Dict:
                 "reason": f"not-enough-candles({n}<{cfg.min_candles})", "metrics": {}}
 
     try:
-        from meta.ensemble import train_symbol_tf  # Vaihda polku funktioonne
+        from meta.ensemble import train_symbol_tf  # Vaihda polku teidän toteutukseen, jos eri
     except Exception:
         try:
-            from tools.meta_ensemble import train_symbol_tf  # vaihtoehtoinen
+            from tools.meta_ensemble import train_symbol_tf
         except Exception as e:
             return {"symbol": symbol, "tf": tf, "status": "FAIL",
                     "reason": f"cannot-import-trainer:{type(e).__name__}:{e}", "metrics": {}}
@@ -46,6 +46,9 @@ def _train_one(symbol: str, tf: str, cfg: MetaConfig) -> Dict:
                 "reason": f"{type(e).__name__}:{e}", "metrics": {}}
 
 def run_all(cfg: MetaConfig) -> Dict:
+    # LOGGAA käytetty symbols-tiedosto
+    log.info("Using symbols file: %s", cfg.symbols_file)
+
     raw_symbols = load_symbols_file(cfg.symbols_file)
     if cfg.max_symbols:
         raw_symbols = raw_symbols[: cfg.max_symbols]
