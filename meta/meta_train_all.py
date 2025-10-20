@@ -6,7 +6,6 @@ from meta.training_runner import run_all
 def main():
     cfg = MetaConfig()
     summary = run_all(cfg)
-    # Tulosta myös JSON (helppo lukea botissa/teleissä)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 if __name__ == "__main__":
