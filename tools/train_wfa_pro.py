@@ -1,7 +1,6 @@
-from __future__ import annotations
-import os, json, time, itertools
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
+import itertools
 import numpy as np
 import pandas as pd
 from joblib import dump
@@ -30,7 +29,7 @@ INDIC_PARAMS = {
 }
 
 def _grid(indics: List[str]) -> List[Dict[str, Any]]:
-    """Generoi kaikki sallittujen indikaattorien yhdistelmät (3–5 kpl) ja niiden parametrit"""
+    """Generoi kaikki sallittujen indikaattorien yhdistelmät (3 kpl) ja niiden parametrit"""
     grids = []
     for combo in itertools.combinations(indics, r=3):
         param_sets = []
@@ -51,7 +50,11 @@ def _grid(indics: List[str]) -> List[Dict[str, Any]]:
     return grids
 
 def _metrics(ret: np.ndarray) -> Dict[str, float]:
-    if ret.size == 0: return {"sh":0.0,"pf":1.0,"wr":0.0,"cagr":0.0,"maxdd":0.0}
+    # Vain numpy array sallittu!
+    if not isinstance(ret, np.ndarray):
+        raise ValueError(f"_metrics: odotettiin numpy array, mutta saatiin {type(ret)}")
+    if ret.size == 0:
+        return {"sh":0.0,"pf":1.0,"wr":0.0,"cagr":0.0,"maxdd":0.0}
     mu = ret.mean(); sd = ret.std(ddof=1) or 1e-12; sh = float(mu/sd)
     gains = ret[ret>0].sum(); losses = -ret[ret<0].sum()
     pf = float(gains / (losses if losses>0 else np.inf))
@@ -64,39 +67,56 @@ def main():
     capital_rest_login()
     symbols = read_symbols()
     tfs = [s.strip() for s in (os.getenv("TRAIN_TFS") or "").split(",") if s.strip()] or DEFAULT_TFS
-    folds = int(os.getenv("TRAIN_FOLDS","6")); embargo = int(os.getenv("WFA_EMBARGO","5"))
-    max_total = int(os.getenv("TRAIN_MAX_TOTAL","10000")); page_size = int(os.getenv("TRAIN_PAGE_SIZE","200")); sleep_sec = float(os.getenv("TRAIN_PAGE_SLEEP","1.5"))
-    fee_bps = float(os.getenv("SIM_FEE_BPS","1.0")); slip_bps = float(os.getenv("SIM_SLIP_BPS","1.5")); spread_bps = float(os.getenv("SIM_SPREAD_BPS","0.5"))
-    sr_filter = bool(int(os.getenv("SIM_SR_FILTER","1"))); position_mode = os.getenv("SIM_POSITION_MODE","longflat")
-    registry: List[Dict[str, Any]] = []
+    folds = int(os.getenv("TRAIN_FOLDS","6"))
+    embargo = int(os.getenv("WFA_EMBARGO","5"))
+    max_total = int(os.getenv("TRAIN_MAX_TOTAL","10000"))
+    page_size = int(os.getenv("TRAIN_PAGE_SIZE","200"))
+    sleep_sec = float(os.getenv("TRAIN_PAGE_SLEEP","1.5"))
+    fee_bps = float(os.getenv("SIM_FEE_BPS","1.0"))
+    slip_bps = float(os.getenv("SIM_SLIP_BPS","1.5"))
+    spread_bps = float(os.getenv("SIM_SPREAD_BPS","0.5"))
+    sr_filter = bool(int(os.getenv("SIM_SR_FILTER","1")))
+    position_mode = os.getenv("SIM_POSITION_MODE","longflat")
     grid_indics = ["sma","ema","rsi","macd"] # Voit muuttaa tähän sallittavat
+    registry: List[Dict[str, Any]] = []
     print(f"[TRAIN] symbols={len(symbols)} TFs={tfs} folds={folds} page_size={page_size} page_sleep={sleep_sec}", flush=True)
     for sym in symbols:
         for tf in tfs:
             try:
                 df = capital_get_candles_df(sym, tf, total_limit=max_total, page_size=page_size, sleep_sec=sleep_sec)
                 if df.empty or len(df) < 600:
-                    print(f"[WARN] not enough data {sym} {tf} (rows={len(df)})", flush=True); continue
-                best = None
+                    print(f"[WARN] not enough data {sym} {tf} (rows={len(df)})", flush=True)
+                    continue
+                best_score = -np.inf
                 best_cfg = None
                 best_ret = None
                 for cfg in _grid(grid_indics):
-                    # Rakennetaan signaali ja simuloidaan (täällä voit käyttää ML-mallia jos haluat)
                     sig = consensus_signal(df, cfg)
                     ret = simulate_returns(df, sig, fee_bps, slip_bps, spread_bps, position_mode)
+                    if not isinstance(ret, np.ndarray):
+                        ret = np.array(ret)
                     metrics = _metrics(ret)
                     score = metrics["pf"] # Voit käyttää muitakin metriikoita
-                    if (best is None) or (score > best):
-                        best = score
+                    if score > best_score:
+                        best_score = score
                         best_cfg = cfg
                         best_ret = ret
-                if best_cfg is None:
-                    print(f"[WARN] no result {sym} {tf}", flush=True); continue
-                row = {"symbol": sym, "tf": tf, "strategy": "CONSENSUS", "config": best_cfg, "metrics": _metrics(best_ret),
-                       "costs_bps": {"fee": fee_bps, "slip": slip_bps, "spread": spread_bps},
-                       "sr_filter": sr_filter, "position_mode": position_mode, "trained_at": int(time.time())}
+                if best_cfg is None or best_ret is None:
+                    print(f"[WARN] no result {sym} {tf}", flush=True)
+                    continue
+                row = {
+                    "symbol": sym,
+                    "tf": tf,
+                    "strategy": "CONSENSUS",
+                    "config": best_cfg,
+                    "metrics": _metrics(best_ret),
+                    "costs_bps": {"fee": fee_bps, "slip": slip_bps, "spread": spread_bps},
+                    "sr_filter": sr_filter,
+                    "position_mode": position_mode,
+                    "trained_at": int(np.round(np.nan_to_num(pd.Timestamp.now().timestamp())))
+                }
                 registry.append(row)
-                # Talleta malli tiedostoon
+                # Talleta malli tiedostoon (joblib), config
                 fn = f"{sym.replace('/', '').replace(' ', '')}__{tf}.joblib"
                 dump(best_cfg, MODEL_DIR / fn)
                 print(f"[OK] {sym} {tf} -> pf={row['metrics']['pf']:.2f} thr={best_cfg['threshold']} cfg={best_cfg['indicators']}", flush=True)
