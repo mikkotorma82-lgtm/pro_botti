@@ -35,7 +35,7 @@ jobs:
         missing=0
         for v in SSH_HOST SSH_USER SSH_PORT SSH_KEY; do
           if [ -z "${!v:-}" ]; then
-            echo "::error:: Missing required value: $v (check repo Settings → Secrets and variables → Actions)"
+            echo "::error:: Missing required value: $v (repo Settings → Secrets and variables → Actions)"
             missing=1
           fi
         done
@@ -89,17 +89,32 @@ jobs:
             install -m 0644 -D deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/pro-botti-meta-train.timer
           fi
 
-          echo "[DEPLOY] Refresh live service if present"
-          if [ -f deploy/pro_botti.service ]; then
-            install -m 0644 -D deploy/pro_botti.service /etc/systemd/system/pro_botti.service
+          echo "[DEPLOY] Install/refresh live unit if available"
+          if [ -f deploy/systemd/pro-botti.service ]; then
+            install -m 0644 -D deploy/systemd/pro-botti.service /etc/systemd/system/pro-botti.service
+          elif [ -f deploy/pro_botti.service ]; then
+            # legacy path support
+            install -m 0644 -D deploy/pro_botti.service /etc/systemd/system/pro-botti.service
           fi
 
           echo "[DEPLOY] systemd reload & start"
           systemctl daemon-reload
-          systemctl enable --now pro-botti-meta-train.timer || true
-          systemctl try-restart pro-botti-meta-train.service || true
-          if systemctl list-unit-files | grep -q '^pro_botti.service'; then
+
+          # Enable timer if present
+          if systemctl list-unit-files | grep -q '^pro-botti-meta-train.timer'; then
+            systemctl enable --now pro-botti-meta-train.timer || true
+            systemctl try-restart pro-botti-meta-train.service || true
+          fi
+
+          # Live service: prefer hyphenated name
+          if systemctl list-unit-files | grep -q '^pro-botti.service'; then
+            systemctl enable pro-botti.service || true
+            systemctl reload-or-restart pro-botti.service || true
+          elif systemctl list-unit-files | grep -q '^pro_botti.service'; then
+            systemctl enable pro_botti.service || true
             systemctl reload-or-restart pro_botti.service || true
+          else
+            echo "[DEPLOY] No live unit found; skipping live restart"
           fi
 
           echo "[DEPLOY] Quick import self-check (non-fatal)"
@@ -115,5 +130,6 @@ PY
           echo "[DEPLOY] Post-checks"
           systemctl status pro-botti-meta-train.timer --no-pager || true
           systemctl status pro-botti-meta-train.service --no-pager || true
+          systemctl status pro-botti.service --no-pager || systemctl status pro_botti.service --no-pager || true
           journalctl -u pro-botti-meta-train.service -n 80 --no-pager || true
           echo "[deploy] done"
