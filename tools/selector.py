@@ -3,7 +3,7 @@ from __future__ import annotations
 import os, json, time
 from pathlib import Path
 from typing import Dict, Any, List, Set, Tuple
-from tools.notifier import send_telegram, send_big  # UUSI
+from tools.notifier import send_big
 
 STATE = Path(__file__).resolve().parents[1] / "state"
 META_AGG = STATE / "agg_models_meta.json"
@@ -32,10 +32,13 @@ def group_by_symbol(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]
         by.setdefault(r["symbol"], []).append(r)
     return by
 
+def cvpf_any(r: Dict[str, Any]) -> float:
+    return float(r.get("cv_pf_score_ens", r.get("cv_pf_score", r.get("auc_purged", 0.0))))
+
 def main():
-    min_cvf = float(os.getenv("SELECT_MIN_CVPF", "1.20"))
+    min_cvf = float(os.getenv("SELECT_MIN_CVPF", "2.0"))
     min_entries = int(os.getenv("SELECT_MIN_ENTRIES", "200"))
-    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "1"))  # oletuksena 1
+    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "1"))  # TF-kohtainen valinta
     allow_15m = int(os.getenv("SELECT_ALLOW_15M", "1")) == 1
     prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h,15m")).split(",") if s.strip()]
 
@@ -44,7 +47,7 @@ def main():
 
     filt = []
     for r in rows:
-        cvpf = float(r.get("cv_pf_score", r.get("auc_purged", 0.0)))
+        cvpf = cvpf_any(r)
         ent = int(r.get("entries", 0))
         tf = r["tf"]; sym = r["symbol"]
         if cvpf < min_cvf: continue
@@ -54,16 +57,15 @@ def main():
         filt.append(r)
 
     def tf_rank(tf: str) -> int:
-        try:
-            return prefer_set.index(tf)
-        except ValueError:
-            return len(prefer_set)
-    filt.sort(key=lambda r: (float(r.get("cv_pf_score", 0.0)), int(r.get("entries", 0)), -tf_rank(r["tf"])), reverse=True)
+        try: return prefer_set.index(tf)
+        except ValueError: return len(prefer_set)
+
+    filt.sort(key=lambda r: (cvpf_any(r), int(r.get("entries", 0)), -tf_rank(r["tf"])), reverse=True)
 
     by = group_by_symbol(filt)
     selected: List[Dict[str, Any]] = []
     for sym, lst in by.items():
-        lst2 = sorted(lst, key=lambda x: (float(x.get("cv_pf_score",0.0)), int(x.get("entries",0))), reverse=True)
+        lst2 = sorted(lst, key=lambda x: (cvpf_any(x), int(x.get("entries",0))), reverse=True)
         selected.extend(lst2[:max_tfs])
 
     out = {
@@ -76,11 +78,16 @@ def main():
         "combos": [
             {
                 "symbol": r["symbol"], "tf": r["tf"],
-                "threshold": float(r.get("threshold", 0.6)),
-                "cv_pf_score": float(r.get("cv_pf_score", 0.0)),
+                "threshold": float(r.get("threshold_ens", r.get("threshold", 0.6))),
+                "cv_pf_score": float(cvpf_any(r)),
                 "entries": int(r.get("entries", 0)),
                 "asset_class": r.get("asset_class",""),
-                "features": r.get("features", [])
+                "features": r.get("features", []),
+                "ens": {
+                    "weights": r.get("ens_weights", {}),
+                    "cv_pf_score_ens": float(r.get("cv_pf_score_ens", 0.0)),
+                    "threshold_ens": float(r.get("threshold_ens", r.get("threshold", 0.6))),
+                }
             } for r in selected
         ]
     }
@@ -99,8 +106,7 @@ def main():
     print(f"[SELECT] wrote {ENV_OUT}")
 
     # Telegram-yhteenveto
-    lines = [f"{r['symbol']} {r['tf']} cv_pf={float(r.get('cv_pf_score',0.0)):.3f} thr={float(r.get('threshold',0.6)):.2f}"
-             for r in selected]
+    lines = [f"{r['symbol']} {r['tf']} cv_pf={float(cvpf_any(r)):.3f} thr={float(r.get('threshold_ens', r.get('threshold', 0.6))):.2f}" for r in selected]
     send_big(f"📊 Valinta valmis (combos={len(selected)})", lines, max_lines=120)
 
 if __name__ == "__main__":
