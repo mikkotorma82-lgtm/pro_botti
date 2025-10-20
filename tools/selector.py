@@ -5,13 +5,10 @@ from pathlib import Path
 from typing import Dict, Any, List, Set, Tuple
 
 STATE = Path(__file__).resolve().parents[1] / "state"
-# META: käytä aggregaattia jos olemassa
 META_AGG = STATE / "agg_models_meta.json"
 META_REG = META_AGG if META_AGG.exists() else (STATE / "models_meta.json")
-# PRO: käytä aggregaattia jos olemassa (suodatetaan valinta PRO:n mukaan)
 PRO_AGG = STATE / "agg_models_pro.json"
 PRO_REG = PRO_AGG if PRO_AGG.exists() else (STATE / "models_pro.json")
-
 SELECTED = STATE / "selected_universe.json"
 ENV_OUT = STATE / "live_universe.env"
 
@@ -37,9 +34,9 @@ def group_by_symbol(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]
 def main():
     min_cvf = float(os.getenv("SELECT_MIN_CVPF", "1.20"))
     min_entries = int(os.getenv("SELECT_MIN_ENTRIES", "200"))
-    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "2"))
-    allow_15m = int(os.getenv("SELECT_ALLOW_15M", "0")) == 1
-    prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h")).split(",") if s.strip()]
+    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "3"))
+    allow_15m = int(os.getenv("SELECT_ALLOW_15M", "1")) == 1
+    prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h,15m")).split(",") if s.strip()]
 
     rows = load_meta()
     pro_set = load_pro_set()
@@ -48,25 +45,17 @@ def main():
     for r in rows:
         cvpf = float(r.get("cv_pf_score", r.get("auc_purged", 0.0)))
         ent = int(r.get("entries", 0))
-        tf = r["tf"]
-        sym = r["symbol"]
-        # Suodata sääntöjen mukaan
-        if cvpf < min_cvf:
-            continue
-        if ent < min_entries:
-            continue
-        if (tf == "15m") and not allow_15m:
-            continue
-        # UUSI: pidä vain kombot, joilta löytyy PRO-konfigi
-        if (sym, tf) not in pro_set:
-            continue
+        tf = r["tf"]; sym = r["symbol"]
+        if cvpf < min_cvf: continue
+        if ent < min_entries: continue
+        if (tf == "15m") and not allow_15m: continue
+        if (sym, tf) not in pro_set: continue
         filt.append(r)
 
     def tf_rank(tf: str) -> int:
-        try:
-            return prefer_set.index(tf)
-        except ValueError:
-            return len(prefer_set)
+        try: return prefer_set.index(tf)
+        except ValueError: return len(prefer_set)
+
     filt.sort(key=lambda r: (float(r.get("cv_pf_score", 0.0)), int(r.get("entries", 0)), -tf_rank(r["tf"])), reverse=True)
 
     by = group_by_symbol(filt)
@@ -98,7 +87,6 @@ def main():
     os.replace(tmp, SELECTED)
     print(f"[SELECT] wrote {SELECTED} combos={len(out['combos'])}")
 
-    # päivitetään env out valintoja vastaavaksi
     symbols = []
     tfs = set()
     for r in selected:
