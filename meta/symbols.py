@@ -2,7 +2,7 @@ import re
 from typing import List, Tuple, Dict
 import ccxt
 
-# Tunnetut valuutta-/kryptotunnukset normalisointia varten
+# Tunnetut koodit pari-normalisointia varten (BTCUSD -> BTC/USD, ETHUSDT -> ETH/USDT)
 CODES = {
     # fiat
     "USD","EUR","GBP","JPY","CHF","AUD","CAD","NZD","SEK","NOK","DKK","TRY","ZAR","PLN","CZK","HUF",
@@ -10,26 +10,23 @@ CODES = {
     "USDT","USDC","BUSD","DAI","TUSD","FDUSD","PYUSD",
     # major crypto
     "BTC","XBT","ETH","XRP","LTC","BCH","BNB","ADA","SOL","DOT","DOGE","TRX","AVAX","ATOM","MATIC","LINK",
-    # lisää tarvittaessa
 }
 
+# Kraken-aliakset (jos käytät krakenia – capitalcom ei tarvitse tätä)
 KRAKEN_TICKER_ALIASES = {
-    # Kraken käyttää XBT eikä BTC base-tunnusta
     ("BTC",): "XBT",
 }
 
 def _maybe_pair(symbol: str) -> str:
     """
-    Muunna 'BTCUSD' -> 'BTC/USD', 'ETHUSDT' -> 'ETH/USDT'.
-    Jos ei selviä kaksikoodiseksi pariksi, palauta alkuperäinen.
+    Muunna 'BTCUSD' -> 'BTC/USD', 'ETHUSDT' -> 'ETH/USDT' jos mahdollista.
+    Jätä indeksit/osakkeet/erikoistunnukset koskematta.
     """
     s = symbol.strip().upper().replace(" ", "").replace("-", "").replace("_", "")
     if "/" in s:
         return s
-    # älä yritä muuntaa indeksejä/osakkeita ym. (US500, AAPL, META...)
     if len(s) < 6:
-        return symbol  # liian lyhyt ollakseen kaksi koodia
-    # kokeile jakaa 3..5 merkin kohdista
+        return symbol
     for i in range(3, min(5, len(s)-2)+1):
         base, quote = s[:i], s[i:]
         if base in CODES and quote in CODES:
@@ -37,14 +34,10 @@ def _maybe_pair(symbol: str) -> str:
     return symbol
 
 def _apply_exchange_aliases(exchange_id: str, pair: str) -> str:
-    """
-    Vaihda pörssikohtaiset aliaset. Esim. Kraken: BTC/USD -> XBT/USD.
-    """
     if "/" not in pair:
         return pair
     base, quote = pair.split("/", 1)
     if exchange_id == "kraken":
-        # BTC -> XBT
         for keys, repl in KRAKEN_TICKER_ALIASES.items():
             if base in keys:
                 base = repl
@@ -59,7 +52,6 @@ def load_symbols_file(path: str) -> List[str]:
             if not s or s.startswith("#"):
                 continue
             syms.append(s)
-    # dedupe, säilytä järjestys
     seen = set(); out = []
     for s in syms:
         if s not in seen:
@@ -75,9 +67,6 @@ def normalize_symbols(exchange_id: str, symbols: List[str]) -> List[str]:
     return out
 
 def filter_supported_symbols(exchange, symbols: List[str]) -> Tuple[List[str], Dict[str, str]]:
-    """
-    Palauttaa (supported, rejected_reasons)
-    """
     supported = []
     rejected: Dict[str, str] = {}
     exchange.load_markets()
