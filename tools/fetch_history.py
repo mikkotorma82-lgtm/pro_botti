@@ -4,7 +4,6 @@ import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
-# Lataa secrets.env
 load_dotenv("/root/pro_botti/secrets.env")
 
 CAPITAL_API_KEY = os.getenv("CAPITAL_API_KEY")
@@ -23,7 +22,7 @@ def get_session_tokens():
         "Content-Type": "application/json"
     }
     resp = requests.post(url, json=payload, headers=headers)
-    # Tokenit headerista
+    # Header keys might be lower or upper case
     cst = resp.headers.get("cst") or resp.headers.get("CST")
     xsec = resp.headers.get("x-security-token") or resp.headers.get("X-SECURITY-TOKEN")
     if not cst or not xsec:
@@ -62,7 +61,7 @@ def fetch_history(symbol, resolution, start, end):
             break
         d = pd.DataFrame(prices)
         dfs.append(d)
-        next_dt = datetime.fromtimestamp(d["snapshotTime"].iloc[-1]/1000) + timedelta(minutes=1)
+        next_dt = datetime.fromisoformat(d["snapshotTime"].iloc[-1]) + timedelta(hours=1)  # HOUR TF
         print(f"Fetched {len(d)} rows up to {next_dt}")
     if not dfs:
         raise Exception("No data fetched from Capital API!")
