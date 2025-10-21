@@ -1,0 +1,189 @@
+from __future__ import annotations
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np, pandas as pd
+from joblib import load
+from core.io import load_history
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+OUT_DIR = ROOT / "data" / "backtests"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+DEFAULT_FEATS = [
+    "ret1",
+    "ret5",
+    "vol5",
+    "ema12",
+    "ema26",
+    "macd",
+    "rsi14",
+    "atr14",
+    "ema_gap",
+]
+
+
+def load_cfg(p: Path):
+    with open(p, "r") as f:
+        return yaml.safe_load(f)
+
+
+def load_model(symbol, tf):
+    clf = load(MODEL_DIR / f"pro_{symbol}_{tf}.joblib")
+    feats = DEFAULT_FEATS
+    meta_p = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    if meta_p.exists():
+        meta = json.load(open(meta_p))
+        feats = meta.get("feats") or feats
+    return clf, feats
+
+
+def ensure_features(df: pd.DataFrame) -> pd.DataFrame:
+    z = df.copy()
+    if "ret1" not in z:
+        z["ret1"] = z["close"].pct_change()
+    if "ret5" not in z:
+        z["ret5"] = z["close"].pct_change(5)
+    if "vol5" not in z:
+        z["vol5"] = z["ret1"].rolling(5).std().fillna(0.0)
+    if "ema12" not in z:
+        z["ema12"] = z["close"].ewm(span=12, adjust=False).mean()
+    if "ema26" not in z:
+        z["ema26"] = z["close"].ewm(span=26, adjust=False).mean()
+    if "macd" not in z:
+        z["macd"] = z["ema12"] - z["ema26"]
+    if "rsi14" not in z:
+        diff = z["close"].diff()
+        up = diff.clip(lower=0).rolling(14).mean()
+        dn = (-diff.clip(upper=0)).rolling(14).mean()
+        rs = up / dn.replace(0, np.nan)
+        z["rsi14"] = 100 - (100 / (1 + rs))
+    if "atr14" not in z:
+        if {"high", "low", "close"}.issubset(z.columns):
+            tr = np.maximum(
+                z["high"] - z["low"],
+                np.maximum(
+                    (z["high"] - z["close"].shift()).abs(),
+                    (z["low"] - z["close"].shift()).abs(),
+                ),
+            )
+            z["atr14"] = tr.rolling(14).mean()
+        else:
+            z["atr14"] = 0.0
+    if "ema_gap" not in z:
+        z["ema_gap"] = (z["close"] - z["ema12"]) / z["ema12"]
+    return z
+
+
+def proba_triplet(clf, X: np.ndarray) -> np.ndarray:
+    P = clf.predict_proba(X)
+    out = np.zeros((P.shape[0], 3), dtype=float)
+    cls = getattr(clf, "classes_", [-1, 0, 1])
+    pos = {-1: 0, 0: 1, 1: 2}
+    for j, c in enumerate(cls):
+        out[:, pos[int(c)]] = P[:, j]
+    return out
+
+
+def run_wf(df, p3, fee_bps, is_frac, oos_frac):
+    n = len(df)
+    i = 0
+    wins = []
+    r = df["ret1"].values
+    grid = np.round(np.arange(0.00, 0.13 + 1e-9, 0.02), 2)
+    while i + int(n * oos_frac) < n:
+        is_end = i + int(n * is_frac)
+        oos_end = min(n, is_end + int(n * oos_frac))
+        is_p, oos_p = p3[i:is_end], p3[is_end:oos_end]
+        # optimize on IS
+        best_tb, best_ts, best_s = 0.05, 0.05, -1e9
+        for tb in grid:
+            for ts in grid:
+                sig = np.where(is_p[:, 2] >= tb, 1, np.where(is_p[:, 0] >= ts, -1, 0))
+                fees = (np.diff(np.r_[0, sig]) != 0) * (fee_bps / 10000.0)
+                pnl = sig[:-1] * r[i + 1 : is_end] - fees[:-1]
+                sd = pnl.std(ddof=1)
+                s = pnl.mean() / sd * np.sqrt(252) if sd > 0 else -1e9
+                if s > best_s:
+                    best_s, best_tb, best_ts = s, float(tb), float(ts)
+        # apply to OOS
+        sig = np.where(
+            oos_p[:, 2] >= best_tb, 1, np.where(oos_p[:, 0] >= best_ts, -1, 0)
+        )
+        fees = (np.diff(np.r_[0, sig]) != 0) * (fee_bps / 10000.0)
+        pnl = sig[:-1] * r[is_end + 1 : oos_end] - fees[:-1]
+        eq = (1 + pnl).cumprod()
+        hr = float((pnl > 0).mean() * 100) if len(pnl) else 0.0
+        dd = (
+            float((-(eq / np.maximum.accumulate(eq) - 1).min() * 100))
+            if len(eq)
+            else 0.0
+        )
+        pf = (
+            float(pnl[pnl > 0].sum() / max(1e-12, -pnl[pnl < 0].sum()))
+            if len(pnl)
+            else 0.0
+        )
+        shp = (
+            float(pnl.mean() / pnl.std(ddof=1) * np.sqrt(252))
+            if pnl.std(ddof=1) > 0
+            else 0.0
+        )
+        wins.append(
+            {
+                "tb": best_tb,
+                "ts": best_ts,
+                "PnL": (eq[-1] - 1) * 100 if len(eq) else 0,
+                "HR": hr,
+                "DD": dd,
+                "PF": pf,
+                "Sharpe": shp,
+            }
+        )
+        i = oos_end
+    return wins
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", required=True)
+    ap.add_argument("--symbols", nargs="+", required=True)
+    ap.add_argument("--tfs", nargs="+", required=True)
+    ap.add_argument("--wf_is_frac", type=float, default=0.6)
+    ap.add_argument("--wf_oos_frac", type=float, default=0.2)
+    ap.add_argument("--fee_bps", type=float, default=0.0)
+    args = ap.parse_args()
+    cfg = load_cfg(Path(args.config))
+    for s in args.symbols:
+        for tf in args.tfs:
+            try:
+                clf, feats = load_model(s, tf)
+                df = ensure_features(load_history(DATA_DIR, s, tf)).reset_index(
+                    drop=True
+                )
+                X = df[feats].astype(float).fillna(0.0).values
+                p3 = proba_triplet(clf, X)
+                wins = run_wf(df, p3, args.fee_bps, args.wf_is_frac, args.wf_oos_frac)
+                o = OUT_DIR / f"bt_{s}_{tf}_wf.json"
+                json.dump(
+                    {"symbol": s, "tf": tf, "windows": wins}, open(o, "w"), indent=2
+                )
+                if wins:
+                    avg_tb = sum(w["tb"] for w in wins) / len(wins)
+                    avg_ts = sum(w["ts"] for w in wins) / len(wins)
+                    pnl = sum(w["PnL"] for w in wins)
+                    hr = sum(w["HR"] for w in wins) / len(wins)
+                    dd = min(w["DD"] for w in wins)
+                    pf_vals = [w["PF"] for w in wins if w["PF"] > 0]
+                    pf = (sum(pf_vals) / len(pf_vals)) if pf_vals else 0
+                    shp = sum(w["Sharpe"] for w in wins) / len(wins)
+                    print(
+                        f"[WF] {o}  OOS PnL={pnl:.3f}%  HR={hr:.2f}%  DD={dd:.2f}%  PF={'inf' if pf>1e9 else f'{pf:.2f}'}  Sharpe={shp:.2f}  avg_thr=({avg_tb:.2f},{avg_ts:.2f})  fee={args.fee_bps:.2f}bps  windows={len(wins)}"
+                    )
+            except Exception as e:
+                print(f"[FAIL WF] {s} {tf}: {e}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+import os, json, time
+from pathlib import Path
+from typing import Dict, Any, List, Set, Tuple
+from tools.notifier import send_big
+
+STATE = Path(__file__).resolve().parents[1] / "state"
+META_AGG = STATE / "agg_models_meta.json"
+META_REG = META_AGG if META_AGG.exists() else (STATE / "models_meta.json")
+PRO_AGG = STATE / "agg_models_pro.json"
+PRO_REG = PRO_AGG if PRO_AGG.exists() else (STATE / "models_pro.json")
+SELECTED = STATE / "selected_universe.json"
+ENV_OUT = STATE / "live_universe.env"
+
+def load_meta() -> List[Dict[str, Any]]:
+    if not META_REG.exists():
+        raise SystemExit(f"[SELECT] missing {META_REG}")
+    obj = json.loads(META_REG.read_text() or "{}")
+    return obj.get("models", [])
+
+def load_pro_set() -> Set[Tuple[str, str]]:
+    if not PRO_REG.exists():
+        return set()
+    obj = json.loads(PRO_REG.read_text() or "{}")
+    rows = obj.get("models", [])
+    return {(r.get("symbol"), r.get("tf")) for r in rows if r.get("strategy") == "CONSENSUS" and r.get("symbol") and r.get("tf")}
+
+def group_by_symbol(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    by: Dict[str, List[Dict[str, Any]]] = {}
+    for r in rows:
+        by.setdefault(r["symbol"], []).append(r)
+    return by
+
+def cvpf_any(r: Dict[str, Any]) -> float:
+    return float(r.get("cv_pf_score_ens", r.get("cv_pf_score", r.get("auc_purged", 0.0))))
+
+def main():
+    min_cvf = float(os.getenv("SELECT_MIN_CVPF", "2.0"))
+    min_entries = int(os.getenv("SELECT_MIN_ENTRIES", "200"))
+    max_tfs = int(os.getenv("SELECT_MAX_TFS_PER_SYMBOL", "1"))  # TF-kohtainen valinta
+    allow_15m = int(os.getenv("SELECT_ALLOW_15M", "1")) == 1
+    prefer_set = [s.strip() for s in (os.getenv("SELECT_PREFERRED_TFS", "1h,4h,15m")).split(",") if s.strip()]
+
+    rows = load_meta()
+    pro_set = load_pro_set()
+
+    filt = []
+    for r in rows:
+        cvpf = cvpf_any(r)
+        ent = int(r.get("entries", 0))
+        tf = r["tf"]; sym = r["symbol"]
+        if cvpf < min_cvf: continue
+        if ent < min_entries: continue
+        if (tf == "15m") and not allow_15m: continue
+        if (sym, tf) not in pro_set: continue
+        filt.append(r)
+
+    def tf_rank(tf: str) -> int:
+        try: return prefer_set.index(tf)
+        except ValueError: return len(prefer_set)
+
+    filt.sort(key=lambda r: (cvpf_any(r), int(r.get("entries", 0)), -tf_rank(r["tf"])), reverse=True)
+
+    by = group_by_symbol(filt)
+    selected: List[Dict[str, Any]] = []
+    for sym, lst in by.items():
+        lst2 = sorted(lst, key=lambda x: (cvpf_any(x), int(x.get("entries",0))), reverse=True)
+        selected.extend(lst2[:max_tfs])
+
+    out = {
+        "selected_at": int(time.time()),
+        "rules": {
+            "min_cvpf": min_cvf, "min_entries": min_entries,
+            "max_tfs_per_symbol": max_tfs,
+            "allow_15m": allow_15m, "preferred_tfs": prefer_set
+        },
+        "combos": [
+            {
+                "symbol": r["symbol"], "tf": r["tf"],
+                "threshold": float(r.get("threshold_ens", r.get("threshold", 0.6))),
+                "cv_pf_score": float(cvpf_any(r)),
+                "entries": int(r.get("entries", 0)),
+                "asset_class": r.get("asset_class",""),
+                "features": r.get("features", []),
+                "ens": {
+                    "weights": r.get("ens_weights", {}),
+                    "cv_pf_score_ens": float(r.get("cv_pf_score_ens", 0.0)),
+                    "threshold_ens": float(r.get("threshold_ens", r.get("threshold", 0.6))),
+                }
+            } for r in selected
+        ]
+    }
+    tmp = SELECTED.with_suffix(".tmp")
+    tmp.write_text(json.dumps(out, ensure_ascii=False, indent=2))
+    os.replace(tmp, SELECTED)
+    print(f"[SELECT] wrote {SELECTED} combos={len(out['combos'])}")
+
+    symbols = []
+    tfs = set()
+    for r in selected:
+        if r["symbol"] not in symbols:
+            symbols.append(r["symbol"])
+        tfs.add(r["tf"])
+    ENV_OUT.write_text(f"SYMBOLS='{','.join(symbols)}'\nLIVE_TFS='{','.join(sorted(tfs))}'\n")
+    print(f"[SELECT] wrote {ENV_OUT}")
+
+    # Telegram-yhteenveto
+    lines = [f"{r['symbol']} {r['tf']} cv_pf={float(cvpf_any(r)):.3f} thr={float(r.get('threshold_ens', r.get('threshold', 0.6))):.2f}" for r in selected]
+    send_big(f"📊 Valinta valmis (combos={len(selected)})", lines, max_lines=120)
+
+if __name__ == "__main__":
+    main()
