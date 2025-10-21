@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -29,7 +30,6 @@ def get_session_tokens():
     return cst, xsec
 
 def fetch_history(symbol, resolution, start, end):
-    # start, end: datetime-objekteja
     cst, xsec = get_session_tokens()
     url = f"{CAPITAL_API_BASE}/api/v1/prices/{symbol}"
     dfs = []
@@ -47,8 +47,7 @@ def fetch_history(symbol, resolution, start, end):
             "X-SECURITY-TOKEN": xsec
         }
         r = requests.get(url, params=params, headers=headers)
-        if r.status_code == 403 or r.status_code == 401:
-            # Session vanhentunut, kirjaudu uudelleen
+        if r.status_code in [401, 403]:
             print("Session expired, re-login...")
             cst, xsec = get_session_tokens()
             headers["CST"] = cst
@@ -59,7 +58,6 @@ def fetch_history(symbol, resolution, start, end):
         prices = data.get("prices", [])
         if not prices:
             break
-        import pandas as pd
         d = pd.DataFrame(prices)
         dfs.append(d)
         next_dt = datetime.fromtimestamp(d["snapshotTime"].iloc[-1]/1000) + timedelta(minutes=1)
@@ -72,8 +70,8 @@ def fetch_history(symbol, resolution, start, end):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 5:
-        print("Usage: python fetch_capital_history.py SYMBOL RESOLUTION START END")
-        print("Example: python fetch_capital_history.py US500 HOUR 2022-01-01 2023-01-01")
+        print("Usage: python tools/fetch_history.py SYMBOL RESOLUTION START END")
+        print("Example: python tools/fetch_history.py US500 HOUR 2022-01-01 2023-01-01")
         exit(1)
     symbol = sys.argv[1]
     resolution = sys.argv[2]  # esim. MINUTE, HOUR, DAY
