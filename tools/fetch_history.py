@@ -4,7 +4,6 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Lataa .env-tiedostosta kaikki Capitalin tunnukset
 load_dotenv("/root/pro_botti/secrets.env", override=True)
 
 CAPITAL_API_KEY = os.getenv("CAPITAL_API_KEY")
@@ -13,18 +12,9 @@ CAPITAL_USERNAME = os.getenv("CAPITAL_USERNAME")
 CAPITAL_PASSWORD = os.getenv("CAPITAL_PASSWORD")
 
 def get_session_tokens():
-    """
-    Kirjautuu Capital.com API:in ja palauttaa session-tokenit headerista.
-    """
     url = f"{CAPITAL_API_BASE}/api/v1/session"
-    payload = {
-        "identifier": CAPITAL_USERNAME,
-        "password": CAPITAL_PASSWORD
-    }
-    headers = {
-        "X-CAP-API-KEY": CAPITAL_API_KEY,
-        "Content-Type": "application/json"
-    }
+    payload = {"identifier": CAPITAL_USERNAME, "password": CAPITAL_PASSWORD}
+    headers = {"X-CAP-API-KEY": CAPITAL_API_KEY, "Content-Type": "application/json"}
     resp = requests.post(url, json=payload, headers=headers)
     cst = resp.headers.get("CST") or resp.headers.get("cst")
     xsec = resp.headers.get("X-SECURITY-TOKEN") or resp.headers.get("x-security-token")
@@ -34,18 +24,13 @@ def get_session_tokens():
     return cst, xsec
 
 def fetch_history(symbol, resolution, start, end):
-    """
-    Hakee historiallista hintadataa Capitalista. Palauttaa Pandas DataFramen.
-    """
     cst, xsec = get_session_tokens()
     url = f"{CAPITAL_API_BASE}/api/v1/prices/{symbol}"
     dfs = []
     next_dt = start
-    # Timeframe step
     tf_map = {"MINUTE": timedelta(minutes=1), "MINUTE_5": timedelta(minutes=5), "HOUR": timedelta(hours=1), "DAY": timedelta(days=1)}
-    step = tf_map.get(resolution, timedelta(hours=1)) # default HOUR
+    step = tf_map.get(resolution, timedelta(hours=1))
     while next_dt < end:
-        # Data-haun aikaväli
         params = {
             "resolution": resolution,
             "max": 200,
@@ -58,12 +43,18 @@ def fetch_history(symbol, resolution, start, end):
             "X-SECURITY-TOKEN": xsec
         }
         r = requests.get(url, params=params, headers=headers)
+        print("Request URL:", r.url)
+        print("Status code:", r.status_code)
+        print("Response:", r.text)
         if r.status_code in [401, 403]:
             print("Session expired, re-login...")
             cst, xsec = get_session_tokens()
             headers["CST"] = cst
             headers["X-SECURITY-TOKEN"] = xsec
             r = requests.get(url, params=params, headers=headers)
+            print("Request URL:", r.url)
+            print("Status code:", r.status_code)
+            print("Response:", r.text)
         r.raise_for_status()
         data = r.json()
         prices = data.get("prices", [])
@@ -72,7 +63,6 @@ def fetch_history(symbol, resolution, start, end):
             break
         d = pd.DataFrame(prices)
         dfs.append(d)
-        # Päivitä next_dt seuraavaan aikaleimaan
         next_dt = datetime.fromisoformat(d["snapshotTime"].iloc[-1]) + step
         print(f"Fetched {len(d)} rows up to {next_dt}")
     if not dfs:
@@ -86,8 +76,8 @@ if __name__ == "__main__":
         print("Usage: python tools/fetch_history.py SYMBOL RESOLUTION START END")
         print("Example: python tools/fetch_history.py US500 HOUR 2022-01-01 2023-01-01")
         exit(1)
-    symbol = sys.argv[1]         # Esim. US500, EURUSD
-    resolution = sys.argv[2]     # Esim. MINUTE, MINUTE_5, HOUR, DAY
+    symbol = sys.argv[1]
+    resolution = sys.argv[2]
     start = datetime.strptime(sys.argv[3], "%Y-%m-%d")
     end = datetime.strptime(sys.argv[4], "%Y-%m-%d")
     df = fetch_history(symbol, resolution, start, end)
