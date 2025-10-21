@@ -23,9 +23,19 @@ def get_session_tokens():
         "Content-Type": "application/json"
     }
     resp = requests.post(url, json=payload, headers=headers)
+    # Yritä ensin headerista
     cst = resp.headers.get("CST")
     xsec = resp.headers.get("X-SECURITY-TOKEN")
+    # Jos headerista ei löydy, yritä bodysta
     if not cst or not xsec:
+        try:
+            body = resp.json()
+            cst = body.get("CST", cst)
+            xsec = body.get("X-SECURITY-TOKEN", xsec)
+        except Exception:
+            pass
+    if not cst or not xsec:
+        print("Login response:", resp.text)
         raise Exception(f"API login failed, CST or X-SECURITY-TOKEN missing. Got headers: {resp.headers}")
     return cst, xsec
 
