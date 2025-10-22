@@ -1,17 +1,10 @@
-import os, sys, time, json, requests
-
-# lisätään projektin juurihakemisto polulle
-sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
+import os
+import sys
+import time
+import json
 from tools.capital_client import CapitalClient
 
 client = CapitalClient()
-
-SYMBOLS = [
-    "BTCUSD","ETHUSD","XRPUSD","ADAUSD","SOLUSD","DOGEUSD","DOTUSD","LTCUSD","BNBUSD","AVAXUSD",
-    "US500","NAS100","US30","GER40","FRA40","UK100",
-    "EURUSD","GBPUSD","USDJPY","USDCAD","AUDUSD","NZDUSD","EURJPY","EURGBP",
-    "XAUUSD","XAGUSD","XTIUSD","XBRUSD","XNGUSD","VIX"
-]
 
 def find_epic(symbol):
     """Hakee Capital.com API:sta oikean EPIC-koodin symbolille"""
@@ -28,7 +21,7 @@ def find_epic(symbol):
     print(f"[EPIC] {symbol} -> {epic}")
     return epic
 
-def fetch_full_history(symbol, timeframe="1H", days=730):
+def fetch_full_history(symbol, timeframe="HOUR", days=730):
     epic = find_epic(symbol)
     if not epic:
         print(f"[SKIP] Ei epicciä {symbol}")
@@ -55,5 +48,6 @@ def fetch_full_history(symbol, timeframe="1H", days=730):
     print(f"[SAVE] {out_path}")
 
 if __name__ == "__main__":
-    for s in SYMBOLS:
-        fetch_full_history(s)
+    # Esimerkki: fetch_full_history("US500", "HOUR", 730)
+    for symbol in ["US500", "BTCUSD", "AAPL"]:  # lisää haluamasi symbolit
+        fetch_full_history(symbol, "HOUR", 730)
