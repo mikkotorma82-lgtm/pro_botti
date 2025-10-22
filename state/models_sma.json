@@ -1,0 +1,274 @@
+{
+  "models": [
+    {
+      "symbol": "US SPX 500",
+      "tf": "15m",
+      "strategy": "SMA",
+      "params": {
+        "n": 20
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.019650802175082235,
+        "pf_oos_mean": 1.085882594492002,
+        "wr_oos_mean": 0.2889822595704949,
+        "cagr_oos_prod": 0.07440923391660825,
+        "maxdd_oos_min": -0.02156465585709022
+      },
+      "csv": "/root/pro_botti/data/capital/US_SPX_500__15m.csv",
+      "time": 1760544472
+    },
+    {
+      "symbol": "US SPX 500",
+      "tf": "1h",
+      "strategy": "SMA",
+      "params": {
+        "n": 10
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.022121066559639854,
+        "pf_oos_mean": 1.1057944710094818,
+        "wr_oos_mean": 0.2854808590102708,
+        "cagr_oos_prod": 0.24020924076603034,
+        "maxdd_oos_min": -0.10342464452729248
+      },
+      "csv": "/root/pro_botti/data/capital/US_SPX_500__1h.csv",
+      "time": 1760544532
+    },
+    {
+      "symbol": "US SPX 500",
+      "tf": "4h",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.02990964229726532,
+        "pf_oos_mean": 1.1288335519931412,
+        "wr_oos_mean": 0.31886087768440713,
+        "cagr_oos_prod": 0.7858020551463343,
+        "maxdd_oos_min": -0.11853741199248945
+      },
+      "csv": "/root/pro_botti/data/capital/US_SPX_500__4h.csv",
+      "time": 1760544590
+    },
+    {
+      "symbol": "EUR/USD",
+      "tf": "15m",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.011515867589374035,
+        "pf_oos_mean": 1.05514375897414,
+        "wr_oos_mean": 0.23797852474323064,
+        "cagr_oos_prod": 0.03143676020622688,
+        "maxdd_oos_min": -0.011433019365346575
+      },
+      "csv": "/root/pro_botti/data/capital/EUR_USD__15m.csv",
+      "time": 1760544653
+    },
+    {
+      "symbol": "EUR/USD",
+      "tf": "1h",
+      "strategy": "SMA",
+      "params": {
+        "n": 10
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": -0.004041663596212219,
+        "pf_oos_mean": 0.984290554946484,
+        "wr_oos_mean": 0.24147992530345475,
+        "cagr_oos_prod": -0.013465543235082533,
+        "maxdd_oos_min": -0.052642713049136966
+      },
+      "csv": "/root/pro_botti/data/capital/EUR_USD__1h.csv",
+      "time": 1760544713
+    },
+    {
+      "symbol": "EUR/USD",
+      "tf": "4h",
+      "strategy": "SMA",
+      "params": {
+        "n": 20
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": -0.003360985463050493,
+        "pf_oos_mean": 0.9829293587298634,
+        "wr_oos_mean": 0.2453314659197012,
+        "cagr_oos_prod": -0.031409423974567696,
+        "maxdd_oos_min": -0.07729795427664428
+      },
+      "csv": "/root/pro_botti/data/capital/EUR_USD__4h.csv",
+      "time": 1760544770
+    },
+    {
+      "symbol": "GOLD",
+      "tf": "15m",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.018793423014032123,
+        "pf_oos_mean": 1.076208139883681,
+        "wr_oos_mean": 0.28209617180205415,
+        "cagr_oos_prod": 0.12280194010897993,
+        "maxdd_oos_min": -0.039188631506476064
+      },
+      "csv": "/root/pro_botti/data/capital/GOLD__15m.csv",
+      "time": 1760544835
+    },
+    {
+      "symbol": "GOLD",
+      "tf": "1h",
+      "strategy": "SMA",
+      "params": {
+        "n": 20
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.031925503425662534,
+        "pf_oos_mean": 1.132094603051902,
+        "wr_oos_mean": 0.2957516339869281,
+        "cagr_oos_prod": 0.504144505325741,
+        "maxdd_oos_min": -0.0484844513248907
+      },
+      "csv": "/root/pro_botti/data/capital/GOLD__1h.csv",
+      "time": 1760544895
+    },
+    {
+      "symbol": "GOLD",
+      "tf": "4h",
+      "strategy": "SMA",
+      "params": {
+        "n": 10
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.03144935846196393,
+        "pf_oos_mean": 1.141866645602488,
+        "wr_oos_mean": 0.27474323062558353,
+        "cagr_oos_prod": 1.0732958427387924,
+        "maxdd_oos_min": -0.1284594019099005
+      },
+      "csv": "/root/pro_botti/data/capital/GOLD__4h.csv",
+      "time": 1760544953
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "15m",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": -0.003105810110675709,
+        "pf_oos_mean": 0.9867710386788153,
+        "wr_oos_mean": 0.24323062558356676,
+        "cagr_oos_prod": -0.030640336891408326,
+        "maxdd_oos_min": -0.085848040750054
+      },
+      "csv": "/root/pro_botti/data/capital/AAPL__15m.csv",
+      "time": 1760545021
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "1h",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.01278841199030968,
+        "pf_oos_mean": 1.0628822403211693,
+        "wr_oos_mean": 0.25665266106442575,
+        "cagr_oos_prod": 0.3458399025014347,
+        "maxdd_oos_min": -0.17454629909183322
+      },
+      "csv": "/root/pro_botti/data/capital/AAPL__1h.csv",
+      "time": 1760545080
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "4h",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.04308377022358285,
+        "pf_oos_mean": 1.1917015868053236,
+        "wr_oos_mean": 0.30437352245862886,
+        "cagr_oos_prod": 5.444618977545406,
+        "maxdd_oos_min": -0.2694187961525191
+      },
+      "csv": "/root/pro_botti/data/capital/AAPL__4h.csv",
+      "time": 1760545127
+    },
+    {
+      "symbol": "BTC/USD",
+      "tf": "15m",
+      "strategy": "SMA",
+      "params": {
+        "n": 50
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": -0.0016253143858649913,
+        "pf_oos_mean": 0.9951758614107838,
+        "wr_oos_mean": 0.2426470588235294,
+        "cagr_oos_prod": -0.01617428185580061,
+        "maxdd_oos_min": -0.07021596137668464
+      },
+      "csv": "/root/pro_botti/data/capital/BTC_USD__15m.csv",
+      "time": 1760545192
+    },
+    {
+      "symbol": "BTC/USD",
+      "tf": "1h",
+      "strategy": "SMA",
+      "params": {
+        "n": 10
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.00559383224720787,
+        "pf_oos_mean": 1.0222463056349196,
+        "wr_oos_mean": 0.26097105508870216,
+        "cagr_oos_prod": 0.12307786724722325,
+        "maxdd_oos_min": -0.20338355644525527
+      },
+      "csv": "/root/pro_botti/data/capital/BTC_USD__1h.csv",
+      "time": 1760545256
+    },
+    {
+      "symbol": "BTC/USD",
+      "tf": "4h",
+      "strategy": "SMA",
+      "params": {
+        "n": 20
+      },
+      "metrics": {
+        "folds": 6,
+        "sharpe_oos_mean": 0.006770869153648359,
+        "pf_oos_mean": 1.0293283461119709,
+        "wr_oos_mean": 0.2504668534080299,
+        "cagr_oos_prod": 0.13855309367358482,
+        "maxdd_oos_min": -0.43416230675009065
+      },
+      "csv": "/root/pro_botti/data/capital/BTC_USD__4h.csv",
+      "time": 1760545314
+    }
+  ]
+}

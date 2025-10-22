@@ -1,0 +1,49 @@
+{
+  "symbols_in_config": 5,
+  "tfs": [
+    "15m",
+    "1h",
+    "4h"
+  ],
+  "missing_pro": [],
+  "missing_meta": [
+    {
+      "symbol": "BTC/USD",
+      "tf": "15m"
+    },
+    {
+      "symbol": "ETH/USD",
+      "tf": "15m"
+    },
+    {
+      "symbol": "ADA/USD",
+      "tf": "15m"
+    },
+    {
+      "symbol": "ADA/USD",
+      "tf": "1h"
+    },
+    {
+      "symbol": "ADA/USD",
+      "tf": "4h"
+    },
+    {
+      "symbol": "SOL/USD",
+      "tf": "15m"
+    },
+    {
+      "symbol": "SOL/USD",
+      "tf": "1h"
+    },
+    {
+      "symbol": "SOL/USD",
+      "tf": "4h"
+    },
+    {
+      "symbol": "XRP/USD",
+      "tf": "15m"
+    }
+  ],
+  "missing_both": [],
+  "missing_total": 9
+}

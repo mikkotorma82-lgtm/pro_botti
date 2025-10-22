@@ -1,0 +1,140 @@
+from __future__ import annotations
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np, pandas as pd
+from joblib import load
+
+from core.cooldown import apply_cooldown, apply_flip_guard
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+STATE_DIR = ROOT / "data" / "state"
+STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+FEATS = ["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]
+
+def load_cfg(p: Path) -> dict:
+    with open(p, "r") as f:
+        return yaml.safe_load(f)
+
+def make_features(df: pd.DataFrame) -> pd.DataFrame:
+    z = df.copy()
+    z["ret1"] = z["close"].pct_change()
+    z["ret5"] = z["close"].pct_change(5)
+    z["vol5"] = z["ret1"].rolling(5).std()
+    z["ema12"] = z["close"].ewm(span=12, adjust=False).mean()
+    z["ema26"] = z["close"].ewm(span=26, adjust=False).mean()
+    z["macd"] = z["ema12"] - z["ema26"]
+    d = z["close"].diff()
+    up = d.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
+    down = (-d.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
+    rs = up / (down + 1e-12)
+    z["rsi14"] = 100 - 100/(1+rs)
+    hl = z["high"] - z["low"]
+    hc = (z["high"] - z["close"].shift()).abs()
+    lc = (z["low"] - z["close"].shift()).abs()
+    tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
+    z["atr14"] = tr.rolling(14).mean()
+    z["ema_gap"] = (z["close"] - z["ema12"]) / (z["ema12"] + 1e-12)
+    return z
+
+def proba_map(clf, Xrow: np.ndarray) -> dict:
+    classes = list(map(int, clf.classes_))
+    p = clf.predict_proba(Xrow)[0]
+    return {int(c): float(p[i]) for i, c in enumerate(classes)}
+
+def cooldown_state_key(symbol: str, tf: str) -> Path:
+    return STATE_DIR / f"cooldown_{symbol}_{tf}.json"
+
+def get_cooldown_block(symbol: str, tf: str, last_ix: int, cooldown_bars: int) -> bool:
+    """Palauttaa True jos cooldown vielä käynnissä viimeisestä toteutuksesta."""
+    stp = cooldown_state_key(symbol, tf)
+    if cooldown_bars <= 0:
+        return False
+    if not stp.exists():
+        return False
+    try:
+        st = json.loads(stp.read_text())
+        until_ix = int(st.get("cooldown_until_ix", -1))
+        return last_ix < until_ix
+    except Exception:
+        return False
+
+def set_cooldown_from_last(symbol: str, tf: str, last_ix: int, cooldown_bars: int):
+    stp = cooldown_state_key(symbol, tf)
+    stp.write_text(json.dumps({"cooldown_until_ix": int(last_ix + cooldown_bars)}, indent=2))
+
+def latest_signal(symbol: str, tf: str, args, cfg) -> dict:
+    df = pd.read_csv(DATA_DIR / f"{symbol}_{tf}.csv").sort_values("time").reset_index(drop=True)
+    z = make_features(df).dropna().reset_index(drop=True)
+    if len(z) < 5:
+        raise RuntimeError("Not enough data")
+
+    clf = load(MODEL_DIR / f"pro_{symbol}_{tf}.joblib")
+
+    X = z[FEATS].values[-1: ]
+    pm = proba_map(clf, X)
+    pbuy = pm.get(1, 0.0); psell = pm.get(-1, 0.0)
+    thr_b = args.thr_buy if args.thr_buy is not None else 0.05
+    thr_s = args.thr_sell if args.thr_sell is not None else 0.05
+
+    raw = 0
+    if (pbuy - psell) >= thr_b: raw = 1
+    elif (psell - pbuy) >= thr_s: raw = -1
+
+    cd = int(args.cooldown_bars)
+    flip_guard = int(args.flip_guard_bars)
+    # Käytä historian viimeisestä N:stä rivistä cooldown/flip_guard-suodatusta
+    look = min(200, len(z))
+    hist_sig = np.zeros(look, dtype=int)
+    # Täytä historian "raaka" signaalit karkeasti viereisestä datasta
+    feats = z[FEATS].values[-look:]
+    for i in range(look):
+        pm_i = proba_map(clf, feats[i:i+1])
+        b = pm_i.get(1,0.0); s = pm_i.get(-1,0.0)
+        if (b - s) >= thr_b: hist_sig[i] = 1
+        elif (s - b) >= thr_s: hist_sig[i] = -1
+    if cd>0: hist_sig = apply_cooldown(hist_sig, cd)
+    if flip_guard>0: hist_sig = apply_flip_guard(hist_sig, flip_guard)
+
+    filtered_now = int(hist_sig[-1])
+
+    # Tilan perusteella: jos juuri toteutui (filtered_now!=0), kirjoita cooldown-until
+    # tai jos cooldown on päällä, pakota 0
+    under_cd = get_cooldown_block(symbol, tf, last_ix=len(z)-1, cooldown_bars=cd)
+    if under_cd:
+        filtered_now = 0
+    elif cd>0 and filtered_now!=0:
+        set_cooldown_from_last(symbol, tf, last_ix=len(z)-1, cooldown_bars=cd)
+
+    out = {
+        "symbol": symbol,
+        "tf": tf,
+        "time": str(z.loc[len(z)-1, "time"]),
+        "price": float(z.loc[len(z)-1, "close"]),
+        "signal": filtered_now,
+        "proba": {"-1": pm.get(-1,0.0), "0": pm.get(0,0.0), "1": pm.get(1,0.0)},
+        "features_used": FEATS,
+        "cooldown_bars": cd,
+        "flip_guard_bars": flip_guard
+    }
+    return out
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", required=True)
+    ap.add_argument("--symbols", nargs="+", required=True)
+    ap.add_argument("--tf", required=True)
+    ap.add_argument("--thr_buy", type=float, default=None)
+    ap.add_argument("--thr_sell", type=float, default=None)
+    ap.add_argument("--cooldown_bars", type=int, default=2)
+    ap.add_argument("--flip_guard_bars", type=int, default=0)
+    args = ap.parse_args()
+
+    cfg = load_cfg(Path(args.config))
+    res = [latest_signal(s, args.tf, args, cfg) for s in args.symbols]
+    print(json.dumps(res, indent=2))
+
+if __name__ == "__main__":
+    main()

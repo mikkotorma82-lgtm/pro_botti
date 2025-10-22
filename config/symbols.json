@@ -1,0 +1,7 @@
+{
+  "indices": ["US500","NAS100","GER40","UK100","FRA40","EU50","JPN225"],
+  "forex": ["EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","USDCAD","NZDUSD","EURJPY","GBPJPY"],
+  "commodities": ["XAUUSD","XAGUSD","XTIUSD","XBRUSD","XNGUSD"],
+  "crypto": ["BTCUSD","ETHUSD","XRPUSD"],
+  "stocks": ["AAPL","MSFT","NVDA","TSLA","META","AMZN"]
+}

@@ -1,0 +1,8 @@
+{
+  "symbol": "US100",
+  "tf": "4h",
+  "n": 1441,
+  "avg_cv_accuracy": 0.5366666666666667,
+  "model_path": "/root/pro_botti/models/ml_US100_4h.joblib",
+  "meta_path": "/root/pro_botti/models/ml_US100_4h.json"
+}

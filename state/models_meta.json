@@ -1,0 +1,1502 @@
+{
+  "models": [
+    {
+      "key": "USSPX500__1h",
+      "symbol": "US SPX 500",
+      "tf": "1h",
+      "threshold": 0.74,
+      "cv_pf_score": 1.3380116959064328,
+      "pt_mult": 1.0,
+      "sl_mult": 2.5,
+      "max_hold": 48,
+      "trained_at": 1761028040,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 846,
+      "class_balance": 0.49527186761229314,
+      "tuned_at": 1761042442,
+      "tuner_trials": 40,
+      "tuner_score": 28.666666666666668
+    },
+    {
+      "key": "USSPX500__4h",
+      "symbol": "US SPX 500",
+      "tf": "4h",
+      "threshold": 0.72,
+      "cv_pf_score": 1.1643752081252081,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 90,
+      "trained_at": 1761028302,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 851,
+      "class_balance": 0.5099882491186839,
+      "tuned_at": 1761042707,
+      "tuner_trials": 40,
+      "tuner_score": 17.645666666666667
+    },
+    {
+      "key": "USTech100__1h",
+      "symbol": "US Tech 100",
+      "tf": "1h",
+      "threshold": 0.5,
+      "cv_pf_score": 0.9054509786370689,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 48,
+      "trained_at": 1761028567,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 827,
+      "class_balance": 0.4969770253929867
+    },
+    {
+      "key": "USTech100__4h",
+      "symbol": "US Tech 100",
+      "tf": "4h",
+      "threshold": 0.7400000000000002,
+      "cv_pf_score": 1.0719924812030075,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 48,
+      "trained_at": 1761028829,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 844,
+      "class_balance": 0.5154028436018957
+    },
+    {
+      "key": "Germany40__1h",
+      "symbol": "Germany 40",
+      "tf": "1h",
+      "threshold": 0.7,
+      "cv_pf_score": 1.2643922786505908,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 36,
+      "trained_at": 1761029093,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 853,
+      "class_balance": 0.5381008206330598,
+      "tuned_at": 1761043101,
+      "tuner_trials": 40,
+      "tuner_score": 13.339333333333334
+    },
+    {
+      "key": "Germany40__4h",
+      "symbol": "Germany 40",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.3222222222222222,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 96,
+      "trained_at": 1761029356,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 902,
+      "class_balance": 0.4911308203991131,
+      "tuned_at": 1761043362,
+      "tuner_trials": 40,
+      "tuner_score": 66.976
+    },
+    {
+      "key": "UK100__1h",
+      "symbol": "UK 100",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 0.9384539270253555,
+      "pt_mult": 1.5,
+      "sl_mult": 3.5,
+      "max_hold": 66,
+      "trained_at": 1761029622,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 1001,
+      "class_balance": 0.4825174825174825,
+      "tuned_at": 1761043627,
+      "tuner_trials": 40,
+      "tuner_score": 25.991
+    },
+    {
+      "key": "UK100__4h",
+      "symbol": "UK 100",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.5594805194805195,
+      "pt_mult": 1.0,
+      "sl_mult": 2.0,
+      "max_hold": 60,
+      "trained_at": 1761029884,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 978,
+      "class_balance": 0.49079754601226994,
+      "tuned_at": 1761043888,
+      "tuner_trials": 40,
+      "tuner_score": 47.994
+    },
+    {
+      "key": "France40__1h",
+      "symbol": "France 40",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.1891457917544874,
+      "pt_mult": 2.0,
+      "sl_mult": 4.0,
+      "max_hold": 66,
+      "trained_at": 1761030149,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 926,
+      "class_balance": 0.5053995680345572,
+      "tuned_at": 1761044158,
+      "tuner_trials": 40,
+      "tuner_score": 16.491
+    },
+    {
+      "key": "France40__4h",
+      "symbol": "France 40",
+      "tf": "4h",
+      "threshold": 0.68,
+      "cv_pf_score": 1.4098168498168497,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 42,
+      "trained_at": 1761030411,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 947,
+      "class_balance": 0.4730728616684266,
+      "tuned_at": 1761044421,
+      "tuner_trials": 40,
+      "tuner_score": 32.336333333333336
+    },
+    {
+      "key": "EUStocks50__1h",
+      "symbol": "EU Stocks 50",
+      "tf": "1h",
+      "threshold": 0.74,
+      "cv_pf_score": 0.9444113475177305,
+      "pt_mult": 1.0,
+      "sl_mult": 3.0,
+      "max_hold": 96,
+      "trained_at": 1761030679,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 917,
+      "class_balance": 0.48636859323882226,
+      "tuned_at": 1761044685,
+      "tuner_trials": 40,
+      "tuner_score": 18.476
+    },
+    {
+      "key": "EUStocks50__4h",
+      "symbol": "EU Stocks 50",
+      "tf": "4h",
+      "threshold": 0.78,
+      "cv_pf_score": 0.9486660820786458,
+      "pt_mult": 1.5,
+      "sl_mult": 4.0,
+      "max_hold": 36,
+      "trained_at": 1761030942,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 915,
+      "class_balance": 0.47650273224043715,
+      "tuned_at": 1761044960,
+      "tuner_trials": 40,
+      "tuner_score": 7.839333333333333
+    },
+    {
+      "key": "Japan225__1h",
+      "symbol": "Japan 225",
+      "tf": "1h",
+      "threshold": 0.74,
+      "cv_pf_score": 0.8007798543678943,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 48,
+      "trained_at": 1761031208,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 941,
+      "class_balance": 0.4718384697130712,
+      "tuned_at": 1761045224,
+      "tuner_trials": 40,
+      "tuner_score": 9.75
+    },
+    {
+      "key": "Japan225__4h",
+      "symbol": "Japan 225",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.8203095975232197,
+      "pt_mult": 2.0,
+      "sl_mult": 4.0,
+      "max_hold": 48,
+      "trained_at": 1761031470,
+      "asset_class": "index",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "adx14",
+        "vola50",
+        "atr14"
+      ],
+      "entries": 938,
+      "class_balance": 0.47547974413646055,
+      "tuned_at": 1761045485,
+      "tuner_trials": 40,
+      "tuner_score": 11.833333333333334
+    },
+    {
+      "key": "USDCHF__1h",
+      "symbol": "USD/CHF",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.439047987616099,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 30,
+      "trained_at": 1761033162,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 716,
+      "class_balance": 0.4958100558659218,
+      "tuned_at": 1761047213,
+      "tuner_trials": 40,
+      "tuner_score": 24.509
+    },
+    {
+      "key": "USDCHF__4h",
+      "symbol": "USD/CHF",
+      "tf": "4h",
+      "threshold": 0.78,
+      "cv_pf_score": 0.949741759461946,
+      "pt_mult": 1.0,
+      "sl_mult": 2.0,
+      "max_hold": 84,
+      "trained_at": 1761033425,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 1000,
+      "class_balance": 0.508,
+      "tuned_at": 1761047481,
+      "tuner_trials": 40,
+      "tuner_score": 12.839142857142857
+    },
+    {
+      "key": "AUDUSD__1h",
+      "symbol": "AUD/USD",
+      "tf": "1h",
+      "threshold": 0.78,
+      "cv_pf_score": 1.3564102564102565,
+      "pt_mult": 1.0,
+      "sl_mult": 2.0,
+      "max_hold": 66,
+      "trained_at": 1761033692,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 974,
+      "class_balance": 0.4887063655030801,
+      "tuned_at": 1761047747,
+      "tuner_trials": 40,
+      "tuner_score": 13.241
+    },
+    {
+      "key": "AUDUSD__4h",
+      "symbol": "AUD/USD",
+      "tf": "4h",
+      "threshold": 0.76,
+      "cv_pf_score": 0.9056837280366692,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 60,
+      "trained_at": 1761033959,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 1124,
+      "class_balance": 0.4830960854092527,
+      "tuned_at": 1761048011,
+      "tuner_trials": 40,
+      "tuner_score": 17.327333333333332
+    },
+    {
+      "key": "USDCAD__1h",
+      "symbol": "USD/CAD",
+      "tf": "1h",
+      "threshold": 0.68,
+      "cv_pf_score": 1.1964985994397759,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 48,
+      "trained_at": 1761034224,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 765,
+      "class_balance": 0.47058823529411764,
+      "tuned_at": 1761048298,
+      "tuner_trials": 40,
+      "tuner_score": 17.166666666666668
+    },
+    {
+      "key": "USDCAD__4h",
+      "symbol": "USD/CAD",
+      "tf": "4h",
+      "threshold": 0.78,
+      "cv_pf_score": 1.308215053763441,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 30,
+      "trained_at": 1761034485,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 799,
+      "class_balance": 0.4780976220275344,
+      "tuned_at": 1761048562,
+      "tuner_trials": 40,
+      "tuner_score": 50.009
+    },
+    {
+      "key": "NZDUSD__1h",
+      "symbol": "NZD/USD",
+      "tf": "1h",
+      "threshold": 0.5800000000000001,
+      "cv_pf_score": 1.0259338316485147,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 48,
+      "trained_at": 1761034752,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 1152,
+      "class_balance": 0.5130208333333334
+    },
+    {
+      "key": "NZDUSD__4h",
+      "symbol": "NZD/USD",
+      "tf": "4h",
+      "threshold": 0.76,
+      "cv_pf_score": 1.076932267254848,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 36,
+      "trained_at": 1761035014,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 764,
+      "class_balance": 0.5235602094240838,
+      "tuned_at": 1761048848,
+      "tuner_trials": 40,
+      "tuner_score": 75.006
+    },
+    {
+      "key": "EURJPY__1h",
+      "symbol": "EUR/JPY",
+      "tf": "1h",
+      "threshold": 0.68,
+      "cv_pf_score": 1.0370144572408724,
+      "pt_mult": 1.5,
+      "sl_mult": 2.0,
+      "max_hold": 60,
+      "trained_at": 1761035279,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 955,
+      "class_balance": 0.4774869109947644,
+      "tuned_at": 1761049118,
+      "tuner_trials": 40,
+      "tuner_score": 14.619
+    },
+    {
+      "key": "EURJPY__4h",
+      "symbol": "EUR/JPY",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.632608695652174,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 42,
+      "trained_at": 1761035542,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 921,
+      "class_balance": 0.505971769815418,
+      "tuned_at": 1761049380,
+      "tuner_trials": 40,
+      "tuner_score": 18.003
+    },
+    {
+      "key": "GBPJPY__1h",
+      "symbol": "GBP/JPY",
+      "tf": "1h",
+      "threshold": 0.76,
+      "cv_pf_score": 1.0295084996304509,
+      "pt_mult": 1.0,
+      "sl_mult": 3.0,
+      "max_hold": 30,
+      "trained_at": 1761035807,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 939,
+      "class_balance": 0.4802981895633653,
+      "tuned_at": 1761049647,
+      "tuner_trials": 40,
+      "tuner_score": 36.009
+    },
+    {
+      "key": "GBPJPY__4h",
+      "symbol": "GBP/JPY",
+      "tf": "4h",
+      "threshold": 0.78,
+      "cv_pf_score": 2.088941570881226,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 30,
+      "trained_at": 1761036070,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 954,
+      "class_balance": 0.5440251572327044,
+      "tuned_at": 1761049910,
+      "tuner_trials": 40,
+      "tuner_score": 17.409
+    },
+    {
+      "key": "GOLD__1h",
+      "symbol": "GOLD",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 2.0273809523809527,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 36,
+      "trained_at": 1761036352,
+      "asset_class": "metal",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 892,
+      "class_balance": 0.5246636771300448,
+      "tuned_at": 1761050176,
+      "tuner_trials": 40,
+      "tuner_score": 13.206
+    },
+    {
+      "key": "GOLD__4h",
+      "symbol": "GOLD",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.4780952380952381,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 78,
+      "trained_at": 1761036614,
+      "asset_class": "metal",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 706,
+      "class_balance": 0.5339943342776204,
+      "tuned_at": 1761050437,
+      "tuner_trials": 40,
+      "tuner_score": 20.651666666666667
+    },
+    {
+      "key": "SILVER__1h",
+      "symbol": "SILVER",
+      "tf": "1h",
+      "threshold": 0.76,
+      "cv_pf_score": 1.0392393747232458,
+      "pt_mult": 1.5,
+      "sl_mult": 3.0,
+      "max_hold": 42,
+      "trained_at": 1761036880,
+      "asset_class": "metal",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 880,
+      "class_balance": 0.4818181818181818,
+      "tuned_at": 1761050703,
+      "tuner_trials": 40,
+      "tuner_score": 14.503
+    },
+    {
+      "key": "OILWTI__1h",
+      "symbol": "OIL WTI",
+      "tf": "1h",
+      "threshold": 0.74,
+      "cv_pf_score": 1.311912211210949,
+      "pt_mult": 1.5,
+      "sl_mult": 4.0,
+      "max_hold": 54,
+      "trained_at": 1761037273,
+      "asset_class": "energy",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 728,
+      "class_balance": 0.5137362637362637,
+      "tuned_at": 1761051230,
+      "tuner_trials": 40,
+      "tuner_score": 18.797
+    },
+    {
+      "key": "OILWTI__4h",
+      "symbol": "OIL WTI",
+      "tf": "4h",
+      "threshold": 0.76,
+      "cv_pf_score": 1.1150907527431917,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 66,
+      "trained_at": 1761037536,
+      "asset_class": "energy",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 706,
+      "class_balance": 0.5169971671388102,
+      "tuned_at": 1761051492,
+      "tuner_trials": 40,
+      "tuner_score": 62.991
+    },
+    {
+      "key": "OILBRENT__1h",
+      "symbol": "OIL BRENT",
+      "tf": "1h",
+      "threshold": 0.6,
+      "cv_pf_score": 1.118884246188594,
+      "pt_mult": 1.0,
+      "sl_mult": 4.0,
+      "max_hold": 42,
+      "trained_at": 1761037809,
+      "asset_class": "energy",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 1109,
+      "class_balance": 0.4977457168620379,
+      "tuned_at": 1761051756,
+      "tuner_trials": 40,
+      "tuner_score": 9.568217391304348
+    },
+    {
+      "key": "OILBRENT__4h",
+      "symbol": "OIL BRENT",
+      "tf": "4h",
+      "threshold": 0.72,
+      "cv_pf_score": 1.0565724185724186,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 48,
+      "trained_at": 1761038070,
+      "asset_class": "energy",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 715,
+      "class_balance": 0.5160839160839161,
+      "tuned_at": 1761052017,
+      "tuner_trials": 40,
+      "tuner_score": 93.0
+    },
+    {
+      "key": "NATURALGAS__1h",
+      "symbol": "NATURAL GAS",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.1173202614379085,
+      "pt_mult": 1.5,
+      "sl_mult": 3.0,
+      "max_hold": 72,
+      "trained_at": 1761038335,
+      "asset_class": "other",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 675,
+      "class_balance": 0.5362962962962963,
+      "tuned_at": 1761052282,
+      "tuner_trials": 40,
+      "tuner_score": 22.988
+    },
+    {
+      "key": "NATURALGAS__4h",
+      "symbol": "NATURAL GAS",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.2251388888888888,
+      "pt_mult": 1.5,
+      "sl_mult": 3.0,
+      "max_hold": 78,
+      "trained_at": 1761038597,
+      "asset_class": "other",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 743,
+      "class_balance": 0.5329744279946165,
+      "tuned_at": 1761052543,
+      "tuner_trials": 40,
+      "tuner_score": 57.985
+    },
+    {
+      "key": "BTCUSD__1h",
+      "symbol": "BTC/USD",
+      "tf": "1h",
+      "threshold": 0.72,
+      "cv_pf_score": 1.2083333333333333,
+      "pt_mult": 2.5,
+      "sl_mult": 2.5,
+      "max_hold": 48,
+      "trained_at": 1761038702,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "entries": 279,
+      "class_balance": 0.4910394265232975,
+      "tuned_at": 1761052643,
+      "tuner_trials": 40,
+      "tuner_score": 29.5
+    },
+    {
+      "key": "BTCUSD__4h",
+      "symbol": "BTC/USD",
+      "tf": "4h",
+      "threshold": 0.54,
+      "cv_pf_score": 2.5,
+      "pt_mult": 1.0,
+      "sl_mult": 2.0,
+      "max_hold": 24,
+      "trained_at": 1761038729,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "entries": 93,
+      "class_balance": 0.5161290322580645,
+      "tuned_at": 1761052671,
+      "tuner_trials": 40,
+      "tuner_score": 19.512
+    },
+    {
+      "key": "ETHUSD__1h",
+      "symbol": "ETH/USD",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 0.9355144855144856,
+      "pt_mult": 1.5,
+      "sl_mult": 3.0,
+      "max_hold": 42,
+      "trained_at": 1761038998,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "entries": 923,
+      "class_balance": 0.466955579631636,
+      "tuned_at": 1761052938,
+      "tuner_trials": 40,
+      "tuner_score": 12.003
+    },
+    {
+      "key": "ETHUSD__4h",
+      "symbol": "ETH/USD",
+      "tf": "4h",
+      "threshold": 0.74,
+      "cv_pf_score": 1.108566345893196,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 60,
+      "trained_at": 1761039262,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "entries": 746,
+      "class_balance": 0.5067024128686327,
+      "tuned_at": 1761053213,
+      "tuner_trials": 40,
+      "tuner_score": 29.660666666666668
+    },
+    {
+      "key": "XRPUSD__1h",
+      "symbol": "XRP/USD",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.2072340425531913,
+      "pt_mult": 2.0,
+      "sl_mult": 4.0,
+      "max_hold": 42,
+      "trained_at": 1761039528,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "entries": 957,
+      "class_balance": 0.5109717868338558,
+      "tuned_at": 1761053480,
+      "tuner_trials": 40,
+      "tuner_score": 12.603
+    },
+    {
+      "key": "XRPUSD__4h",
+      "symbol": "XRP/USD",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.1516337665716843,
+      "pt_mult": 1.0,
+      "sl_mult": 2.0,
+      "max_hold": 90,
+      "trained_at": 1761039790,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "entries": 1208,
+      "class_balance": 0.4817880794701987,
+      "tuned_at": 1761053743,
+      "tuner_trials": 40,
+      "tuner_score": 24.979
+    },
+    {
+      "key": "AAPL__1h",
+      "symbol": "AAPL",
+      "tf": "1h",
+      "threshold": 0.68,
+      "cv_pf_score": 0.0,
+      "pt_mult": 2.0,
+      "sl_mult": 4.0,
+      "max_hold": 30,
+      "trained_at": 1761039810,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 56,
+      "class_balance": 0.5357142857142857,
+      "tuned_at": 1761053765,
+      "tuner_trials": 40,
+      "tuner_score": 13.009
+    },
+    {
+      "key": "MSFT__1h",
+      "symbol": "MSFT",
+      "tf": "1h",
+      "threshold": 0.78,
+      "cv_pf_score": 1.1702380952380953,
+      "pt_mult": 1.5,
+      "sl_mult": 4.0,
+      "max_hold": 48,
+      "trained_at": 1761040073,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 871,
+      "class_balance": 0.4890929965556831,
+      "tuned_at": 1761054033,
+      "tuner_trials": 40,
+      "tuner_score": 31.0
+    },
+    {
+      "key": "MSFT__4h",
+      "symbol": "MSFT",
+      "tf": "4h",
+      "threshold": 0.76,
+      "cv_pf_score": 1.1752696852696851,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 84,
+      "trained_at": 1761040283,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 620,
+      "class_balance": 0.5274193548387097,
+      "tuned_at": 1761054249,
+      "tuner_trials": 40,
+      "tuner_score": 14.581999999999999
+    },
+    {
+      "key": "NVDA__1h",
+      "symbol": "NVDA",
+      "tf": "1h",
+      "threshold": 0.78,
+      "cv_pf_score": 0.973362264213328,
+      "pt_mult": 1.5,
+      "sl_mult": 3.0,
+      "max_hold": 42,
+      "trained_at": 1761040546,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 799,
+      "class_balance": 0.5031289111389237,
+      "tuned_at": 1761054519,
+      "tuner_trials": 40,
+      "tuner_score": 33.003
+    },
+    {
+      "key": "NVDA__4h",
+      "symbol": "NVDA",
+      "tf": "4h",
+      "threshold": 0.78,
+      "cv_pf_score": 1.2105384014070744,
+      "pt_mult": 1.5,
+      "sl_mult": 2.5,
+      "max_hold": 42,
+      "trained_at": 1761040754,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 645,
+      "class_balance": 0.5317829457364341,
+      "tuned_at": 1761054728,
+      "tuner_trials": 40,
+      "tuner_score": 26.503
+    },
+    {
+      "key": "TSLA__1h",
+      "symbol": "TSLA",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.365,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 54,
+      "trained_at": 1761041018,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 828,
+      "class_balance": 0.5289855072463768,
+      "tuned_at": 1761054991,
+      "tuner_trials": 40,
+      "tuner_score": 27.997
+    },
+    {
+      "key": "TSLA__4h",
+      "symbol": "TSLA",
+      "tf": "4h",
+      "threshold": 0.78,
+      "cv_pf_score": 1.0734479877855558,
+      "pt_mult": 1.5,
+      "sl_mult": 4.0,
+      "max_hold": 78,
+      "trained_at": 1761041223,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 644,
+      "class_balance": 0.5263975155279503,
+      "tuned_at": 1761055201,
+      "tuner_trials": 40,
+      "tuner_score": 18.485
+    },
+    {
+      "key": "META__1h",
+      "symbol": "META",
+      "tf": "1h",
+      "threshold": 0.76,
+      "cv_pf_score": 0.9800434782608696,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 84,
+      "trained_at": 1761041487,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 873,
+      "class_balance": 0.47193585337915234,
+      "tuned_at": 1761055465,
+      "tuner_trials": 40,
+      "tuner_score": 15.982
+    },
+    {
+      "key": "META__4h",
+      "symbol": "META",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 1.165181234746452,
+      "pt_mult": 1.0,
+      "sl_mult": 2.0,
+      "max_hold": 66,
+      "trained_at": 1761041698,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 642,
+      "class_balance": 0.5062305295950156,
+      "tuned_at": 1761055680,
+      "tuner_trials": 40,
+      "tuner_score": 10.991
+    },
+    {
+      "key": "AMZN__1h",
+      "symbol": "AMZN",
+      "tf": "1h",
+      "threshold": 0.68,
+      "cv_pf_score": 1.1620617521546315,
+      "pt_mult": 1.0,
+      "sl_mult": 3.5,
+      "max_hold": 48,
+      "trained_at": 1761041962,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 891,
+      "class_balance": 0.510662177328844,
+      "tuned_at": 1761055944,
+      "tuner_trials": 40,
+      "tuner_score": 18.5
+    },
+    {
+      "key": "AMZN__4h",
+      "symbol": "AMZN",
+      "tf": "4h",
+      "threshold": 0.7200000000000002,
+      "cv_pf_score": 1.1453226773226775,
+      "pt_mult": 2.0,
+      "sl_mult": 2.0,
+      "max_hold": 48,
+      "trained_at": 1761042172,
+      "asset_class": "stock",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "stoch_k",
+        "obv",
+        "atr14"
+      ],
+      "entries": 648,
+      "class_balance": 0.5216049382716049
+    },
+    {
+      "key": "EURUSD__4h",
+      "symbol": "EUR/USD",
+      "tf": "4h",
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 927,
+      "trained_at": 1761051682,
+      "models": {
+        "gbdt": {
+          "file": "EURUSD__4h__gbdt.joblib",
+          "cv_pf": 1.1118881118881119
+        },
+        "lr": {
+          "file": "EURUSD__4h__lr.joblib",
+          "cv_pf": 0.0
+        },
+        "xgb": {
+          "file": "EURUSD__4h__xgb.joblib",
+          "cv_pf": 1.086092715231788
+        },
+        "lgbm": {
+          "file": "EURUSD__4h__lgbm.joblib",
+          "cv_pf": 1.0392156862745099
+        }
+      },
+      "ens_weights": {
+        "gbdt": 0.1414281549013787,
+        "lgbm": 0.37407496706769483,
+        "lr": 0.29999065674440084,
+        "xgb": 0.18450622086739907
+      },
+      "threshold_ens": 0.7,
+      "cv_pf_score_ens": 1.290909090909091,
+      "threshold": 0.6,
+      "cv_pf_score": 1.1118881118881119
+    },
+    {
+      "key": "EURUSD__1h",
+      "symbol": "EUR/USD",
+      "tf": "1h",
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 955,
+      "trained_at": 1761051682,
+      "models": {
+        "gbdt": {
+          "file": "EURUSD__1h__gbdt.joblib",
+          "cv_pf": 0.7655172413793103
+        },
+        "lr": {
+          "file": "EURUSD__1h__lr.joblib",
+          "cv_pf": 0.4
+        },
+        "xgb": {
+          "file": "EURUSD__1h__xgb.joblib",
+          "cv_pf": 0.8095238095238095
+        },
+        "lgbm": {
+          "file": "EURUSD__1h__lgbm.joblib",
+          "cv_pf": 0.7954545454545454
+        }
+      },
+      "ens_weights": {
+        "gbdt": 0.08971822728975597,
+        "lgbm": 0.3601975402138042,
+        "lr": 0.49099215448911565,
+        "xgb": 0.05909207690463974
+      },
+      "threshold_ens": 0.74,
+      "cv_pf_score_ens": 4.0,
+      "threshold": 0.6,
+      "cv_pf_score": 0.8095238095238095
+    },
+    {
+      "key": "GBPUSD__4h",
+      "symbol": "GBP/USD",
+      "tf": "4h",
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 799,
+      "trained_at": 1761051954,
+      "models": {
+        "gbdt": {
+          "file": "GBPUSD__4h__gbdt.joblib",
+          "cv_pf": 0.9006622516556292
+        },
+        "lr": {
+          "file": "GBPUSD__4h__lr.joblib",
+          "cv_pf": 0.9154929577464789
+        },
+        "xgb": {
+          "file": "GBPUSD__4h__xgb.joblib",
+          "cv_pf": 0.8609271523178808
+        },
+        "lgbm": {
+          "file": "GBPUSD__4h__lgbm.joblib",
+          "cv_pf": 0.8641975308641975
+        }
+      },
+      "ens_weights": {
+        "gbdt": 0.46340753705762705,
+        "lgbm": 0.01645064167998078,
+        "lr": 0.07062415454899607,
+        "xgb": 0.44951766621475714
+      },
+      "threshold_ens": 0.52,
+      "cv_pf_score_ens": 0.9427083333333334,
+      "threshold": 0.6,
+      "cv_pf_score": 0.9154929577464789
+    },
+    {
+      "key": "GBPUSD__1h",
+      "symbol": "GBP/USD",
+      "tf": "1h",
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 735,
+      "trained_at": 1761051955,
+      "models": {
+        "gbdt": {
+          "file": "GBPUSD__1h__gbdt.joblib",
+          "cv_pf": 0.8863636363636364
+        },
+        "lr": {
+          "file": "GBPUSD__1h__lr.joblib",
+          "cv_pf": 0.0
+        },
+        "xgb": {
+          "file": "GBPUSD__1h__xgb.joblib",
+          "cv_pf": 1.0
+        },
+        "lgbm": {
+          "file": "GBPUSD__1h__lgbm.joblib",
+          "cv_pf": 1.0707070707070707
+        }
+      },
+      "ens_weights": {
+        "gbdt": 0.1293221070474153,
+        "lgbm": 0.7227088259940864,
+        "lr": 0.1374316566158473,
+        "xgb": 0.010537409499489756
+      },
+      "threshold_ens": 0.6799999999999999,
+      "cv_pf_score_ens": 1.2553191489361701,
+      "threshold": 0.6,
+      "cv_pf_score": 1.0707070707070707
+    },
+    {
+      "key": "USDJPY__4h",
+      "symbol": "USD/JPY",
+      "tf": "4h",
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 842,
+      "trained_at": 1761052228,
+      "models": {
+        "gbdt": {
+          "file": "USDJPY__4h__gbdt.joblib",
+          "cv_pf": 1.0559006211180124
+        },
+        "lr": {
+          "file": "USDJPY__4h__lr.joblib",
+          "cv_pf": 1.25
+        },
+        "xgb": {
+          "file": "USDJPY__4h__xgb.joblib",
+          "cv_pf": 1.1645569620253164
+        },
+        "lgbm": {
+          "file": "USDJPY__4h__lgbm.joblib",
+          "cv_pf": 1.1746987951807228
+        }
+      },
+      "ens_weights": {
+        "gbdt": 0.08590558378475348,
+        "lgbm": 0.19040675577624996,
+        "lr": 0.1223883505546288,
+        "xgb": 0.6012993092230696
+      },
+      "threshold_ens": 0.78,
+      "cv_pf_score_ens": 1.2413793103448276,
+      "threshold": 0.6,
+      "cv_pf_score": 1.25
+    },
+    {
+      "key": "USDJPY__1h",
+      "symbol": "USD/JPY",
+      "tf": "1h",
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "entries": 822,
+      "trained_at": 1761052230,
+      "models": {
+        "gbdt": {
+          "file": "USDJPY__1h__gbdt.joblib",
+          "cv_pf": 1.0084033613445378
+        },
+        "lr": {
+          "file": "USDJPY__1h__lr.joblib",
+          "cv_pf": 0.6578947368421053
+        },
+        "xgb": {
+          "file": "USDJPY__1h__xgb.joblib",
+          "cv_pf": 1.1735537190082646
+        },
+        "lgbm": {
+          "file": "USDJPY__1h__lgbm.joblib",
+          "cv_pf": 1.028169014084507
+        }
+      },
+      "ens_weights": {
+        "gbdt": 0.06140845009347188,
+        "lgbm": 0.32471388320197747,
+        "lr": 0.08851755674735824,
+        "xgb": 0.525360109430635
+      },
+      "threshold_ens": 0.7,
+      "cv_pf_score_ens": 1.1411764705882352,
+      "threshold": 0.6,
+      "cv_pf_score": 1.1735537190082646
+    }
+  ]
+}

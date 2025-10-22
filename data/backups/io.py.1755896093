@@ -1,0 +1,22 @@
+from __future__ import annotations
+from pathlib import Path
+import pandas as pd
+
+def load_history(data_dir: Path, symbol: str, tf: str) -> pd.DataFrame:
+    d = data_dir / symbol
+    last_err = None
+    pq = d / f"{symbol}_{tf}.parquet"
+    if pq.exists():
+        for eng in ("pyarrow","fastparquet"):
+            try:
+                return pd.read_parquet(pq, engine=eng)
+            except Exception as e:
+                last_err = e
+    for ext in ("feather","feather.zstd","feather.lz4"):
+        f = d / f"{symbol}_{tf}.{ext}"
+        if f.exists():
+            return pd.read_feather(f)
+    csv = d / f"{symbol}_{tf}.csv"
+    if csv.exists():
+        return pd.read_csv(csv)
+    raise RuntimeError(f"History not readable for {symbol} {tf}. Last parquet error: {last_err}")

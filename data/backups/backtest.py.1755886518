@@ -1,0 +1,266 @@
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from joblib import load
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+OUT_DIR = ROOT / "data" / "backtests"
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+from core.features import make_features
+from core.risk import compute_size, bars_per_year
+
+def load_cfg(path: Path) -> dict:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def _proba_map(clf, Xrow):
+    try:
+        probs = clf.predict_proba(Xrow)[0]
+        cls = list(clf.classes_)
+        return {int(cls[i]): float(probs[i]) for i in range(len(cls))}
+    except Exception:
+        return {-1: 0.0, 0: 0.0, 1: 0.0}
+
+def run_bt_one(symbol: str, tf: str, cfg: dict) -> dict:
+    # data
+    p = DATA_DIR / f"{symbol}_{tf}.csv"
+    df = pd.read_csv(p).sort_values("time").reset_index(drop=True)
+
+    # model/meta
+    model_p = MODEL_DIR / f"pro_{symbol}_{tf}.joblib"
+    meta_p  = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    if not (model_p.exists() and meta_p.exists()):
+        raise FileNotFoundError("Model/meta missing, train first.")
+    payload = load(model_p)
+    clf = payload["pipeline"]
+    with open(meta_p, "r") as f:
+        meta = json.load(f)
+
+    # features
+    df_feat, feats_default = make_features(df)
+    feats = (meta.get("features") or feats_default)
+    feats = [f for f in feats if f in df_feat.columns]
+    X = df_feat[feats].values
+    close = df_feat["close"].values
+    high  = df_feat["high"].values
+    low   = df_feat["low"].values
+
+    n = len(df_feat)
+    if n < 5:
+        raise RuntimeError("Too few rows")
+
+    risk_cfg = cfg.get("risk", {}) or {}
+
+    # sim state
+    eq = 1.0
+    eq_curve = []
+    positions = []
+    sizes = []
+    rets = []
+    turns = []
+    in_pos = False
+    side = 0     # -1 / +1
+    size_curr = 0.0
+    entry_px = None
+    peak = None   # for trailing (long)
+    trough = None # for trailing (short)
+    trades = 0
+
+    # We decide at t using only info up to t, P&L realized over bar (t -> t+1)
+    # Start at t = 0 .. n-2
+    for t in range(0, n-1):
+        # model decision at t
+        xrow = X[t:t+1]
+        yhat = int(clf.predict(xrow)[0])
+        pmap = _proba_map(clf, xrow)
+
+        # compute target size
+        size_abs = compute_size(risk_cfg, yhat, pmap, df_feat["close"].iloc[:t+1], tf)
+        pos_t = float(yhat * size_abs)  # signed leverage
+        positions.append(pos_t)
+        sizes.append(abs(size_abs))
+        if t > 0:
+            turns.append(abs(pos_t - positions[-2]))
+        else:
+            turns.append(abs(pos_t))
+
+        # manage entry state at close[t] (we enter for next bar t+1)
+        if (not in_pos and pos_t != 0.0):
+            in_pos = True
+            side = 1 if pos_t > 0 else -1
+            size_curr = abs(pos_t)
+            entry_px = close[t]
+            peak = entry_px
+            trough = entry_px
+            trades += 1
+        elif in_pos and pos_t == 0.0:
+            # flat next bar; will realize only over bar t+1 with size from t (zero)
+            side = 0
+            size_curr = 0.0
+            entry_px = None
+            peak = None
+            trough = None
+            in_pos = False
+        elif in_pos and pos_t != 0.0:
+            # rebalance (same side or flip)
+            new_side = 1 if pos_t > 0 else -1
+            if new_side != side:
+                trades += 1
+                entry_px = close[t]
+                peak = entry_px
+                trough = entry_px
+            side = new_side
+            size_curr = abs(pos_t)
+
+        # realize PnL over bar t+1 based on stops/TP/trailing
+        # if pos_t == 0 ⇒ flat bar
+        if pos_t == 0.0:
+            ret_bar = 0.0
+        else:
+            openp = df_feat["open"].iloc[t+1] if "open" in df_feat.columns else close[t]
+            hi = high[t+1]; lo = low[t+1]; cl = close[t+1]
+            # update trailing anchors
+            if side > 0:
+                peak = max(peak, hi) if peak is not None else hi
+            else:
+                trough = min(trough, lo) if trough is not None else lo
+
+            sl_pct = float(risk_cfg.get("stop_loss_pct", 0.0))
+            tp_pct = float(risk_cfg.get("take_profit_pct", 0.0))
+            tr_pct = float(risk_cfg.get("trailing_stop_pct", 0.0))
+            conservative = bool(risk_cfg.get("conservative_intrabar", True))
+
+            stop_hit = False
+            tp_hit = False
+
+            if side > 0:
+                static_stop = entry_px * (1.0 - sl_pct) if sl_pct > 0 else -np.inf
+                trail_stop  = (peak * (1.0 - tr_pct)) if (tr_pct > 0 and peak is not None) else -np.inf
+                stop_px = max(static_stop, trail_stop)
+                tp_px   = entry_px * (1.0 + tp_pct) if tp_pct > 0 else np.inf
+
+                if lo <= stop_px:
+                    stop_hit = True
+                if hi >= tp_px:
+                    tp_hit = True
+
+                if stop_hit and tp_hit:
+                    # both touched; decide priority
+                    if conservative:
+                        realized_px = stop_px
+                    else:
+                        realized_px = tp_px
+                elif stop_hit:
+                    realized_px = stop_px
+                elif tp_hit:
+                    realized_px = tp_px
+                else:
+                    realized_px = cl
+
+                ret_bar = (realized_px / close[t]) - 1.0
+
+                # if hit, position closes for next bar
+                if stop_hit or tp_hit:
+                    in_pos = False
+                    side = 0
+                    size_curr = 0.0
+                    entry_px = None
+                    peak = None
+                    trough = None
+
+            else:
+                static_stop = entry_px * (1.0 + sl_pct) if sl_pct > 0 else np.inf
+                trail_stop  = (trough * (1.0 + tr_pct)) if (tr_pct > 0 and trough is not None) else np.inf
+                stop_px = min(static_stop, trail_stop)  # for short, stop is lower of two *threshold prices above trough*
+                tp_px   = entry_px * (1.0 - tp_pct) if tp_pct > 0 else -np.inf
+
+                if hi >= stop_px:
+                    stop_hit = True
+                if lo <= tp_px:
+                    tp_hit = True
+
+                if stop_hit and tp_hit:
+                    realized_px = stop_px if conservative else tp_px
+                elif stop_hit:
+                    realized_px = stop_px
+                elif tp_hit:
+                    realized_px = tp_px
+                else:
+                    realized_px = cl
+
+                ret_bar = (close[t] / realized_px) - 1.0  # short return
+
+                if stop_hit or tp_hit:
+                    in_pos = False
+                    side = 0
+                    size_curr = 0.0
+                    entry_px = None
+                    peak = None
+                    trough = None
+
+        # equity update
+        eq *= (1.0 + pos_t * ret_bar)
+        eq_curve.append(eq)
+        rets.append(pos_t * ret_bar)
+
+    eq_curve = np.array(eq_curve, dtype=float)
+    rets = np.array(rets, dtype=float)
+    turns = np.array(turns, dtype=float)
+
+    pnl = float(eq_curve[-1] - 1.0) if len(eq_curve) else 0.0
+    hitrate = float(np.mean(rets > 0.0)) if len(rets) else 0.0
+    dd = 0.0
+    if len(eq_curve):
+        peak_curve = np.maximum.accumulate(eq_curve)
+        dd = float(np.max((peak_curve - eq_curve) / np.maximum(peak_curve, 1e-12)))
+
+    bpy = bars_per_year(tf)
+    ann_ret = 0.0
+    ann_vol = 0.0
+    sharpe = 0.0
+    if len(rets) > 2:
+        mu = float(np.mean(rets))
+        sd = float(np.std(rets, ddof=1))
+        ann_ret = mu * bpy
+        ann_vol = sd * (bpy ** 0.5)
+        sharpe = (ann_ret / ann_vol) if ann_vol > 1e-12 else 0.0
+
+    out = {
+        "symbol": symbol, "tf": tf,
+        "bars": int(len(rets)),
+        "pnl": pnl,
+        "hitrate": hitrate,
+        "max_dd": dd,
+        "ann_return": ann_ret,
+        "ann_vol": ann_vol,
+        "sharpe": sharpe,
+        "avg_turnover": float(np.mean(turns)) if len(turns) else 0.0,
+        "trades": int(trades),
+        "risk_mode": (risk_cfg.get("mode") or "fixed")
+    }
+    out_p = OUT_DIR / f"bt_{symbol}_{tf}.json"
+    with open(out_p, "w") as f: json.dump(out, f, indent=2)
+    print(f"[BT] {out_p}  PnL={pnl:.3f}  HR={hitrate:.2%}  DD={dd:.2%}  Sharpe={sharpe:.2f}")
+    return out
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="config.yaml")
+    ap.add_argument("--symbols", nargs="*", required=True)
+    ap.add_argument("--tfs", nargs="*", required=True)
+    args = ap.parse_args()
+
+    cfg = load_cfg(Path(args.config))
+    for s in args.symbols:
+        for tf in args.tfs:
+            try:
+                run_bt_one(s, tf, cfg)
+            except Exception as e:
+                print(f"[BT FAIL] {s} {tf}: {e}")
+
+if __name__ == "__main__":
+    main()

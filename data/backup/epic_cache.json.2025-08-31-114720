@@ -1,0 +1,437 @@
+{
+  "US500": {
+    "epic": "US500",
+    "hit": {
+      "instrumentName": "US 500",
+      "instrumentId": 21680337780298948,
+      "expiry": "-",
+      "epic": "US500",
+      "symbol": "US500",
+      "instrumentType": "INDICES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 6471.9,
+      "low": 6444.5,
+      "percentageChange": -0.18,
+      "netChange": -11.4,
+      "bid": 6455.6,
+      "offer": 6456.0,
+      "updateTime": "2025-08-25T21:33:04.783",
+      "updateTimeUTC": "2025-08-25T18:33:04.783",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 0.1
+    }
+  },
+  "EURUSD": {
+    "epic": "EURUSDU2025",
+    "hit": {
+      "instrumentName": "EUR/USD - Sep 2025",
+      "instrumentId": 6004956985382084,
+      "expiry": "2025-09-12",
+      "epic": "EURUSDU2025",
+      "symbol": "EURUSDU2025",
+      "instrumentType": "CURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 1.17387,
+      "low": 1.16474,
+      "percentageChange": -0.74,
+      "netChange": -0.0084,
+      "bid": 1.16462,
+      "offer": 1.16468,
+      "updateTime": "2025-08-25T21:33:13.336",
+      "updateTimeUTC": "2025-08-25T18:33:13.336",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 4,
+      "tickSize": 1e-05
+    }
+  },
+  "GBPUSD": {
+    "epic": "GBPUSDU2025",
+    "hit": {
+      "instrumentName": "GBP/USD - Sep 2025",
+      "instrumentId": 7922505264223428,
+      "expiry": "2025-09-12",
+      "epic": "GBPUSDU2025",
+      "symbol": "GBPUSDU2025",
+      "instrumentType": "CURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 1.35289,
+      "low": 1.34732,
+      "percentageChange": -0.37,
+      "netChange": -0.0048,
+      "bid": 1.34732,
+      "offer": 1.34746,
+      "updateTime": "2025-08-25T21:33:17.905",
+      "updateTimeUTC": "2025-08-25T18:33:17.905",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 4,
+      "tickSize": 1e-05
+    }
+  },
+  "AAPL": {
+    "epic": "AAPL",
+    "hit": {
+      "instrumentName": "Apple Inc",
+      "instrumentId": 1147941679092932,
+      "expiry": "-",
+      "epic": "AAPL",
+      "symbol": "AAPL",
+      "instrumentType": "SHARES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 229.25,
+      "low": 226.16,
+      "percentageChange": -0.09,
+      "netChange": 0.03,
+      "bid": 227.57,
+      "offer": 227.68,
+      "updateTime": "2025-08-25T21:36:58.788",
+      "updateTimeUTC": "2025-08-25T18:36:58.788",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 2,
+      "tickSize": 0.01
+    }
+  },
+  "BTCUSDT": {
+    "epic": "BTCUSD",
+    "hit": {
+      "instrumentName": "Bitcoin / USD",
+      "instrumentId": 2604592722433220,
+      "expiry": "-",
+      "epic": "BTCUSD",
+      "symbol": "BTC/USD",
+      "instrumentType": "CRYPTOCURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 113645.2,
+      "low": 110553.55,
+      "percentageChange": -0.31,
+      "netChange": -2796.65,
+      "bid": 112375.1,
+      "offer": 112425.1,
+      "updateTime": "2025-08-25T21:37:08.314",
+      "updateTimeUTC": "2025-08-25T18:37:08.314",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 0.05
+    }
+  },
+  "TSLA": {
+    "epic": "TSLA",
+    "hit": {
+      "instrumentName": "Tesla Inc",
+      "instrumentId": 22855552501634244,
+      "expiry": "-",
+      "epic": "TSLA",
+      "symbol": "TSLA",
+      "instrumentType": "SHARES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 348.64,
+      "low": 334.97,
+      "percentageChange": 1.97,
+      "netChange": 6.82,
+      "bid": 346.65,
+      "offer": 346.78,
+      "updateTime": "2025-08-25T21:37:12.607",
+      "updateTimeUTC": "2025-08-25T18:37:12.607",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 2,
+      "tickSize": 0.01
+    }
+  },
+  "XRPUSDT": {
+    "epic": "XRPUSD",
+    "hit": {
+      "instrumentName": "Ripple / USD",
+      "instrumentId": 27342779713672388,
+      "expiry": "-",
+      "epic": "XRPUSD",
+      "symbol": "XRP/USD",
+      "instrumentType": "CRYPTOCURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 3.04467,
+      "low": 2.91235,
+      "percentageChange": -2.32,
+      "netChange": -0.0677,
+      "bid": 2.9511,
+      "offer": 2.96589,
+      "updateTime": "2025-08-25T21:37:17.148",
+      "updateTimeUTC": "2025-08-25T18:37:17.148",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 1e-05
+    }
+  },
+  "SOLUSDT": {
+    "epic": "SOLUSD",
+    "hit": {
+      "instrumentName": "Solana / USD",
+      "instrumentId": 21659404109698244,
+      "expiry": "-",
+      "epic": "SOLUSD",
+      "symbol": "SOL/USD",
+      "instrumentType": "CRYPTOCURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 212.859,
+      "low": 194.5125,
+      "percentageChange": -3.32,
+      "netChange": -6.3242,
+      "bid": 196.3529,
+      "offer": 197.3371,
+      "updateTime": "2025-08-25T21:37:21.493",
+      "updateTimeUTC": "2025-08-25T18:37:21.493",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 0.0001
+    }
+  },
+  "ADAUSDT": {
+    "epic": "2685",
+    "hit": {
+      "instrumentName": "Adastria Co., Ltd.",
+      "instrumentId": 62979450513433625,
+      "expiry": "-",
+      "epic": "2685",
+      "symbol": "2685",
+      "instrumentType": "SHARES",
+      "marketStatus": "CLOSED",
+      "lotSize": 1,
+      "high": 3071.9,
+      "low": 3032.4,
+      "percentageChange": 0.53,
+      "netChange": 16.5,
+      "bid": 3062.9,
+      "offer": 3072.6,
+      "updateTime": "2025-08-25T09:24:56.960",
+      "updateTimeUTC": "2025-08-25T06:24:56.960",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 0.1
+    }
+  },
+  "US100": {
+    "epic": "US100",
+    "hit": {
+      "instrumentName": "US Tech 100",
+      "instrumentId": 15839732013552836,
+      "expiry": "-",
+      "epic": "US100",
+      "symbol": "US100",
+      "instrumentType": "INDICES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 23548.0,
+      "low": 23375.3,
+      "percentageChange": -0.06,
+      "netChange": -10.6,
+      "bid": 23490.6,
+      "offer": 23492.4,
+      "updateTime": "2025-08-25T21:42:14.975",
+      "updateTimeUTC": "2025-08-25T18:42:14.975",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 0.1
+    }
+  },
+  "ETHUSDT": {
+    "epic": "ETHUSD",
+    "hit": {
+      "instrumentName": "Ethereum / USD",
+      "instrumentId": 5983666832495812,
+      "expiry": "-",
+      "epic": "ETHUSD",
+      "symbol": "ETH/USD",
+      "instrumentType": "CRYPTOCURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 4822.35,
+      "low": 4518.35,
+      "percentageChange": -4.51,
+      "netChange": -167.44,
+      "bid": 4569.87,
+      "offer": 4571.62,
+      "updateTime": "2025-08-25T21:42:31.533",
+      "updateTimeUTC": "2025-08-25T18:42:31.533",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 0,
+      "tickSize": 0.01
+    }
+  },
+  "-": {
+    "epic": "OIL_CRUDE",
+    "hit": {
+      "instrumentName": "Crude Oil",
+      "instrumentId": 427748677997764,
+      "expiry": "-",
+      "epic": "OIL_CRUDE",
+      "symbol": "Oil - Crude",
+      "instrumentType": "COMMODITIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 64.995,
+      "low": 63.468,
+      "percentageChange": 1.53,
+      "netChange": 1.01,
+      "bid": 64.663,
+      "offer": 64.693,
+      "updateTime": "2025-08-25T21:56:55.308",
+      "updateTimeUTC": "2025-08-25T18:56:55.308",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 2,
+      "tickSize": 0.001
+    }
+  },
+  "USDJPY": {
+    "epic": "USDJPYZ2025",
+    "hit": {
+      "instrumentName": "USD/JPY - Dec 2025",
+      "instrumentId": 23985545512264729,
+      "expiry": "2025-12-12",
+      "epic": "USDJPYZ2025",
+      "symbol": "USDJPYZ2025",
+      "instrumentType": "CURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 146.147,
+      "low": 145.073,
+      "percentageChange": 0.64,
+      "netChange": 0.926,
+      "bid": 146.14,
+      "offer": 146.153,
+      "updateTime": "2025-08-25T21:57:00.838",
+      "updateTimeUTC": "2025-08-25T18:57:00.838",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 2,
+      "tickSize": 0.001
+    }
+  },
+  "USDCHF": {
+    "epic": "USDCHFU2025",
+    "hit": {
+      "instrumentName": "USD/CHF - Sep 2025",
+      "instrumentId": 23984171122700806,
+      "expiry": "2025-09-12",
+      "epic": "USDCHFU2025",
+      "symbol": "USDCHFU2025",
+      "instrumentType": "CURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 0.80427,
+      "low": 0.79875,
+      "percentageChange": 0.62,
+      "netChange": 0.0047,
+      "bid": 0.80439,
+      "offer": 0.80461,
+      "updateTime": "2025-08-25T21:57:21.164",
+      "updateTimeUTC": "2025-08-25T18:57:21.164",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 4,
+      "tickSize": 1e-05
+    }
+  },
+  "USDCAD": {
+    "epic": "USDCADU2025",
+    "hit": {
+      "instrumentName": "USD/CAD - Sep 2025",
+      "instrumentId": 23984171122700356,
+      "expiry": "2025-09-12",
+      "epic": "USDCADU2025",
+      "symbol": "USDCADU2025",
+      "instrumentType": "CURRENCIES",
+      "marketStatus": "TRADEABLE",
+      "lotSize": 1,
+      "high": 1.38422,
+      "low": 1.38047,
+      "percentageChange": 0.21,
+      "netChange": 0.0028,
+      "bid": 1.38417,
+      "offer": 1.38438,
+      "updateTime": "2025-08-25T21:57:19.639",
+      "updateTimeUTC": "2025-08-25T18:57:19.639",
+      "delayTime": 0,
+      "streamingPricesAvailable": true,
+      "scalingFactor": 1,
+      "marketModes": [
+        "REGULAR"
+      ],
+      "pipPosition": 4,
+      "tickSize": 1e-05
+    }
+  }
+}

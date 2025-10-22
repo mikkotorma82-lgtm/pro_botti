@@ -1,0 +1,83 @@
+from __future__ import annotations
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np, pandas as pd
+from joblib import load
+from core.io import load_history
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+
+DEFAULT_FEATS = ["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]
+
+def load_cfg(p: Path) -> dict:
+    with open(p, "r") as f:
+        return yaml.safe_load(f)
+
+def load_model(symbol: str, tf: str):
+    clf = load(MODEL_DIR / f"pro_{symbol}_{tf}.joblib")
+    feats = DEFAULT_FEATS
+    meta_p = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    if meta_p.exists():
+        try:
+            meta = json.load(open(meta_p, "r")) or {}
+            feats = meta.get("feats", feats) or feats
+        except Exception:
+            pass
+    return clf, feats
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", required=True)
+    ap.add_argument("--symbols", nargs="+", required=True)
+    ap.add_argument("--tf", required=True)
+    ap.add_argument("--thr_buy", type=float, default=0.05)
+    ap.add_argument("--thr_sell", type=float, default=0.05)
+    ap.add_argument("--fee_bps", type=float, default=None)
+    args = ap.parse_args()
+
+    _ = load_cfg(Path(args.config))  # luetaan tarvittaessa myöhemmin
+
+    results = []
+    for s in args.symbols:
+        try:
+            clf, feats = load_model(s, args.tf)
+            df = load_history(DATA_DIR, s, args.tf)
+
+            X = df[feats].iloc[[-1]].to_numpy()
+            probs = clf.predict_proba(X)[0]
+            classes = clf.classes_.tolist()
+            proba_map = {f"{c}": float(p) for c, p in zip(classes, probs)}
+
+            pneg = proba_map.get("-1", 0.0)
+            p0   = proba_map.get("0",  0.0)
+            ppos = proba_map.get("1",  0.0)
+
+            if ppos >= max(pneg, p0) and ppos >= args.thr_buy:
+                sig = 1
+            elif pneg >= max(ppos, p0) and pneg >= args.thr_sell:
+                sig = -1
+            else:
+                sig = 0
+
+            item = {
+                "symbol": s,
+                "tf": args.tf,
+                "time": str(int(pd.Timestamp.utcnow().timestamp())),
+                "price": float(df["close"].iloc[-1]),
+                "signal": int(sig),
+                "proba": {"-1": pneg, "0": p0, "1": ppos},
+                "features_used": feats,
+            }
+            if args.fee_bps is not None:
+                item["fee_bps"] = float(args.fee_bps)
+
+            results.append(item)
+        except Exception as e:
+            results.append({"symbol": s, "tf": args.tf, "error": str(e)})
+
+    print(json.dumps(results, indent=2))
+
+if __name__ == "__main__":
+    main()

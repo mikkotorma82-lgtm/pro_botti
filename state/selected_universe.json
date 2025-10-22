@@ -1,0 +1,112 @@
+{
+  "selected_at": 1761108542,
+  "rules": {
+    "min_cvpf": 2.0,
+    "min_entries": 200,
+    "max_tfs_per_symbol": 1,
+    "allow_15m": true,
+    "preferred_tfs": [
+      "1h",
+      "4h",
+      "15m"
+    ]
+  },
+  "combos": [
+    {
+      "symbol": "EUR/USD",
+      "tf": "1h",
+      "threshold": 0.74,
+      "cv_pf_score": 4.0,
+      "entries": 955,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "ens": {
+        "weights": {
+          "gbdt": 0.08971822728975597,
+          "lgbm": 0.3601975402138042,
+          "lr": 0.49099215448911565,
+          "xgb": 0.05909207690463974
+        },
+        "cv_pf_score_ens": 4.0,
+        "threshold_ens": 0.74
+      }
+    },
+    {
+      "symbol": "GBP/JPY",
+      "tf": "4h",
+      "threshold": 0.76,
+      "cv_pf_score": 4.0,
+      "entries": 954,
+      "asset_class": "fx",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "ens": {
+        "weights": {
+          "gbdt": 0.0006455176036884384,
+          "lgbm": 0.02667324006607976,
+          "lr": 0.7558378454021479,
+          "xgb": 0.2168433961709356
+        },
+        "cv_pf_score_ens": 4.0,
+        "threshold_ens": 0.76
+      }
+    },
+    {
+      "symbol": "ETH/USD",
+      "tf": "4h",
+      "threshold": 0.8,
+      "cv_pf_score": 2.25,
+      "entries": 746,
+      "asset_class": "crypto",
+      "features": [
+        "sma_diff",
+        "ema_diff",
+        "rsi14",
+        "macd_hist",
+        "atr14",
+        "obv"
+      ],
+      "ens": {
+        "weights": {
+          "gbdt": 0.2738983930910179,
+          "lgbm": 0.2599622991489089,
+          "lr": 0.27640479980510346,
+          "xgb": 0.1897345076734237
+        },
+        "cv_pf_score_ens": 2.25,
+        "threshold_ens": 0.8
+      }
+    },
+    {
+      "symbol": "GOLD",
+      "tf": "1h",
+      "threshold": 0.8,
+      "cv_pf_score": 2.0273809523809527,
+      "entries": 892,
+      "asset_class": "metal",
+      "features": [
+        "ema_diff",
+        "rsi14",
+        "atr14",
+        "vola50",
+        "rng_pct"
+      ],
+      "ens": {
+        "weights": {},
+        "cv_pf_score_ens": 0.0,
+        "threshold_ens": 0.8
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "advised_at": 1760651276,
+  "advice": {
+    "selection_rules": {
+      "min_cvpf": {
+        "crypto": 1.2
+      },
+      "min_entries": 700,
+      "preferred_tfs": [
+        "1h",
+        "15m",
+        "4h"
+      ],
+      "allow_15m": true,
+      "max_tfs_per_symbol": 2
+    },
+    "tuner_priors": {
+      "crypto": {
+        "pt_mult": [
+          1.5,
+          3.0
+        ],
+        "sl_mult": [
+          1.0,
+          2.0
+        ],
+        "max_hold": [
+          1,
+          4
+        ]
+      }
+    },
+    "time_blocks": {
+      "crypto": [
+        "00:00-06:00",
+        "12:00-18:00"
+      ]
+    },
+    "rationale": "Selection rules prioritize high PF and sufficient trades, focusing on 1h and 15m timeframes for better liquidity. Tuner priors are set to optimize risk-reward ratios. Time blocks avoid low liquidity periods."
+  }
+}

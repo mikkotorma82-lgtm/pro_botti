@@ -1,0 +1,47 @@
+from __future__ import annotations
+from pathlib import Path
+import pandas as pd
+
+def _read_any(p: Path) -> pd.DataFrame:
+    s = p.suffix.lower()
+    if s == ".parquet":
+        for eng in ("pyarrow","fastparquet"):
+            try:
+                return pd.read_parquet(p, engine=eng)
+            except Exception:
+                pass
+        return pd.read_parquet(p)
+    if s == ".feather" or ".feather" in p.name:
+        return pd.read_feather(p)
+    if s == ".csv" or p.name.endswith(".csv.gz"):
+        return pd.read_csv(p)
+    raise FileNotFoundError(f"Unsupported file type: {p}")
+
+def _normalize_time(df: pd.DataFrame) -> pd.DataFrame:
+    if "time" not in df.columns:
+        raise ValueError("Missing 'time' column.")
+    t = df["time"]
+    if pd.api.types.is_integer_dtype(t) or pd.api.types.is_float_dtype(t):
+        # epoch s/ms/ns -> detect by magnitude
+        t = pd.to_numeric(t, errors="coerce")
+        unit = "s"
+        if t.max() > 1e12: unit = "ns"
+        elif t.max() > 1e10: unit = "ms"
+        df["time"] = pd.to_datetime(t, unit=unit, utc=True)
+    else:
+        df["time"] = pd.to_datetime(t, utc=True, errors="coerce")
+    return df.sort_values("time").reset_index(drop=True)
+
+def load_history(base: Path | str, symbol: str, tf: str) -> pd.DataFrame:
+    base = Path(base)
+    stem = f"{symbol}_{tf}"
+    # candidates: flat and nested, common extensions
+    exts = (".parquet",".feather",".csv",".csv.gz")
+    cands = [base / f"{stem}{e}" for e in exts]
+    cands += [base / symbol / f"{stem}{e}" for e in exts]
+    for p in cands:
+        if p.exists():
+            df = _read_any(p)
+            return _normalize_time(df)
+    raise FileNotFoundError(f"History not found for {symbol} {tf}. Looked in: "
+                            f"{', '.join(str(p) for p in cands)}")

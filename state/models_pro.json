@@ -1,0 +1,82 @@
+{
+  "models": [
+    {
+      "symbol": "US SPX 500",
+      "tf": "1h",
+      "strategy": "CONSENSUS",
+      "config": {
+        "weights": {
+          "sma": 1.0,
+          "ema": 1.0,
+          "rsi": 0.5,
+          "macd": 1.0
+        },
+        "params": {
+          "sma_n": 10,
+          "ema_n": 50,
+          "rsi_n": 14,
+          "rsi_low": 30.0,
+          "rsi_high": 70.0,
+          "macd_fast": 12,
+          "macd_slow": 26,
+          "macd_sig": 9
+        },
+        "threshold": 0.5
+      },
+      "metrics": {
+        "sh": 0.10121835363525986,
+        "pf": 1.4927017859025822,
+        "wr": 0.27765,
+        "cagr": -1.0,
+        "maxdd": -1.0
+      },
+      "costs_bps": {
+        "fee": 1.0,
+        "slip": 1.5,
+        "spread": 0.5
+      },
+      "sr_filter": true,
+      "position_mode": "longshort",
+      "trained_at": 1761056259
+    },
+    {
+      "symbol": "US SPX 500",
+      "tf": "4h",
+      "strategy": "CONSENSUS",
+      "config": {
+        "weights": {
+          "sma": 1.0,
+          "ema": 1.0,
+          "rsi": 0.5,
+          "macd": 1.0
+        },
+        "params": {
+          "sma_n": 10,
+          "ema_n": 50,
+          "rsi_n": 14,
+          "rsi_low": 30.0,
+          "rsi_high": 70.0,
+          "macd_fast": 12,
+          "macd_slow": 26,
+          "macd_sig": 9
+        },
+        "threshold": 0.5
+      },
+      "metrics": {
+        "sh": 0.12425383683640186,
+        "pf": 1.6043614844593161,
+        "wr": 0.31125,
+        "cagr": -1.0,
+        "maxdd": -1.0
+      },
+      "costs_bps": {
+        "fee": 1.0,
+        "slip": 1.5,
+        "spread": 0.5
+      },
+      "sr_filter": true,
+      "position_mode": "longshort",
+      "trained_at": 1761056519
+    }
+  ]
+}

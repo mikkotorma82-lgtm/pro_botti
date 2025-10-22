@@ -1,0 +1,252 @@
+{
+  "US SPX 500": {
+    "epic": "US500",
+    "name": "US 500",
+    "ts": 1760537742.2905726
+  },
+  "EUR/USD": {
+    "epic": "EURUSD",
+    "name": "EUR/USD",
+    "ts": 1760537742.5335217
+  },
+  "GOLD": {
+    "epic": "GOLD",
+    "name": "Gold",
+    "ts": 1760537742.6623766
+  },
+  "AAPL": {
+    "epic": "APLY",
+    "name": "YieldMax AAPL Option Income Strategy ETF",
+    "ts": 1760537742.7817667
+  },
+  "BTC/USD": {
+    "epic": "TBTCUSD",
+    "name": "TBTC/USD",
+    "ts": 1760537743.1824083
+  },
+  "BTCUSDT": {
+    "epic": "BTCUSD",
+    "name": "Bitcoin/USD",
+    "ts": 1760620092.4045427
+  },
+  "ETHUSDT": {
+    "epic": "ETHUSD",
+    "name": "Ethereum/USD",
+    "ts": 1760620283.2491806
+  },
+  "ADAUSDT": {
+    "epic": "2685",
+    "name": "Adastria Co., Ltd.",
+    "ts": 1760620475.6575203
+  },
+  "SOLUSDT": {
+    "epic": "SOLUSD",
+    "name": "Solana/USD",
+    "ts": 1760620607.889336
+  },
+  "XRPUSDT": {
+    "epic": "XRPUSD",
+    "name": "Ripple/USD",
+    "ts": 1760620813.8836017
+  },
+  "US TECH 100": {
+    "epic": "US100",
+    "name": "US Tech 100",
+    "ts": 1760628808.9216683
+  },
+  "GERMANY 40": {
+    "epic": "DE40",
+    "name": "Germany 40",
+    "ts": 1760629783.7691243
+  },
+  "UK 100": {
+    "epic": "UK100",
+    "name": "UK 100",
+    "ts": 1760630056.665814
+  },
+  "FRANCE 40": {
+    "epic": "FR40",
+    "name": "France 40",
+    "ts": 1760630325.3892093
+  },
+  "EU STOCKS 50": {
+    "epic": "EU50",
+    "name": "EU Stocks 50",
+    "ts": 1760630592.1270816
+  },
+  "JAPAN 225": {
+    "epic": "J225",
+    "name": "Japan 225",
+    "ts": 1760630963.5007555
+  },
+  "GBP/USD": {
+    "epic": "GBPUSD",
+    "name": "GBP/USD",
+    "ts": 1760631502.3450541
+  },
+  "USD/JPY": {
+    "epic": "USDJPY",
+    "name": "USD/JPY",
+    "ts": 1760631782.1496723
+  },
+  "USD/CHF": {
+    "epic": "USDCHF",
+    "name": "USD/CHF",
+    "ts": 1760632051.0968337
+  },
+  "AUD/USD": {
+    "epic": "AUDUSD",
+    "name": "AUD/USD",
+    "ts": 1760632322.1649776
+  },
+  "USD/CAD": {
+    "epic": "USDCAD",
+    "name": "USD/CAD",
+    "ts": 1760632603.628649
+  },
+  "NZD/USD": {
+    "epic": "NZDUSD",
+    "name": "NZD/USD",
+    "ts": 1760632889.2211406
+  },
+  "EUR/JPY": {
+    "epic": "EURJPY",
+    "name": "EUR/JPY",
+    "ts": 1760633160.6633499
+  },
+  "GBP/JPY": {
+    "epic": "GBPJPY",
+    "name": "GBP/JPY",
+    "ts": 1760633435.486779
+  },
+  "SILVER": {
+    "epic": "SILVER",
+    "name": "Silver",
+    "ts": 1760633974.2214344
+  },
+  "OIL WTI": {
+    "epic": "OIL_CRUDE",
+    "name": "Crude Oil",
+    "ts": 1760634245.3558042
+  },
+  "OIL BRENT": {
+    "epic": "OIL_BRENT",
+    "name": "Brent Oil",
+    "ts": 1760634513.147059
+  },
+  "NATURAL GAS": {
+    "epic": "NATURALGAS",
+    "name": "Natural Gas",
+    "ts": 1760634781.5958421
+  },
+  "ETH/USD": {
+    "epic": "ETHUSD",
+    "name": "Ethereum/USD",
+    "ts": 1760635192.1071014
+  },
+  "XRP/USD": {
+    "epic": "XRPUSD",
+    "name": "Ripple/USD",
+    "ts": 1760635462.4927027
+  },
+  "MSFT": {
+    "epic": "MSFT",
+    "name": "Microsoft Corp",
+    "ts": 1760635764.4840865
+  },
+  "NVDA": {
+    "epic": "NVDA",
+    "name": "NVIDIA Corp",
+    "ts": 1760636015.1293778
+  },
+  "TSLA": {
+    "epic": "TSLA",
+    "name": "Tesla Inc",
+    "ts": 1760636261.714249
+  },
+  "META": {
+    "epic": "META",
+    "name": "Meta Platforms Inc",
+    "ts": 1760636511.976443
+  },
+  "AMZN": {
+    "epic": "AMZN",
+    "name": "Amazon.com Inc",
+    "ts": 1760636762.573423
+  },
+  "ADA/USD": {
+    "epic": "ADAUSD",
+    "name": "Cardano/USD",
+    "ts": 1760638089.745942
+  },
+  "SOL/USD": {
+    "epic": "SOLUSD",
+    "name": "Solana/USD",
+    "ts": 1760638359.802861
+  },
+  "SIL/VER": {
+    "epic": "SILVER",
+    "name": "Silver",
+    "ts": 1760688973.3120513
+  },
+  "NAS100": {
+    "epic": "US100",
+    "name": "US Tech 100",
+    "ts": 1760956294.680994
+  },
+  "GER40": {
+    "epic": "DE40",
+    "name": "Germany 40",
+    "ts": 1760956299.4696937
+  },
+  "UK100": {
+    "epic": "UK100",
+    "name": "UK 100",
+    "ts": 1760956300.881082
+  },
+  "FRA40": {
+    "epic": "FR40",
+    "name": "France 40",
+    "ts": 1760956303.6368463
+  },
+  "EU50": {
+    "epic": "EU50",
+    "name": "EU Stocks 50",
+    "ts": 1760956305.1836195
+  },
+  "JPN225": {
+    "epic": "J225",
+    "name": "Japan 225",
+    "ts": 1760956307.8435466
+  },
+  "XAUUSD": {
+    "epic": "GOLD",
+    "name": "Gold",
+    "ts": 1760957482.4989269
+  },
+  "XAGUSD": {
+    "epic": "SILVER",
+    "name": "Silver",
+    "ts": 1760957485.3896089
+  },
+  "XTIUSD": {
+    "epic": "GOLD",
+    "name": "Gold",
+    "ts": 1760957487.9802477
+  },
+  "XBRUSD": {
+    "epic": "ABUSD",
+    "name": "AB/USD",
+    "ts": 1760957489.5628433
+  },
+  "XNGUSD": {
+    "epic": "XNYUSD",
+    "name": "XNY/USD",
+    "ts": 1760957492.058285
+  },
+  "US500": {
+    "epic": "US500",
+    "name": "US 500",
+    "ts": 1760972108.9777894
+  }
+}

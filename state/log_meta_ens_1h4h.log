@@ -1,0 +1,14 @@
+nohup: ignoring input
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/root/pro_botti/tools/train_meta_ens.py", line 256, in <module>
+    main()
+  File "/root/pro_botti/tools/train_meta_ens.py", line 116, in main
+    capital_rest_login()
+  File "/root/pro_botti/tools/capital_session.py", line 113, in capital_rest_login
+    base = _mandatory_env("CAPITAL_API_BASE").rstrip("/")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/pro_botti/tools/capital_session.py", line 48, in _mandatory_env
+    raise RuntimeError(f"Missing {key} env")
+RuntimeError: Missing CAPITAL_API_BASE env

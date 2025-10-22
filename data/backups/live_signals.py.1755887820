@@ -1,0 +1,74 @@
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from joblib import load
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+
+from core.features import make_features
+from core.risk import compute_size, bars_per_year
+
+def load_cfg(path: Path) -> dict:
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
+
+def latest_signal(symbol: str, tf: str, cfg: dict) -> dict:
+    p = DATA_DIR / f"{symbol}_{tf}.csv"
+    df = pd.read_csv(p).sort_values("time").reset_index(drop=True)
+
+    model_p = MODEL_DIR / f"pro_{symbol}_{tf}.joblib"
+    meta_p  = MODEL_DIR / f"pro_{symbol}_{tf}.json"
+    payload = load(model_p)
+    clf = payload["pipeline"]
+    with open(meta_p, "r") as f:
+        meta = json.load(f)
+
+    df_feat, feats_default = make_features(df)
+    feats = (meta.get("features") or feats_default)
+    feats = [f for f in feats if f in df_feat.columns]
+    X = df_feat[feats].values
+    last_idx = len(df_feat) - 1
+
+    x_last = X[last_idx:last_idx+1]
+    yhat = int(clf.predict(x_last)[0])
+
+    # proba map {-1: pshort, 0: pneutral, 1: plong}
+    proba_map = {}
+    try:
+        probs = clf.predict_proba(x_last)[0]
+        cls = list(clf.classes_)
+        proba_map = {int(cls[i]): float(probs[i]) for i in range(len(cls))}
+    except Exception:
+        proba_map = {-1: None, 0: None, 1: None}
+
+    risk_cfg = cfg.get("risk", {}) or {}
+    size = compute_size(risk_cfg, yhat, proba_map, df_feat["close"], tf)
+
+    out = {
+        "symbol": symbol,
+        "tf": tf,
+        "time": str(df_feat.iloc[last_idx]["time"]) if "time" in df_feat.columns else None,
+        "price": float(df_feat.iloc[last_idx]["close"]),
+        "signal": yhat,
+        "proba": proba_map,
+        "size": size,
+        "risk_mode": (risk_cfg.get("mode") or "fixed")
+    }
+    return out
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="config.yaml")
+    ap.add_argument("--symbols", nargs="*", required=True)
+    ap.add_argument("--tf", required=True)
+    args = ap.parse_args()
+
+    cfg = load_cfg(Path(args.config))
+    outs = [latest_signal(s, args.tf, cfg) for s in args.symbols]
+    print(json.dumps(outs, indent=2))
+
+if __name__ == "__main__":
+    main()

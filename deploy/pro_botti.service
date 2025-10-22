@@ -1,0 +1,16 @@
+[Unit]
+Description=Pro Botti - Live trading loop
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+Environment=PATH=/root/pro_botti/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/bin/bash /root/pro_botti/scripts/live_start.sh
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

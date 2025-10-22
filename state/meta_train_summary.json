@@ -1,0 +1,647 @@
+{
+  "results": [
+    {
+      "symbol": "US500",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "US500",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NAS100",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "US500",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NAS100",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NAS100",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GER40",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GER40",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GER40",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "UK100",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "UK100",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "UK100",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "FRA40",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "FRA40",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "FRA40",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EU50",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EU50",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EU50",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "JPN225",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "JPN225",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "JPN225",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EUR/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EUR/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EUR/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GBP/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GBP/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GBP/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/JPY",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/JPY",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/JPY",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/CHF",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/CHF",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/CHF",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AUD/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AUD/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AUD/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/CAD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/CAD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NZD/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "USD/CAD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NZD/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NZD/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EUR/JPY",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EUR/JPY",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "EUR/JPY",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GBP/JPY",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GBP/JPY",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "GBP/JPY",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XAUUSD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XAUUSD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XAGUSD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XAUUSD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XAGUSD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XAGUSD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XTIUSD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XTIUSD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XTIUSD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XBRUSD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XBRUSD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XBRUSD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XNGUSD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XNGUSD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XNGUSD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "BTC/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "BTC/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "BTC/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "ETH/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "ETH/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "ETH/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XRP/USD",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XRP/USD",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "XRP/USD",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "MSFT",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "MSFT",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "MSFT",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NVDA",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NVDA",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "NVDA",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "TSLA",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "TSLA",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "TSLA",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "META",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "META",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "META",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AMZN",
+      "tf": "15m",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AMZN",
+      "tf": "4h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    },
+    {
+      "symbol": "AMZN",
+      "tf": "1h",
+      "status": "SKIP",
+      "reason": "not-enough-candles(0<300)",
+      "metrics": {}
+    }
+  ],
+  "rejected": {},
+  "exchange": "capitalcom",
+  "timeframes": [
+    "15m",
+    "1h",
+    "4h"
+  ],
+  "models": [
+    "gbdt",
+    "xgb",
+    "lgbm",
+    "lr"
+  ]
+}

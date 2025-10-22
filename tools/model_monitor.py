@@ -1,31 +1,37 @@
-import logging, random, time, json
-from pathlib import Path
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+CapitalBot Model Monitor v7.0 Stage 1
+Analysoi train_history.json, tunnistaa suorituskyvyn heikkenemisen ja tekee Smart Rotationin.
+"""
+
+import os, json, datetime, subprocess
 import numpy as np
+from telegram import Bot
+import asyncio
+from pathlib import Path
+import telegram
 
-DRIFT_FILE = Path("data/model_drift.json")
+BASE = Path(__file__).resolve().parents[1]
+DATA = BASE / "data"
+STATE = BASE / "state"
+HIST = DATA / "train_history.json"
 
-def check_model_drift() -> bool:
-    """
-    Syvä mallidriftin arviointi:
-    - vertailee viimeisimmän mallin feature-jakaumia
-    - arvioi poikkeaman KLDivergencellä ja simuloidulla probabilistisella mallilla
-    """
-    drift_prob = random.random()
-    # simuloidaan feature drift ~ 0-1 jakaumalla
-    kl_divergence = random.uniform(0.0, 0.5)
-    stability_index = 1 - kl_divergence
-    drift = drift_prob > stability_index  # jos epävakaampi kuin odotettu
+TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN","")
+TG_CHAT  = os.getenv("TELEGRAM_CHAT_ID","")
+bot = telegram.Bot(TG_TOKEN) if TG_TOKEN and TG_CHAT else None
 
-    DRIFT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    DRIFT_FILE.write_text(json.dumps({
-        "timestamp": int(time.time()),
-        "drift": drift,
-        "kl_divergence": round(kl_divergence, 3),
-        "stability_index": round(stability_index, 3)
-    }, indent=2))
 
-    if drift:
-        logging.warning(f"[MONITOR] Mallidrift havaittu! (KL={kl_divergence:.3f}, stab={stability_index:.3f})")
-    else:
-        logging.info(f"[MONITOR] Ei driftia (KL={kl_divergence:.3f}, stab={stability_index:.3f})")
-    return drift
+TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN","")
+TG_CHAT  = os.getenv("TELEGRAM_CHAT_ID","")
+
+async def _send(msg):
+    try:
+        bot = Bot(token=TG_TOKEN)
+        await bot.send_message(chat_id=TG_CHAT, text=msg)
+    except Exception as e:
+        print(f"[tgsend error] {e}")
+
+def tgsend(msg:str):
+    if TG_TOKEN and TG_CHAT:
+        asyncio.run(_send(msg))

@@ -1,0 +1,61 @@
+
+from __future__ import annotations
+from pathlib import Path
+import pandas as pd
+
+def _read_any(p: Path) -> pd.DataFrame:
+    s = p.suffix.lower()
+    if s == ".parquet":
+        # Yritä pyarrow -> fastparquet -> oletus
+        for eng in ("pyarrow", "fastparquet", None):
+            try:
+                return pd.read_parquet(p, engine=eng) if eng else pd.read_parquet(p)
+            except Exception:
+                pass
+        # Jos kaikki epäonnistuu, anna virheen kaatua
+        return pd.read_parquet(p)
+    if s == ".feather" or p.name.endswith(".feather"):
+        return pd.read_feather(p)
+    if s == ".csv" or p.name.endswith(".csv.gz"):
+        # Yritä jäsentää time-sarake
+        try:
+            return pd.read_csv(p, parse_dates=["time"])
+        except Exception:
+            return pd.read_csv(p)
+    raise FileNotFoundError(f"Unsupported file type: {p}")
+
+def load_history(base: Path, symbol: str, tf: str) -> pd.DataFrame:
+    """
+    Lukee historian sekä 'flat' (US500_1h.parquet) että 'nested' (data/history/US500/US500_1h.parquet) muodoissa.
+    Palauttaa time-nouseva, duplikaatit poistettu.
+    """
+    base = Path(base)
+    stem = f"{symbol}_{tf}"
+    candidates = []
+    exts = (".parquet", ".feather", ".csv", ".csv.gz")
+    # Flat
+    candidates += [base / f"{stem}{ext}" for ext in exts]
+    # Nested /symbol/
+    candidates += [base / symbol / f"{stem}{ext}" for ext in exts]
+    # Nested /symbol/tf/
+    candidates += [base / symbol / tf / f"{stem}{ext}" for ext in exts]
+
+    for p in candidates:
+        if p.exists():
+            df = _read_any(p)
+            if "time" in df.columns:
+                try:
+                    df["time"] = pd.to_datetime(df["time"], utc=True)
+                except Exception:
+                    df["time"] = pd.to_datetime(df["time"])
+                    # Jos edelleen naive, localisoi UTC:ksi
+                    if getattr(getattr(df["time"], "dt", None), "tz", None) is None:
+                        df["time"] = df["time"].dt.tz_localize("UTC")
+            if "time" in df.columns:
+                df = (df.sort_values("time")
+                        .drop_duplicates(subset="time", keep="last")
+                        .reset_index(drop=True))
+            return df
+
+    tried = "\n  - " + "\n  - ".join(str(p) for p in candidates)
+    raise FileNotFoundError(f"History file not found for {symbol} {tf}. Looked at:{tried}")

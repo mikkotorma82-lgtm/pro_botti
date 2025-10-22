@@ -1,0 +1,48 @@
+from __future__ import annotations
+from pathlib import Path
+import pandas as pd
+
+def _read_any(p: Path) -> pd.DataFrame:
+    s = p.suffix.lower()
+    if s == ".parquet":
+        for eng in ("pyarrow", "fastparquet"):
+            try:
+                return pd.read_parquet(p, engine=eng)
+            except Exception:
+                pass
+        return pd.read_parquet(p)
+    if s == ".feather" or ".feather" in p.name:
+        return pd.read_feather(p)
+    if s == ".csv" or p.name.endswith(".csv.gz"):
+        return pd.read_csv(p)
+    raise FileNotFoundError(f"Unsupported file type: {p}")
+
+def load_history(data_dir: Path, symbol: str, tf: str) -> pd.DataFrame:
+    base = Path(data_dir)
+    nested = base / symbol
+    stem = f"{symbol}_{tf}"
+
+    candidates: list[Path] = []
+    for d in (nested, base):
+        for ext in (".parquet", ".feather", ".feather.zstd", ".feather.lz4", ".csv", ".csv.gz"):
+            p = d / f"{stem}{ext}"
+            if p.exists():
+                candidates.append(p)
+
+    if not candidates:
+        raise FileNotFoundError(f"No history file {stem} under {nested} or {base}")
+
+    df = _read_any(candidates[0])
+
+    if "time" in df.columns:
+        if pd.api.types.is_numeric_dtype(df["time"]):
+            df["time"] = pd.to_datetime(
+                df["time"],
+                unit="ms" if float(df["time"].max()) > 1e12 else "s",
+                utc=True
+            )
+        else:
+            df["time"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
+        df = df.sort_values("time").reset_index(drop=True)
+
+    return df

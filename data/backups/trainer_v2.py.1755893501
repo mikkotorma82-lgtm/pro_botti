@@ -1,0 +1,97 @@
+import argparse, json, yaml
+from pathlib import Path
+import numpy as np, pandas as pd
+from joblib import dump
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from tools.lr_safe import SafeLogistic as LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.metrics import classification_report
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data" / "history"
+MODEL_DIR = ROOT / "models"
+REPORT_DIR = ROOT / "data" / "reports_v2"
+MODEL_DIR.mkdir(parents=True, exist_ok=True); REPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+FEATS = ["ret1","ret5","vol5","ema12","ema26","macd","rsi14","atr14","ema_gap"]
+
+def load_cfg(p: Path) -> dict:
+    with open(p,"r") as f: return yaml.safe_load(f)
+
+def load_df(symbol, tf):
+    p = DATA_DIR / f"{symbol}_{tf}.csv"
+    if not p.exists(): raise FileNotFoundError(p)
+    return pd.read_csv(p).sort_values("time").reset_index(drop=True)
+
+def make_features(df: pd.DataFrame):
+    z = df.copy()
+    z["ret1"] = z["close"].pct_change()
+    z["ret5"] = z["close"].pct_change(5)
+    z["vol5"] = z["ret1"].rolling(48, min_periods=12).std()
+    z["ema12"] = z["close"].ewm(span=12, adjust=False).mean()
+    z["ema26"] = z["close"].ewm(span=26, adjust=False).mean()
+    z["macd"]  = z["ema12"] - z["ema26"]
+    d = z["close"].diff()
+    up = d.clip(lower=0).ewm(alpha=1/14, adjust=False).mean()
+    down = (-d.clip(upper=0)).ewm(alpha=1/14, adjust=False).mean()
+    rs = up/(down+1e-12)
+    z["rsi14"] = 100 - (100/(1+rs))
+    hl = z["high"]-z["low"]
+    hc = (z["high"]-z["close"].shift()).abs()
+    lc = (z["low"]-z["close"].shift()).abs()
+    tr = pd.concat([hl,hc,lc], axis=1).max(axis=1)
+    z["atr14"] = tr.ewm(alpha=1/14, adjust=False).mean()/(z["close"]+1e-12)
+    z["ema_gap"] = (z["close"]-z["ema12"])/(z["ema12"]+1e-12)
+    z = z.dropna().reset_index(drop=True)
+    return z
+
+def label_future(df: pd.DataFrame, horizon=1, thr_pos=0.0, thr_neg=0.0):
+    fut = df["close"].shift(-horizon)/df["close"] - 1.0
+    y = np.where(fut>thr_pos,1,np.where(fut<-thr_neg,-1,0))
+    return y
+
+def train_one(symbol, tf, cfg):
+    df = load_df(symbol, tf)
+    z = make_features(df)
+    horizon = int((cfg.get("train",{}) or {}).get("horizon_bars", 1))
+    y = label_future(z, horizon=horizon)
+    z = z.iloc[:-horizon].reset_index(drop=True); y = y[:-horizon]
+    X = z[FEATS].values
+
+    # Mallit class_weight='balanced'
+    logi = Pipeline([("scaler", StandardScaler()),
+                     ("lr", LogisticRegression(max_iter=2000, class_weight="balanced"))])
+    rf   = RandomForestClassifier(n_estimators=int((cfg.get("train",{}) or {}).get("rf_trees",200)),
+                                  max_depth=int((cfg.get("train",{}) or {}).get("rf_max_depth",6)),
+                                  class_weight="balanced_subsample",
+                                  n_jobs=-1, random_state=42)
+    clf = VotingClassifier(estimators=[("lr",logi),("rf",rf)], voting="soft", n_jobs=-1)
+
+    clf.fit(X, y)
+    y_pred = clf.predict(X)
+    rep = classification_report(y, y_pred, zero_division=0, output_dict=True)
+
+    # tallennus
+    dump(clf, MODEL_DIR / f"pro_{symbol}_{tf}.joblib")
+    meta = {"symbol":symbol,"tf":tf,"features":FEATS,"horizon":horizon,"report":rep}
+    (MODEL_DIR / f"pro_{symbol}_{tf}.json").write_text(json.dumps(meta, indent=2))
+    outp = {"symbol":symbol,"tf":tf,"samples":int(len(y)),"report":rep}
+    (REPORT_DIR / f"train_v2_{symbol}_{tf}.json").write_text(json.dumps(outp, indent=2))
+    print(f"[OK v2] saved pro_{symbol}_{tf}.joblib + pro_{symbol}_{tf}.json")
+    print(f"[REP v2] {REPORT_DIR / f'train_v2_{symbol}_{tf}.json'}")
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", default="config.yaml")
+    ap.add_argument("--symbols", nargs="*", default=None)
+    ap.add_argument("--tfs", nargs="*", default=None)
+    args = ap.parse_args()
+    cfg = load_cfg(Path(args.config))
+    symbols = args.symbols or ((cfg.get("market",{}) or {}).get("symbols") or [])
+    tfs = args.tfs or ((cfg.get("train",{}) or {}).get("timeframes") or ["15m","1h","4h"])
+    for s in symbols:
+        for tf in tfs:
+            try: train_one(s, tf, cfg)
+            except Exception as e: print(f"[FAIL v2] {s} {tf}: {e}")
+if __name__ == "__main__": main()

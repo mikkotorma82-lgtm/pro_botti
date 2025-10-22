@@ -1,0 +1,362 @@
+{
+  "BTC/USD__15m": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "BTC/USD__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "US SPX 500__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "US SPX 500__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "US Tech 100__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "US Tech 100__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "Germany 40__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "Germany 40__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "UK 100__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "UK 100__1h": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "France 40__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "France 40__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "EU Stocks 50__15m": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "EU Stocks 50__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "Japan 225__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "Japan 225__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "EUR/USD__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "EUR/USD__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GBP/USD__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GBP/USD__1h": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/JPY__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/JPY__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/CHF__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/CHF__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "AUD/USD__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "AUD/USD__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/CAD__15m": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/CAD__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "NZD/USD__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "NZD/USD__1h": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "EUR/JPY__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "EUR/JPY__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GBP/JPY__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GBP/JPY__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GOLD__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GOLD__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "SILVER__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "SILVER__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "OIL WTI__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "OIL WTI__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "OIL BRENT__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "OIL BRENT__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "NATURAL GAS__15m": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "NATURAL GAS__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "ETH/USD__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "ETH/USD__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "XRP/USD__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "XRP/USD__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "AAPL__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "AAPL__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "MSFT__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "MSFT__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "NVDA__15m": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "NVDA__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "TSLA__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "TSLA__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "META__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "META__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "AMZN__15m": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "AMZN__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "ADA/USD__15m": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "ADA/USD__1h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "SOL/USD__15m": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "SOL/USD__1h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "ETH/USD__4h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "USD/JPY__4h": {
+    "last_sig": -1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "XRP/USD__4h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "ADA/USD__4h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "SOL/USD__4h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "Japan 225__4h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "France 40__4h": {
+    "last_sig": 1,
+    "pos": 0,
+    "equity": 10000.0
+  },
+  "GOLD__4h": {
+    "last_sig": 0,
+    "pos": 0,
+    "equity": 10000.0
+  }
+}

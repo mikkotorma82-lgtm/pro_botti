@@ -1,0 +1,73 @@
+name: Deploy to server
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            ROOT=/root/pro_botti
+            if [ ! -d "$ROOT/.git" ]; then
+              echo "[ERROR] Repo not found at $ROOT"; exit 1
+            fi
+            cd "$ROOT"
+
+            echo "[DEPLOY] Sync to origin/main"
+            git fetch origin
+            git reset --hard origin/main
+
+            echo "[DEPLOY] Ensure venv & deps"
+            if [ ! -x "venv/bin/python" ]; then python3 -m venv venv; fi
+            . venv/bin/activate
+            pip install --upgrade pip
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+            echo "[DEPLOY] Script permissions"
+            chmod +x tools/meta_train_service.sh 2>/dev/null || true
+            chmod +x tools/meta_train_bg.sh 2>/dev/null || true
+            chmod +x tools/train_bundle_guard.sh 2>/dev/null || true
+
+            echo "[DEPLOY] Install META units (if present)"
+            if [ -f deploy/systemd/pro-botti-meta-train.service ]; then
+              install -m 0644 -D deploy/systemd/pro-botti-meta-train.service /etc/systemd/system/pro-botti-meta-train.service
+            fi
+            if [ -f deploy/systemd/pro-botti-meta-train.timer ]; then
+              install -m 0644 -D deploy/systemd/pro-botti-meta-train.timer /etc/systemd/system/pro-botti-meta-train.timer
+            fi
+
+            echo "[DEPLOY] Install live unit if present"
+            if [ -f deploy/systemd/pro-botti.service ]; then
+              install -m 0644 -D deploy/systemd/pro-botti.service /etc/systemd/system/pro-botti.service
+            elif [ -f deploy/pro_botti.service ]; then
+              install -m 0644 -D deploy/pro_botti.service /etc/systemd/system/pro-botti.service
+            fi
+
+            echo "[DEPLOY] systemd reload & start"
+            systemctl daemon-reload
+            if systemctl list-unit-files | awk '{print $1}' | grep -Fxq pro-botti-meta-train.timer; then
+              systemctl enable --now pro-botti-meta-train.timer || true
+              systemctl try-restart pro-botti-meta-train.service || true
+            fi
+            if systemctl list-unit-files | awk '{print $1}' | grep -Fxq pro-botti.service; then
+              systemctl enable pro-botti.service || true
+              systemctl reload-or-restart pro-botti.service || true
+            else
+              echo "[DEPLOY] No live unit found; skipping live restart"
+            fi
+
+            echo "[DEPLOY] done"
