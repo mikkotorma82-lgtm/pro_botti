@@ -1,0 +1,18 @@
+# Data & mallien artefaktit (älä lähetä)
+data/history/
+data/features/
+data/*.json
+models/
+logs/
+*.csv
+*.parquet
+*.pkl
+*.joblib
+*.png
+
+# Virtuaaliympäristö ja muut
+venv/
+__pycache__/
+*.pyc
+.env
+secrets.env
