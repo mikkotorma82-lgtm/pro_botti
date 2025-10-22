@@ -1,4 +1,4 @@
-# Data & mallien artefaktit (älä lähetä)
+# Data & mallien artefaktit
 data/history/
 data/features/
 data/*.json
@@ -10,7 +10,7 @@ logs/
 *.joblib
 *.png
 
-# Virtuaaliympäristö ja muut
+# Venv & muut
 venv/
 __pycache__/
 *.pyc
