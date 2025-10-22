@@ -1,0 +1,8 @@
+[Unit]
+Description=Run training daily at 04:30
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+Unit=pro_botti-train.service
+[Install]
+WantedBy=timers.target

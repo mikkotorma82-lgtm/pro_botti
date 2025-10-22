@@ -1,0 +1,12 @@
+[Unit]
+Description=CapitalBot - Equity Curve Telegram Report
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+Environment="PYTHONPATH=/root/pro_botti:/root/pro_botti/tools"
+ExecStart=/root/pro_botti/venv/bin/python /root/pro_botti/tools/equity_report.py
+StandardOutput=append:/root/pro_botti/logs/equity_report.log
+StandardError=append:/root/pro_botti/logs/equity_report.log

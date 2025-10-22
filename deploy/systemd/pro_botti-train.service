@@ -1,0 +1,14 @@
+[Unit]
+Description=CapitalBot - Daily META training
+After=pro_botti-history.service
+
+[Service]
+Type=simple
+WorkingDirectory=/root/pro_botti
+ExecStart=/root/pro_botti/tools/meta_train_service.sh
+StandardOutput=append:/root/pro_botti/logs/train.log
+StandardError=append:/root/pro_botti/logs/train.err
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

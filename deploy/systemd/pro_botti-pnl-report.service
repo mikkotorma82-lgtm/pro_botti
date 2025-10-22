@@ -1,0 +1,10 @@
+[Unit]
+Description=CapitalBot - Daily PnL Summary (21:00 Helsinki)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/pro_botti
+ExecStart=/root/pro_botti/venv/bin/python /root/pro_botti/tools/pnl_report.py
+StandardOutput=append:/root/pro_botti/logs/pnl_report.log
+StandardError=append:/root/pro_botti/logs/pnl_report.log

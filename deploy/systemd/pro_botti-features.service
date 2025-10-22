@@ -1,0 +1,10 @@
+[Unit]
+Description=CapitalBot Feature Pipeline (Capital.com only)
+After=pro_botti-history.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+ExecStart=/root/pro_botti/venv/bin/python features/advanced_features.py

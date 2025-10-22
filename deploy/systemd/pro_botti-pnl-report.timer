@@ -1,0 +1,9 @@
+[Unit]
+Description=CapitalBot - Daily PnL Telegram report (21:00 Helsinki)
+
+[Timer]
+OnCalendar=*-*-* 18:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=CapitalBot PPO retrain trigger timer (check drift/PnL hourly)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target

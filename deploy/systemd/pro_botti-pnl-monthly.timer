@@ -1,0 +1,9 @@
+[Unit]
+Description=CapitalBot - Monthly Telegram report (1st day 21:00 Helsinki)
+
+[Timer]
+OnCalendar=*-*-01 18:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

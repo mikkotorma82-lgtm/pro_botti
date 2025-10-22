@@ -1,0 +1,17 @@
+[Unit]
+Description=CapitalBot Auto Trainer
+After=pro_botti-features.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+ExecStart=/root/pro_botti/venv/bin/python tools/ai_train_full.py
+StandardOutput=append:/root/pro_botti/logs/train_run.log
+StandardError=append:/root/pro_botti/logs/train_run.log
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=CapitalBot v7.0 Main Controller
+After=network.target
+
+[Service]
+WorkingDirectory=/root/pro_botti
+ExecStart=/root/pro_botti/venv/bin/python /root/pro_botti/main.py
+Restart=always
+StandardOutput=append:/root/pro_botti/logs/pro_botti-main.log
+StandardError=append:/root/pro_botti/logs/pro_botti-main.log
+
+[Install]
+WantedBy=multi-user.target

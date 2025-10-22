@@ -1,0 +1,10 @@
+[Unit]
+Description=CapitalBot - PPO retraining service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/pro_botti/venv/bin/python /root/pro_botti/tools/train_ppo.py
+StandardOutput=append:/root/pro_botti/logs/ppo_train.log
+StandardError=append:/root/pro_botti/logs/ppo_train.log
+WorkingDirectory=/root/pro_botti

@@ -1,0 +1,9 @@
+[Unit]
+Description=CapitalBot - Daily Equity Curve (22:00 Helsinki)
+
+[Timer]
+OnCalendar=*-*-* 19:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

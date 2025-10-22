@@ -1,0 +1,10 @@
+[Unit]
+Description=CapitalBot PPO retrain trigger (drift/PnL)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/pro_botti
+ExecStart=/root/pro_botti/venv/bin/python /root/pro_botti/tools/ppo_trigger.py
+StandardOutput=append:/root/pro_botti/logs/ppo_trigger.log
+StandardError=append:/root/pro_botti/logs/ppo_trigger.log

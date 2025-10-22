@@ -1,0 +1,10 @@
+[Unit]
+Description=CapitalBot Portfolio Risk Analyzer
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+ExecStart=/root/pro_botti/venv/bin/python core/portfolio_risk.py

@@ -1,0 +1,15 @@
+[Unit]
+Description=CapitalBot FastAPI Dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/pro_botti
+Environment="PYTHONPATH=/root/pro_botti"
+ExecStart=/root/pro_botti/venv/bin/uvicorn ui.dashboard:app --host 0.0.0.0 --port 8000
+Restart=always
+StandardOutput=append:/root/pro_botti/logs/dashboard.log
+StandardError=append:/root/pro_botti/logs/dashboard.log
+
+[Install]
+WantedBy=multi-user.target

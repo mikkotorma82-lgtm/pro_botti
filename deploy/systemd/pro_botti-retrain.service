@@ -1,0 +1,10 @@
+[Unit]
+Description=Pro Botti - retrain + evaluate + select-top
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/pro_botti
+EnvironmentFile=/root/pro_botti/secrets.env
+ExecStart=/usr/bin/bash /root/pro_botti/scripts/auto_retrain.sh
+User=root

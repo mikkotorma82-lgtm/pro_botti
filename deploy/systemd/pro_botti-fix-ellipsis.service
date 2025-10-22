@@ -1,0 +1,10 @@
+[Unit]
+Description=CapitalBot - Weekly Ellipsis Auto-Fix
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/pro_botti
+ExecStart=/root/pro_botti/venv/bin/python /root/pro_botti/tools/fix_ellipsis_final.py
+StandardOutput=append:/root/pro_botti/logs/fix_ellipsis.log
+StandardError=append:/root/pro_botti/logs/fix_ellipsis.log
