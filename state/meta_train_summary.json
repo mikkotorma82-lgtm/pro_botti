@@ -3,632 +3,980 @@
     {
       "symbol": "US500",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "US500",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "US500",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "NAS100",
-      "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "US500",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "US500",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "US500",
+        "tf": "4h"
+      }
+    },
+    {
+      "symbol": "NAS100",
+      "tf": "15m",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NAS100",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "NAS100",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NAS100",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "NAS100",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "NAS100",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NAS100",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "GER40",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GER40",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "GER40",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GER40",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "GER40",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GER40",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "UK100",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "UK100",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "UK100",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "UK100",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "UK100",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "UK100",
+        "tf": "4h"
+      }
+    },
+    {
+      "symbol": "FRA40",
+      "tf": "15m",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "FRA40",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "FRA40",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "FRA40",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "FRA40",
-      "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "FRA40",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "FRA40",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "EU50",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EU50",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "EU50",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EU50",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "EU50",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EU50",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "JPN225",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "JPN225",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "JPN225",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "JPN225",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "JPN225",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "JPN225",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "EUR/USD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EUR/USD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "EUR/USD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EUR/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "EUR/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EUR/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "GBP/USD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GBP/USD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "GBP/USD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GBP/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "GBP/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GBP/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "USD/JPY",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/JPY",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "USD/JPY",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/JPY",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "USD/JPY",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/JPY",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "USD/CHF",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/CHF",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "USD/CHF",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/CHF",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "USD/CHF",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/CHF",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "AUD/USD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AUD/USD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "AUD/USD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AUD/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "AUD/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AUD/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "USD/CAD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/CAD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "USD/CAD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "NZD/USD",
-      "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/CAD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "USD/CAD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "USD/CAD",
+        "tf": "4h"
+      }
+    },
+    {
+      "symbol": "NZD/USD",
+      "tf": "15m",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NZD/USD",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "NZD/USD",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NZD/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "NZD/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "NZD/USD",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "EUR/JPY",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NZD/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "EUR/JPY",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EUR/JPY",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "EUR/JPY",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EUR/JPY",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "EUR/JPY",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "EUR/JPY",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "GBP/JPY",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GBP/JPY",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "GBP/JPY",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GBP/JPY",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "GBP/JPY",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "GBP/JPY",
+        "tf": "4h"
+      }
+    },
+    {
+      "symbol": "XAUUSD",
+      "tf": "15m",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XAUUSD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "XAUUSD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "XAUUSD",
-      "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "XAGUSD",
-      "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XAUUSD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "XAUUSD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XAUUSD",
+        "tf": "4h"
+      }
+    },
+    {
+      "symbol": "XAGUSD",
+      "tf": "15m",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XAGUSD",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "XAGUSD",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XAGUSD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "XAGUSD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "XAGUSD",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "XTIUSD",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XAGUSD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "XTIUSD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XTIUSD",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "XTIUSD",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XTIUSD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "XTIUSD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XTIUSD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "XBRUSD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XBRUSD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "XBRUSD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XBRUSD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "XBRUSD",
       "tf": "4h",
       "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
+      "reason": "not-enough-candles(294<300)",
       "metrics": {}
     },
     {
       "symbol": "XNGUSD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XNGUSD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "XNGUSD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XNGUSD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "XNGUSD",
       "tf": "4h",
       "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
+      "reason": "not-enough-candles(237<300)",
       "metrics": {}
     },
     {
       "symbol": "BTC/USD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "BTC/USD",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "BTC/USD",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "BTC/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "BTC/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "ETH/USD",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "BTC/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "ETH/USD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "ETH/USD",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "ETH/USD",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "ETH/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "ETH/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "ETH/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "XRP/USD",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XRP/USD",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "XRP/USD",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XRP/USD",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "XRP/USD",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "XRP/USD",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "XRP/USD",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "AAPL",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AAPL",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "AAPL",
       "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AAPL",
+        "tf": "1h"
+      }
+    },
+    {
+      "symbol": "AAPL",
+      "tf": "4h",
       "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
+      "reason": "not-enough-candles(198<300)",
       "metrics": {}
     },
     {
       "symbol": "MSFT",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "AAPL",
-      "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "MSFT",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "MSFT",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "MSFT",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "MSFT",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "MSFT",
+        "tf": "4h"
+      }
+    },
+    {
+      "symbol": "NVDA",
+      "tf": "15m",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NVDA",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "NVDA",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NVDA",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "NVDA",
-      "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "NVDA",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "NVDA",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "TSLA",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "TSLA",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "TSLA",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "TSLA",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "TSLA",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "TSLA",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "META",
-      "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "TSLA",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "META",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "META",
+        "tf": "15m"
+      }
+    },
+    {
+      "symbol": "META",
+      "tf": "1h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "META",
+        "tf": "1h"
+      }
     },
     {
       "symbol": "META",
       "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "META",
+        "tf": "4h"
+      }
     },
     {
       "symbol": "AMZN",
       "tf": "15m",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
-    },
-    {
-      "symbol": "AMZN",
-      "tf": "4h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AMZN",
+        "tf": "15m"
+      }
     },
     {
       "symbol": "AMZN",
       "tf": "1h",
-      "status": "SKIP",
-      "reason": "not-enough-candles(0<300)",
-      "metrics": {}
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AMZN",
+        "tf": "1h"
+      }
+    },
+    {
+      "symbol": "AMZN",
+      "tf": "4h",
+      "status": "OK",
+      "reason": "",
+      "metrics": {
+        "error": "no_base_config",
+        "symbol": "AMZN",
+        "tf": "4h"
+      }
     }
   ],
   "rejected": {},

@@ -108,3 +108,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# --- Käynnistetään PositionWatcher ---
+from utils.position_watcher import PositionWatcher
+watcher = PositionWatcher()
+watcher.start()

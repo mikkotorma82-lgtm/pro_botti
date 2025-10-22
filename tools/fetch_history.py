@@ -1,130 +1,59 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-CapitalBot – Historical Data Fetcher (Capital.com only, full pagination)
-Hakee historian Capital.com API:sta 200 datapisteen erissä, jatkaa taaksepäin kunnes aikaraja saavutetaan.
-Tallentaa tiedostot kansioon /root/pro_botti/data/history/
-"""
+import os, sys, time, json, requests
 
-import os
-import time
-import pandas as pd
-from pathlib import Path
-from dotenv import load_dotenv
-from capital_api import CapitalClient
+# lisätään projektin juurihakemisto polulle
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
+from tools.capital_client import CapitalClient
 
-# -------------------------------------------------------------------
-# Ladataan API-avaimet secrets.env -tiedostosta
-# -------------------------------------------------------------------
-load_dotenv("/root/pro_botti/secrets.env")
-
-# -------------------------------------------------------------------
-# Polut ja asetukset
-# -------------------------------------------------------------------
-BASE = Path(__file__).resolve().parents[1]
-OUT = BASE / "data" / "history"
-OUT.mkdir(parents=True, exist_ok=True)
+client = CapitalClient()
 
 SYMBOLS = [
-    "BTCUSD","ETHUSD","XRPUSD","ADAUSD","SOLUSD",
-    "US500","US100","DE40","JP225",
-    "AAPL","NVDA","TSLA","AMZN","MSFT","META","GOOGL",
-    "EURUSD","GBPUSD"
+    "BTCUSD","ETHUSD","XRPUSD","ADAUSD","SOLUSD","DOGEUSD","DOTUSD","LTCUSD","BNBUSD","AVAXUSD",
+    "US500","NAS100","US30","GER40","FRA40","UK100",
+    "EURUSD","GBPUSD","USDJPY","USDCAD","AUDUSD","NZDUSD","EURJPY","EURGBP",
+    "XAUUSD","XAGUSD","XTIUSD","XBRUSD","XNGUSD","VIX"
 ]
 
-TIMEFRAMES = ["15m","1h","4h"]
+def find_epic(symbol):
+    """Hakee Capital.com API:sta oikean EPIC-koodin symbolille"""
+    url = f"{client.base}/api/v1/markets"
+    r = client.session.get(url, params={"searchTerm": symbol})
+    if r.status_code != 200:
+        print(f"[WARN] Epic-haku epäonnistui {symbol}: {r.status_code}")
+        return None
+    data = r.json().get("markets", [])
+    if not data:
+        print(f"[WARN] Epic puuttuu {symbol}")
+        return None
+    epic = data[0]["epic"]
+    print(f"[EPIC] {symbol} -> {epic}")
+    return epic
 
-# Kuinka pitkältä ajalta haetaan
-DAYS_BACK = {"15m": 730, "1h": 1460, "4h": 3650}
-SEC_PER = {"15m":900, "1h":3600, "4h":14400}
-
-
-# -------------------------------------------------------------------
-# Apufunktiot
-# -------------------------------------------------------------------
-def ensure_cols(df: pd.DataFrame) -> pd.DataFrame:
-    """Varmistaa, että sarakenimet ovat oikein ja vain olennaiset mukana"""
-    df.columns = [c.lower() for c in df.columns]
-    required = ["time","open","high","low","close","volume"]
-    return df[required]
-
-
-def fetch_symbol_tf(client: CapitalClient, symbol: str, tf: str):
-    """Hakee annetulle symbolille ja timeframe:lle historian useassa erässä"""
-    limit = 200
-    seconds = SEC_PER[tf]
-    end_ts = int(time.time())
-    cutoff = end_ts - DAYS_BACK[tf]*24*3600
-    all_chunks = []
-    request_count = 0
-
+def fetch_full_history(symbol, timeframe="1H", days=730):
+    epic = find_epic(symbol)
+    if not epic:
+        print(f"[SKIP] Ei epicciä {symbol}")
+        return
+    print(f"[FETCH] {symbol} ({epic}) {timeframe}")
+    end = int(time.time() * 1000)
+    start = end - days * 86400 * 1000
+    all_candles = []
     while True:
-        request_count += 1
-        try:
-            data = client.request(
-                "GET", "/pricehistory",
-                params={"symbol": symbol, "timeframe": tf, "max": limit, "end": end_ts}
-            )
-        except Exception as e:
-            print(f"[{symbol}_{tf}] API request error: {e}")
+        candles = client.get_candles(epic, resolution=timeframe, max=200, from_ts=start, to_ts=end)
+        if not candles:
             break
-
-        if not data:
+        all_candles.extend(candles)
+        last_time = candles[-1]['snapshotTime']
+        if last_time >= end:
             break
+        start = last_time + 1
+        time.sleep(0.25)
+    print(f"[OK] {symbol}: {len(all_candles)} candles")
+    os.makedirs("data/capital", exist_ok=True)
+    out_path = f"data/capital/{symbol}_{timeframe}.json"
+    with open(out_path, "w") as f:
+        json.dump(all_candles, f)
+    print(f"[SAVE] {out_path}")
 
-        df = pd.DataFrame(data)
-        if df.empty:
-            break
-
-        df = ensure_cols(df)
-
-        # epoch -> sekunnit jos tarvitaan
-        if df["time"].max() > 1e12:
-            df["time"] = (df["time"] // 1000).astype(int)
-
-        df["time_iso"] = pd.to_datetime(df["time"], unit="s")
-        all_chunks.append(df)
-
-        oldest = int(df["time"].min())
-        if oldest <= cutoff or len(df) < limit:
-            break
-
-        end_ts = oldest - 1
-        time.sleep(0.15)
-
-    if not all_chunks:
-        print(f"[skip] {symbol}_{tf} no data")
-        return
-
-    hist = pd.concat(all_chunks).drop_duplicates(subset=["time"]).sort_values("time")
-    hist.rename(columns={"time_iso":"time"}, inplace=True)
-
-    out_path = OUT / f"{symbol}_{tf}.csv"
-    hist.to_csv(out_path, index=False)
-    print(f"[ok] {symbol}_{tf} -> {out_path} ({len(hist)} rows, {request_count} requests)")
-
-
-# -------------------------------------------------------------------
-# Main
-# -------------------------------------------------------------------
-def main():
-    client = CapitalClient()
-    if not client.login():
-        print("[login] failed")
-        return
-
-    for sym in SYMBOLS:
-        for tf in TIMEFRAMES:
-            try:
-                fetch_symbol_tf(client, sym, tf)
-            except Exception as e:
-                print(f"[fail] {sym}_{tf}: {e}")
-
-    print("[done] full history fetch complete")
-
-
-# -------------------------------------------------------------------
-# Käynnistys
-# -------------------------------------------------------------------
 if __name__ == "__main__":
-    main()
+    for s in SYMBOLS:
+        fetch_full_history(s)

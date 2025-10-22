@@ -1,0 +1,23 @@
+HTTP/2 200 
+date: Wed, 22 Oct 2025 16:55:16 GMT
+content-type: application/json
+vary: Origin
+vary: Access-Control-Request-Method
+vary: Access-Control-Request-Headers
+content-security-policy: connect-src 'self'
+access-control-expose-headers: CST, X-SECURITY-TOKEN
+cst: NSytT9dleFvKqEocM0kVCnZB
+x-security-token: z6shLZOkDRvtvHPxCcxlUvTTnpKJges
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+cache-control: no-cache, no-store, max-age=0, must-revalidate
+pragma: no-cache
+expires: 0
+strict-transport-security: max-age=31536000; includeSubDomains
+x-frame-options: DENY
+set-cookie: visid_incap_3201485=nK4o1O6ESdyhnUueLbtNAHQM+WgAAAAAQUIPAAAAAABN/vIH7uFiKGf/qtmOEDKF; expires=Wed, 21 Oct 2026 22:59:34 GMT; HttpOnly; path=/; Domain=.backend-capital.com; Secure; SameSite=None
+set-cookie: nlbi_3201485=GPBgDY9eNUe7iPpA2429KQAAAAA6GV9iIPAZo7gPclE8jvOI; HttpOnly; path=/; Domain=.backend-capital.com; Secure; SameSite=None
+set-cookie: incap_ses_7236_3201485=qCPndW+W6gtRbj+lBnBrZHQM+WgAAAAAH35pd9YAXv9Wp0xYSw8j1A==; path=/; Domain=.backend-capital.com; Secure; SameSite=None
+x-cdn: Imperva
+x-iinfo: 12-34939359-34939111 PNNN RT(1761152116684 121) q(0 0 0 -1) r(1 1) U6
+

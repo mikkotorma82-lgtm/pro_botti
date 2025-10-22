@@ -21,7 +21,7 @@
       ],
       "entries": 746,
       "class_balance": 0.5067024128686327,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "ETHUSD__4h__gbdt.joblib",
@@ -260,7 +260,7 @@
       ],
       "entries": 279,
       "class_balance": 0.4910394265232975,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "BTCUSD__1h__gbdt.joblib",
@@ -312,7 +312,7 @@
       ],
       "entries": 93,
       "class_balance": 0.5161290322580645,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "BTCUSD__4h__gbdt.joblib",
@@ -413,7 +413,7 @@
       ],
       "entries": 923,
       "class_balance": 0.466955579631636,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "ETHUSD__1h__gbdt.joblib",
@@ -491,7 +491,7 @@
       ],
       "entries": 957,
       "class_balance": 0.5109717868338558,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761053480,
       "tuner_trials": 40,
       "tuner_score": 12.603,
@@ -543,7 +543,7 @@
       ],
       "entries": 1208,
       "class_balance": 0.4817880794701987,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761053743,
       "tuner_trials": 40,
       "tuner_score": 24.979,
@@ -616,7 +616,7 @@
       ],
       "entries": 56,
       "class_balance": 0.5357142857142857,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761053765,
       "tuner_trials": 40,
       "tuner_score": 13.009
@@ -685,7 +685,7 @@
       ],
       "entries": 974,
       "class_balance": 0.4887063655030801,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "AUDUSD__1h__gbdt.joblib",
@@ -736,7 +736,7 @@
       ],
       "entries": 1124,
       "class_balance": 0.4830960854092527,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "AUDUSD__4h__gbdt.joblib",
@@ -809,7 +809,7 @@
       ],
       "entries": 917,
       "class_balance": 0.48636859323882226,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761044685,
       "tuner_trials": 40,
       "tuner_score": 18.476
@@ -834,7 +834,7 @@
       ],
       "entries": 915,
       "class_balance": 0.47650273224043715,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761044960,
       "tuner_trials": 40,
       "tuner_score": 7.839333333333333
@@ -881,7 +881,7 @@
       ],
       "entries": 955,
       "class_balance": 0.4774869109947644,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "EURJPY__1h__gbdt.joblib",
@@ -932,7 +932,7 @@
       ],
       "entries": 921,
       "class_balance": 0.505971769815418,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "EURJPY__4h__gbdt.joblib",
@@ -1005,7 +1005,7 @@
       ],
       "entries": 955,
       "class_balance": 0.4613333333333333,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "EURUSD__1h__gbdt.joblib",
@@ -1056,7 +1056,7 @@
       ],
       "entries": 927,
       "class_balance": 0.5109261186264308,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "EURUSD__4h__gbdt.joblib",
@@ -1129,7 +1129,7 @@
       ],
       "entries": 926,
       "class_balance": 0.5053995680345572,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761044158,
       "tuner_trials": 40,
       "tuner_score": 16.491
@@ -1154,7 +1154,7 @@
       ],
       "entries": 947,
       "class_balance": 0.4730728616684266,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761044421,
       "tuner_trials": 40,
       "tuner_score": 32.336333333333336
@@ -1201,7 +1201,7 @@
       ],
       "entries": 939,
       "class_balance": 0.4802981895633653,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "GBPJPY__1h__gbdt.joblib",
@@ -1252,7 +1252,7 @@
       ],
       "entries": 954,
       "class_balance": 0.5440251572327044,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "GBPJPY__4h__gbdt.joblib",
@@ -1325,7 +1325,7 @@
       ],
       "entries": 735,
       "class_balance": 0.47613065326633164,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "GBPUSD__1h__gbdt.joblib",
@@ -1376,7 +1376,7 @@
       ],
       "entries": 799,
       "class_balance": 0.5308254963427377,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "GBPUSD__4h__gbdt.joblib",
@@ -1449,7 +1449,7 @@
       ],
       "entries": 892,
       "class_balance": 0.5246636771300448,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761050176,
       "tuner_trials": 40,
       "tuner_score": 13.206
@@ -1474,7 +1474,7 @@
       ],
       "entries": 706,
       "class_balance": 0.5339943342776204,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761050437,
       "tuner_trials": 40,
       "tuner_score": 20.651666666666667
@@ -1521,7 +1521,7 @@
       ],
       "entries": 853,
       "class_balance": 0.5381008206330598,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761043101,
       "tuner_trials": 40,
       "tuner_score": 13.339333333333334
@@ -1546,7 +1546,7 @@
       ],
       "entries": 902,
       "class_balance": 0.4911308203991131,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761043362,
       "tuner_trials": 40,
       "tuner_score": 66.976
@@ -1593,7 +1593,7 @@
       ],
       "entries": 941,
       "class_balance": 0.4718384697130712,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761045224,
       "tuner_trials": 40,
       "tuner_score": 9.75
@@ -1618,7 +1618,7 @@
       ],
       "entries": 938,
       "class_balance": 0.47547974413646055,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761045485,
       "tuner_trials": 40,
       "tuner_score": 11.833333333333334
@@ -1665,7 +1665,7 @@
       ],
       "entries": 873,
       "class_balance": 0.47193585337915234,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761055465,
       "tuner_trials": 40,
       "tuner_score": 15.982
@@ -1690,7 +1690,7 @@
       ],
       "entries": 642,
       "class_balance": 0.5062305295950156,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761055680,
       "tuner_trials": 40,
       "tuner_score": 10.991
@@ -1737,7 +1737,7 @@
       ],
       "entries": 871,
       "class_balance": 0.4890929965556831,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761054033,
       "tuner_trials": 40,
       "tuner_score": 31.0
@@ -1762,7 +1762,7 @@
       ],
       "entries": 620,
       "class_balance": 0.5274193548387097,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761054249,
       "tuner_trials": 40,
       "tuner_score": 14.581999999999999
@@ -1807,7 +1807,7 @@
       ],
       "entries": 675,
       "class_balance": 0.5362962962962963,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761052282,
       "tuner_trials": 40,
       "tuner_score": 22.988
@@ -1831,7 +1831,7 @@
       ],
       "entries": 743,
       "class_balance": 0.5329744279946165,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761052543,
       "tuner_trials": 40,
       "tuner_score": 57.985
@@ -1878,7 +1878,7 @@
       ],
       "entries": 799,
       "class_balance": 0.5031289111389237,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761054519,
       "tuner_trials": 40,
       "tuner_score": 33.003
@@ -1903,7 +1903,7 @@
       ],
       "entries": 645,
       "class_balance": 0.5317829457364341,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761054728,
       "tuner_trials": 40,
       "tuner_score": 26.503
@@ -1950,7 +1950,7 @@
       ],
       "entries": 1152,
       "class_balance": 0.5130208333333334,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "NZDUSD__1h__gbdt.joblib",
@@ -2001,7 +2001,7 @@
       ],
       "entries": 764,
       "class_balance": 0.5235602094240838,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "models": {
         "gbdt": {
           "file": "NZDUSD__4h__gbdt.joblib",
@@ -2074,7 +2074,7 @@
       ],
       "entries": 1109,
       "class_balance": 0.4977457168620379,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761051756,
       "tuner_trials": 40,
       "tuner_score": 9.568217391304348
@@ -2099,7 +2099,7 @@
       ],
       "entries": 715,
       "class_balance": 0.5160839160839161,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761052017,
       "tuner_trials": 40,
       "tuner_score": 93.0
@@ -2127,7 +2127,7 @@
       "tuned_at": 1761042442,
       "tuner_trials": 40,
       "tuner_score": 28.666666666666668,
-      "updated_at": 1761108542
+      "updated_at": 1761152963
     },
     {
       "key": "USSPX500__4h",
@@ -2152,7 +2152,7 @@
       "tuned_at": 1761042707,
       "tuner_trials": 40,
       "tuner_score": 17.645666666666667,
-      "updated_at": 1761108542
+      "updated_at": 1761152963
     },
     {
       "key": "USTech100__1h",
@@ -2177,7 +2177,7 @@
       "tuned_at": 1761017062,
       "tuner_trials": 80,
       "tuner_score": 9.163666666666666,
-      "updated_at": 1761108542
+      "updated_at": 1761152963
     },
     {
       "key": "USTech100__4h",
@@ -2202,7 +2202,7 @@
       "tuned_at": 1761017148,
       "tuner_trials": 80,
       "tuner_score": 8.363636363636363,
-      "updated_at": 1761108542
+      "updated_at": 1761152963
     },
     {
       "key": "UK100__1h",
@@ -2227,7 +2227,7 @@
       "tuned_at": 1761043627,
       "tuner_trials": 40,
       "tuner_score": 25.991,
-      "updated_at": 1761108542
+      "updated_at": 1761152963
     },
     {
       "key": "UK100__4h",
@@ -2252,7 +2252,7 @@
       "tuned_at": 1761043888,
       "tuner_trials": 40,
       "tuner_score": 47.994,
-      "updated_at": 1761108542
+      "updated_at": 1761152963
     },
     {
       "key": "SILVER__1h",
@@ -2274,7 +2274,7 @@
       ],
       "entries": 880,
       "class_balance": 0.4818181818181818,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761050703,
       "tuner_trials": 40,
       "tuner_score": 14.503
@@ -2324,7 +2324,7 @@
       ],
       "entries": 728,
       "class_balance": 0.5137362637362637,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761051230,
       "tuner_trials": 40,
       "tuner_score": 18.797
@@ -2349,7 +2349,7 @@
       ],
       "entries": 706,
       "class_balance": 0.5169971671388102,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761051492,
       "tuner_trials": 40,
       "tuner_score": 62.991
@@ -2374,7 +2374,7 @@
       ],
       "entries": 828,
       "class_balance": 0.5289855072463768,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761054991,
       "tuner_trials": 40,
       "tuner_score": 27.997
@@ -2399,7 +2399,7 @@
       ],
       "entries": 644,
       "class_balance": 0.5263975155279503,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761055201,
       "tuner_trials": 40,
       "tuner_score": 18.485
@@ -2424,7 +2424,7 @@
       ],
       "entries": 891,
       "class_balance": 0.510662177328844,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761055944,
       "tuner_trials": 40,
       "tuner_score": 18.5
@@ -2449,7 +2449,7 @@
       ],
       "entries": 648,
       "class_balance": 0.5216049382716049,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "tuned_at": 1761021590,
       "tuner_trials": 80,
       "tuner_score": 12.282714285714286
@@ -2496,7 +2496,7 @@
       "cv_pf_score_ens": 1.2413793103448276,
       "threshold": 0.6,
       "cv_pf_score": 1.25,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "pt_mult": 1.0,
       "sl_mult": 4.0,
       "max_hold": 78,
@@ -2546,7 +2546,7 @@
       "cv_pf_score_ens": 1.1411764705882352,
       "threshold": 0.6,
       "cv_pf_score": 1.1735537190082646,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "pt_mult": 1.0,
       "sl_mult": 4.0,
       "max_hold": 72,
@@ -2596,7 +2596,7 @@
       "cv_pf_score_ens": 0.9470899470899471,
       "threshold": 0.78,
       "cv_pf_score": 0.949741759461946,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "pt_mult": 1.0,
       "sl_mult": 2.0,
       "max_hold": 84,
@@ -2647,7 +2647,7 @@
       "cv_pf_score_ens": 1.3709677419354838,
       "threshold": 0.8,
       "cv_pf_score": 1.439047987616099,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "pt_mult": 1.0,
       "sl_mult": 3.5,
       "max_hold": 30,
@@ -2698,7 +2698,7 @@
       "cv_pf_score_ens": 1.0909090909090908,
       "threshold": 0.78,
       "cv_pf_score": 1.308215053763441,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "pt_mult": 1.0,
       "sl_mult": 4.0,
       "max_hold": 30,
@@ -2749,7 +2749,7 @@
       "cv_pf_score_ens": 1.6,
       "threshold": 0.68,
       "cv_pf_score": 1.1964985994397759,
-      "updated_at": 1761108542,
+      "updated_at": 1761152963,
       "pt_mult": 1.0,
       "sl_mult": 4.0,
       "max_hold": 48,
