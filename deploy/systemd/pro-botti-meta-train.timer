@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly META training (02:15 UTC)
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
