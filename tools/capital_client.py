@@ -1,9 +1,8 @@
-import os, json, requests
+import os
+import json
+import requests
 
 class CapitalClient:
-    """
-    Capital.com REST API -asiakas. Käyttää key/username/password kirjautumista ja token-pohjaista istuntoa.
-    """
     def __init__(self):
         self.base = os.getenv("CAPITAL_API_BASE", "https://api-capital.backend-capital.com")
         self.api_key = os.getenv("CAPITAL_API_KEY")
@@ -26,7 +25,7 @@ class CapitalClient:
             raise Exception(f"Capital.com auth missing tokens: {r.text}")
         self.session.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
 
-    def get_candles(self, epic, resolution="1H", max=200, from_ts=None, to_ts=None):
+    def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
         url = f"{self.base}/api/v1/prices/{epic}"
         params = {"resolution": resolution, "max": max}
         if from_ts:
