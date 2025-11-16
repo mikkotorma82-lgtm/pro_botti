@@ -1,29 +1,13 @@
 """
-Capital.com constants and symbol→epic override mappings.
+Shared constants for Capital.com API clients.
 
-This module provides the single source of truth for symbol→epic mappings
-used across the pro_botti codebase when interacting with Capital.com API.
+This module contains configuration constants used across different
+Capital.com client implementations to ensure consistency.
 """
 
-from typing import Dict
+from tools.symbol_resolver import _MAP as SYMBOL_NORMALIZATION_MAP
 
-# Symbol→Epic override mapping
-# When a symbol like "XAUUSD" should be mapped to a specific epic like "GOLD",
-# define it here. This ensures consistent epic resolution across all modules.
-SYMBOL_EPIC_OVERRIDE: Dict[str, str] = {
-    "XAUUSD": "GOLD",
-}
-
-
-def get_display_symbol(input_symbol: str) -> str:
-    """
-    Get the display symbol for user-facing output.
-
-    Args:
-        input_symbol: The input symbol (e.g., "XAUUSD")
-
-    Returns:
-        The display symbol (e.g., "GOLD" if XAUUSD is overridden)
-    """
-    symbol_upper = input_symbol.upper()
-    return SYMBOL_EPIC_OVERRIDE.get(symbol_upper, symbol_upper)
+# Symbol to epic override mapping for Capital.com API
+# Uses the existing symbol normalization mappings for consistency
+# When a symbol matches a key (case-insensitive), the corresponding epic is used
+SYMBOL_EPIC_OVERRIDE: dict[str, str] = SYMBOL_NORMALIZATION_MAP

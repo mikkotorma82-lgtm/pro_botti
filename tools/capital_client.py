@@ -7,6 +7,11 @@ from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
 logger = logging.getLogger(__name__)
 
 
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+
+logger = logging.getLogger(__name__)
+
+
 class CapitalClient:
     def __init__(self):
         self.base = os.getenv(
@@ -34,11 +39,14 @@ class CapitalClient:
 
     def _resolve_epic(self, symbol: str) -> str:
         """
-        Resolve symbol to epic using SYMBOL_EPIC_OVERRIDE.
-
+        Resolve the epic for a given trading symbol.
+        
+        If the symbol has an override mapping, use the override epic.
+        Otherwise, return the symbol as-is (assumes symbol == epic).
+        
         Args:
-            symbol: The input symbol (e.g., "XAUUSD")
-
+            symbol: The trading symbol (e.g., "XAUUSD")
+            
         Returns:
             The epic to use for API calls (e.g., "GOLD")
         """
@@ -49,22 +57,11 @@ class CapitalClient:
             return epic
         return symbol
 
-    def get_candles(self, symbol, resolution="HOUR", max=200, from_ts=None, to_ts=None):
-        """
-        Get candles for a symbol (auto-resolves to epic).
-
-        Args:
-            symbol: The symbol (e.g., "XAUUSD") - will be resolved to epic
-            resolution: Time resolution
-            max: Maximum number of candles
-            from_ts: Start timestamp
-            to_ts: End timestamp
-
-        Returns:
-            List of candle data
-        """
-        epic = self._resolve_epic(symbol)
-        url = f"{self.base}/api/v1/prices/{epic}"
+    def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
+        # Resolve epic override (e.g., XAUUSD -> GOLD)
+        resolved_epic = self._resolve_epic(epic)
+        
+        url = f"{self.base}/api/v1/prices/{resolved_epic}"
         params = {"resolution": resolution, "max": max}
         if from_ts:
             params["from"] = from_ts
@@ -72,7 +69,7 @@ class CapitalClient:
             params["to"] = to_ts
         r = self.session.get(url, params=params)
         if r.status_code != 200:
-            logger.warning("get_candles %s (epic: %s): %s", symbol, epic, r.status_code)
+            print(f"[WARN] get_candles {resolved_epic}: {r.status_code}")
             return []
         return r.json().get("prices", [])
 
