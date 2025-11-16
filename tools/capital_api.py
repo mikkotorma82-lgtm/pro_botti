@@ -5,8 +5,12 @@ CapitalBot – Capital.com API Client (v3 endpoint fixed)
 Käyttää /api/v3/prices/{epic} hinnan hakuun (ei enää /pricehistory)
 """
 
-import os, json, time, requests
+import os, json, time, logging, requests
 from pathlib import Path
+
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+
+logger = logging.getLogger(__name__)
 
 # --- Pakotettu secrets.env lataus ---
 ENV_PATH = "/root/pro_botti/secrets.env"
@@ -72,6 +76,27 @@ class CapitalClient:
         return h
 
     # -----------------------------------------------------------
+    def _resolve_epic(self, symbol: str) -> str:
+        """
+        Resolve the epic for a given trading symbol.
+        
+        If the symbol has an override mapping, use the override epic.
+        Otherwise, return the symbol as-is (assumes symbol == epic).
+        
+        Args:
+            symbol: The trading symbol (e.g., "XAUUSD")
+            
+        Returns:
+            The epic to use for API calls (e.g., "GOLD")
+        """
+        symbol_u = symbol.upper()
+        if symbol_u in SYMBOL_EPIC_OVERRIDE:
+            epic = SYMBOL_EPIC_OVERRIDE[symbol_u]
+            logger.info("Using epic override for symbol %s -> %s", symbol_u, epic)
+            return epic
+        return symbol
+
+    # -----------------------------------------------------------
     def request(self, method, endpoint, params=None):
         url = f"{self.base}{endpoint}" if endpoint.startswith("/api") else f"{self.base}/api{endpoint}"
         headers = self._auth_headers()
@@ -83,7 +108,10 @@ class CapitalClient:
     # -----------------------------------------------------------
     def get_price_history(self, epic: str, resolution: str = "HOUR", limit: int = 10):
         """Hakee hinnat /api/v3/prices/{epic}?resolution=HOUR&max=10"""
-        endpoint = f"/api/v3/prices/{epic}"
+        # Resolve epic override (e.g., XAUUSD -> GOLD)
+        resolved_epic = self._resolve_epic(epic)
+        
+        endpoint = f"/api/v3/prices/{resolved_epic}"
         params = {"resolution": resolution, "max": limit}
         data = self.request("GET", endpoint, params=params)
         if not data or "prices" not in data:
