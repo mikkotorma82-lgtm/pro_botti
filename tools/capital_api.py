@@ -109,9 +109,9 @@ class CapitalClient:
     def get_price_history(self, epic: str, resolution: str = "HOUR", limit: int = 10):
         """Hakee hinnat /api/v3/prices/{epic}?resolution=HOUR&max=10"""
         # Resolve epic override (e.g., XAUUSD -> GOLD)
-        epic = self._resolve_epic(epic)
+        resolved_epic = self._resolve_epic(epic)
         
-        endpoint = f"/api/v3/prices/{epic}"
+        endpoint = f"/api/v3/prices/{resolved_epic}"
         params = {"resolution": resolution, "max": limit}
         data = self.request("GET", endpoint, params=params)
         if not data or "prices" not in data:

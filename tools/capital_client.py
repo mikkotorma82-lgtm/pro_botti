@@ -53,9 +53,9 @@ class CapitalClient:
 
     def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
         # Resolve epic override (e.g., XAUUSD -> GOLD)
-        epic = self._resolve_epic(epic)
+        resolved_epic = self._resolve_epic(epic)
         
-        url = f"{self.base}/api/v1/prices/{epic}"
+        url = f"{self.base}/api/v1/prices/{resolved_epic}"
         params = {"resolution": resolution, "max": max}
         if from_ts:
             params["from"] = from_ts
@@ -63,7 +63,7 @@ class CapitalClient:
             params["to"] = to_ts
         r = self.session.get(url, params=params)
         if r.status_code != 200:
-            print(f"[WARN] get_candles {epic}: {r.status_code}")
+            print(f"[WARN] get_candles {resolved_epic}: {r.status_code}")
             return []
         return r.json().get("prices", [])
 
