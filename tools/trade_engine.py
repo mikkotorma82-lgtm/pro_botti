@@ -25,6 +25,8 @@ from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from tools.capital_constants import get_display_symbol
+
 warnings.filterwarnings("ignore")
 
 # Configuration from environment
@@ -455,8 +457,11 @@ def process_symbol_tf(symbol: str, tf: str, dry_run: bool = False) -> Dict[str, 
 
 def run_once(symbol: str, tf: str, dry_run: bool = False):
     """Run trade engine once for a symbol/timeframe."""
+    display_sym = get_display_symbol(symbol)
     log_info(f"=== Trade Engine Start (run-once) ===")
-    log_info(f"Symbol: {symbol}, TF: {tf}, DRY_RUN: {dry_run}")
+    log_info(f"Symbol: {display_sym}, TF: {tf}, DRY_RUN: {dry_run}")
+    if display_sym != symbol.upper():
+        log_info(f"Input symbol {symbol} is mapped to Capital.com epic {display_sym}")
     
     try:
         result = process_symbol_tf(symbol, tf, dry_run)

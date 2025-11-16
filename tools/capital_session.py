@@ -12,6 +12,8 @@ import datetime as dt
 import requests
 import pandas as pd
 
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+
 # ENV (LIVE):
 #   CAPITAL_API_BASE=https://api-capital.backend-capital.com
 #   CAPITAL_API_KEY=...
@@ -253,14 +255,20 @@ def _resolve_epic(symbol_or_name: str) -> str:
     Resolve display name or EPIC -> EPIC with caching.
     Priority:
       1) Already EPIC-like -> return as-is
-      2) Env override CAPITAL_EPIC_<KEY>
-      3) Cache hit (capital_epic_map.json) and not expired
-      4) Prefer symbol exact match (normalized: remove '/', spaces) over name match
-      5) Name exact, then name contains, else first
+      2) SYMBOL_EPIC_OVERRIDE mapping
+      3) Env override CAPITAL_EPIC_<KEY>
+      4) Cache hit (capital_epic_map.json) and not expired
+      5) Prefer symbol exact match (normalized: remove '/', spaces) over name match
+      6) Name exact, then name contains, else first
     """
     s = symbol_or_name.strip()
     if _is_prob_epic(s):
         return s
+
+    # Check centralized override mapping first
+    s_upper = s.upper()
+    if s_upper in SYMBOL_EPIC_OVERRIDE:
+        return SYMBOL_EPIC_OVERRIDE[s_upper]
 
     env_epic = _env_epic_for(s)
     if env_epic:

@@ -2,6 +2,10 @@ import os
 import json
 import logging
 import requests
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+
+logger = logging.getLogger(__name__)
+
 
 from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
 
@@ -10,7 +14,9 @@ logger = logging.getLogger(__name__)
 
 class CapitalClient:
     def __init__(self):
-        self.base = os.getenv("CAPITAL_API_BASE", "https://api-capital.backend-capital.com")
+        self.base = os.getenv(
+            "CAPITAL_API_BASE", "https://api-capital.backend-capital.com"
+        )
         self.api_key = os.getenv("CAPITAL_API_KEY")
         self.username = os.getenv("CAPITAL_USERNAME")
         self.password = os.getenv("CAPITAL_PASSWORD")
@@ -71,6 +77,6 @@ class CapitalClient:
         url = f"{self.base}/api/v1/positions"
         r = self.session.get(url)
         if r.status_code != 200:
-            print(f"[WARN] get_positions: {r.status_code}")
+            logger.warning("get_positions: %s", r.status_code)
             return []
         return r.json().get("positions", [])
