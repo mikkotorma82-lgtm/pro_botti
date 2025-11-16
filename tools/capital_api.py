@@ -5,8 +5,10 @@ CapitalBot – Capital.com API Client (v3 endpoint fixed)
 Käyttää /api/v3/prices/{epic} hinnan hakuun (ei enää /pricehistory)
 """
 
-import os, json, time, requests
+import os, json, time, logging, requests
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # --- Pakotettu secrets.env lataus ---
 ENV_PATH = "/root/pro_botti/secrets.env"
@@ -28,6 +30,13 @@ CAPITAL_PASSWORD = os.getenv("CAPITAL_PASSWORD")
 
 if not all([CAPITAL_API_BASE, CAPITAL_API_KEY, CAPITAL_USERNAME, CAPITAL_PASSWORD]):
     raise Exception("Missing CAPITAL_* envs (BASE, KEY, USERNAME, PASSWORD)")
+
+
+# Symbol to epic override mapping
+# When a symbol matches a key, the corresponding epic is used instead of market discovery
+SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
+    "XAUUSD": "GOLD",  # always use GOLD epic when symbol is XAUUSD
+}
 
 
 class CapitalError(Exception):
@@ -72,6 +81,27 @@ class CapitalClient:
         return h
 
     # -----------------------------------------------------------
+    def _resolve_epic(self, symbol: str) -> str:
+        """
+        Resolve the epic for a given trading symbol.
+        
+        If the symbol has an override mapping, use the override epic.
+        Otherwise, return the symbol as-is (assumes symbol == epic).
+        
+        Args:
+            symbol: The trading symbol (e.g., "XAUUSD")
+            
+        Returns:
+            The epic to use for API calls (e.g., "GOLD")
+        """
+        symbol_u = symbol.upper()
+        if symbol_u in SYMBOL_EPIC_OVERRIDE:
+            epic = SYMBOL_EPIC_OVERRIDE[symbol_u]
+            logger.info("Using epic override for symbol %s -> %s", symbol_u, epic)
+            return epic
+        return symbol
+
+    # -----------------------------------------------------------
     def request(self, method, endpoint, params=None):
         url = f"{self.base}{endpoint}" if endpoint.startswith("/api") else f"{self.base}/api{endpoint}"
         headers = self._auth_headers()
@@ -83,6 +113,9 @@ class CapitalClient:
     # -----------------------------------------------------------
     def get_price_history(self, epic: str, resolution: str = "HOUR", limit: int = 10):
         """Hakee hinnat /api/v3/prices/{epic}?resolution=HOUR&max=10"""
+        # Resolve epic override (e.g., XAUUSD -> GOLD)
+        epic = self._resolve_epic(epic)
+        
         endpoint = f"/api/v3/prices/{epic}"
         params = {"resolution": resolution, "max": limit}
         data = self.request("GET", endpoint, params=params)

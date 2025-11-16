@@ -1,6 +1,16 @@
 import os
 import json
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
+
+# Symbol to epic override mapping
+# When a symbol matches a key, the corresponding epic is used instead of market discovery
+SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
+    "XAUUSD": "GOLD",  # always use GOLD epic when symbol is XAUUSD
+}
+
 
 class CapitalClient:
     def __init__(self):
@@ -25,7 +35,30 @@ class CapitalClient:
             raise Exception(f"Capital.com auth missing tokens: {r.text}")
         self.session.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
 
+    def _resolve_epic(self, symbol: str) -> str:
+        """
+        Resolve the epic for a given trading symbol.
+        
+        If the symbol has an override mapping, use the override epic.
+        Otherwise, return the symbol as-is (assumes symbol == epic).
+        
+        Args:
+            symbol: The trading symbol (e.g., "XAUUSD")
+            
+        Returns:
+            The epic to use for API calls (e.g., "GOLD")
+        """
+        symbol_u = symbol.upper()
+        if symbol_u in SYMBOL_EPIC_OVERRIDE:
+            epic = SYMBOL_EPIC_OVERRIDE[symbol_u]
+            logger.info("Using epic override for symbol %s -> %s", symbol_u, epic)
+            return epic
+        return symbol
+
     def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
+        # Resolve epic override (e.g., XAUUSD -> GOLD)
+        epic = self._resolve_epic(epic)
+        
         url = f"{self.base}/api/v1/prices/{epic}"
         params = {"resolution": resolution, "max": max}
         if from_ts:
