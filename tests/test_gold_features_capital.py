@@ -21,6 +21,12 @@ class MockCapitalClient:
     def __init__(self, n_candles=200):
         self.n_candles = n_candles
     
+    def _resolve_epic(self, symbol: str) -> str:
+        """Resolve symbol to epic (mock implementation)."""
+        from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+        symbol_u = symbol.upper()
+        return SYMBOL_EPIC_OVERRIDE.get(symbol_u, symbol_u)
+    
     def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
         """Return mock candle data."""
         # Generate synthetic price data

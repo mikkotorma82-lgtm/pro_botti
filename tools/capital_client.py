@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
 
 class CapitalClient:
     def __init__(self):
@@ -24,6 +25,28 @@ class CapitalClient:
         if not cst or not sec:
             raise Exception(f"Capital.com auth missing tokens: {r.text}")
         self.session.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
+
+    def _resolve_epic(self, symbol: str) -> str:
+        """
+        Resolve a symbol to its Capital.com epic identifier.
+        
+        Uses SYMBOL_EPIC_OVERRIDE to map logical symbols (e.g., "XAUUSD")
+        to their Capital.com epic codes (e.g., "GOLD").
+        
+        Args:
+            symbol: The logical symbol (e.g., "XAUUSD", "BTCUSD")
+        
+        Returns:
+            The Capital.com epic identifier
+        
+        Examples:
+            >>> client._resolve_epic("XAUUSD")
+            'GOLD'
+            >>> client._resolve_epic("BTCUSD")
+            'BTCUSD'
+        """
+        symbol_u = symbol.upper()
+        return SYMBOL_EPIC_OVERRIDE.get(symbol_u, symbol_u)
 
     def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
         url = f"{self.base}/api/v1/prices/{epic}"

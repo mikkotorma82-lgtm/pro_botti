@@ -77,9 +77,8 @@ def build_gold_dataset_capital(
     # Determine max candles to fetch based on use_full_history
     max_candles = 1000 if use_full_history else 500
     
-    # Fetch gold price data
-    # Note: Capital.com API typically maps XAUUSD to "GOLD" epic
-    epic = "GOLD" if gold_symbol.upper() == "XAUUSD" else gold_symbol
+    # Fetch gold price data using client's epic resolution
+    epic = client._resolve_epic(gold_symbol)
     
     candles = client.get_candles(
         epic=epic,
