@@ -8,6 +8,8 @@ Käyttää /api/v3/prices/{epic} hinnan hakuun (ei enää /pricehistory)
 import os, json, time, logging, requests
 from pathlib import Path
 
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+
 logger = logging.getLogger(__name__)
 
 # --- Pakotettu secrets.env lataus ---
@@ -30,13 +32,6 @@ CAPITAL_PASSWORD = os.getenv("CAPITAL_PASSWORD")
 
 if not all([CAPITAL_API_BASE, CAPITAL_API_KEY, CAPITAL_USERNAME, CAPITAL_PASSWORD]):
     raise Exception("Missing CAPITAL_* envs (BASE, KEY, USERNAME, PASSWORD)")
-
-
-# Symbol to epic override mapping
-# When a symbol matches a key, the corresponding epic is used instead of market discovery
-SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
-    "XAUUSD": "GOLD",  # always use GOLD epic when symbol is XAUUSD
-}
 
 
 class CapitalError(Exception):

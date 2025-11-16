@@ -3,13 +3,9 @@ import json
 import logging
 import requests
 
-logger = logging.getLogger(__name__)
+from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
 
-# Symbol to epic override mapping
-# When a symbol matches a key, the corresponding epic is used instead of market discovery
-SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
-    "XAUUSD": "GOLD",  # always use GOLD epic when symbol is XAUUSD
-}
+logger = logging.getLogger(__name__)
 
 
 class CapitalClient:
