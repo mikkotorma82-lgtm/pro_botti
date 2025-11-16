@@ -1,1 +1,1 @@
-"""Tests for gold trading modules."""
+"""Tests for pro_botti"""
