@@ -4,6 +4,7 @@ import os
 import time
 import json
 import pickle
+import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, List
 import urllib.parse
@@ -11,6 +12,8 @@ import datetime as dt
 
 import requests
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # ENV (LIVE):
 #   CAPITAL_API_BASE=https://api-capital.backend-capital.com
@@ -40,6 +43,13 @@ _RATE_LIMIT_SLEEP: int = int(os.getenv("CAPITAL_RATE_LIMIT_SLEEP", "90"))
 _RESOLVE_CACHE_TTL: int = int(os.getenv("CAPITAL_RESOLVE_CACHE_TTL", str(30 * 24 * 3600)))
 
 _COOLDOWN_UNTIL: float = 0.0  # global cooldown end time after 429
+
+# Symbol to EPIC override mapping
+# Use this to force specific symbols to always use a particular EPIC,
+# bypassing the market search logic
+SYMBOL_EPIC_OVERRIDE: Dict[str, str] = {
+    "XAUUSD": "GOLD",  # Always use Capital.com Gold epic for XAUUSD (not XAUTUSD crypto)
+}
 
 
 def _mandatory_env(key: str) -> str:
@@ -253,14 +263,22 @@ def _resolve_epic(symbol_or_name: str) -> str:
     Resolve display name or EPIC -> EPIC with caching.
     Priority:
       1) Already EPIC-like -> return as-is
-      2) Env override CAPITAL_EPIC_<KEY>
-      3) Cache hit (capital_epic_map.json) and not expired
-      4) Prefer symbol exact match (normalized: remove '/', spaces) over name match
-      5) Name exact, then name contains, else first
+      2) Symbol override (SYMBOL_EPIC_OVERRIDE)
+      3) Env override CAPITAL_EPIC_<KEY>
+      4) Cache hit (capital_epic_map.json) and not expired
+      5) Prefer symbol exact match (normalized: remove '/', spaces) over name match
+      6) Name exact, then name contains, else first
     """
     s = symbol_or_name.strip()
     if _is_prob_epic(s):
         return s
+
+    # Check symbol override mapping first
+    s_upper = s.upper()
+    if s_upper in SYMBOL_EPIC_OVERRIDE:
+        epic = SYMBOL_EPIC_OVERRIDE[s_upper]
+        logger.info("Using epic override for symbol %s -> %s", s_upper, epic)
+        return epic
 
     env_epic = _env_epic_for(s)
     if env_epic:
@@ -279,7 +297,6 @@ def _resolve_epic(symbol_or_name: str) -> str:
         _epic_cache_save(cache)
         return s
 
-    s_upper = s.upper()
     sym_target = s_upper.replace("/", "").replace(" ", "")
 
     # 4) symbol exact match (normalized)
@@ -289,6 +306,7 @@ def _resolve_epic(symbol_or_name: str) -> str:
             epic = h["epic"]
             cache[key] = {"epic": epic, "name": h.get("instrumentName"), "ts": now}
             _epic_cache_save(cache)
+            logger.info("Resolved epic for symbol %s -> %s (auto-discovery)", s_upper, epic)
             return epic
 
     # 5) name exact -> name contains -> first
@@ -306,6 +324,7 @@ def _resolve_epic(symbol_or_name: str) -> str:
     epic = best["epic"]
     cache[key] = {"epic": epic, "name": best.get("instrumentName"), "ts": now}
     _epic_cache_save(cache)
+    logger.info("Resolved epic for symbol %s -> %s (auto-discovery)", s_upper, epic)
     return epic
 
 
