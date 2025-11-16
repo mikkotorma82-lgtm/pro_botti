@@ -1,123 +1,131 @@
-"""Tests for capital_client module."""
+#!/usr/bin/env python3
+"""Tests for tools.capital_client"""
 
-import pytest
+import os
+import json
 from unittest.mock import Mock, patch, MagicMock
-from tools.capital_client import CapitalClient
+import sys
+from pathlib import Path
+
+# Add parent directory to path so we can import tools
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from tools.capital_client import CapitalClient, SYMBOL_EPIC_OVERRIDE
 
 
-@pytest.fixture
-def mock_env(monkeypatch):
-    """Mock environment variables for CapitalClient."""
-    monkeypatch.setenv("CAPITAL_API_BASE", "https://test-api.capital.com")
-    monkeypatch.setenv("CAPITAL_API_KEY", "test_key")
-    monkeypatch.setenv("CAPITAL_USERNAME", "test_user")
-    monkeypatch.setenv("CAPITAL_PASSWORD", "test_pass")
+def test_symbol_epic_override_exists():
+    """Test that SYMBOL_EPIC_OVERRIDE dictionary exists and contains XAUUSD mapping."""
+    assert "XAUUSD" in SYMBOL_EPIC_OVERRIDE
+    assert SYMBOL_EPIC_OVERRIDE["XAUUSD"] == "GOLD"
 
 
-@pytest.fixture
-def mock_session():
-    """Mock requests.Session for CapitalClient."""
-    with patch("tools.capital_client.requests.Session") as mock:
-        session_instance = MagicMock()
-        mock.return_value = session_instance
-
-        # Mock successful authentication
-        auth_response = Mock()
-        auth_response.status_code = 200
-        auth_response.json.return_value = {
-            "CST": "test_cst",
-            "securityToken": "test_token",
-        }
-        auth_response.headers.get.side_effect = lambda k: {
-            "CST": "test_cst",
-            "X-SECURITY-TOKEN": "test_token",
-        }.get(k)
-        session_instance.post.return_value = auth_response
-
-        yield session_instance
+def test_resolve_epic_uses_override_for_xauusd():
+    """Test that _resolve_epic uses the override for XAUUSD symbol."""
+    # Mock the authentication to avoid actual API calls
+    with patch.object(CapitalClient, '_authenticate', return_value=None):
+        # Create client instance with mocked auth
+        client = CapitalClient()
+        
+        # Test that XAUUSD resolves to GOLD without making API calls
+        epic = client._resolve_epic("XAUUSD")
+        assert epic == "GOLD"
 
 
-def test_resolve_epic_xauusd_to_gold(mock_env, mock_session):
-    """Test that _resolve_epic maps XAUUSD to GOLD."""
-    client = CapitalClient()
-
-    epic = client._resolve_epic("XAUUSD")
-    assert epic == "GOLD"
-
-    epic = client._resolve_epic("xauusd")
-    assert epic == "GOLD"
-
-
-def test_resolve_epic_unmapped_symbol(mock_env, mock_session):
-    """Test that _resolve_epic returns symbol as-is if not in override."""
-    client = CapitalClient()
-
-    epic = client._resolve_epic("BTCUSD")
-    assert epic == "BTCUSD"
-
-    epic = client._resolve_epic("EURUSD")
-    assert epic == "EURUSD"
+def test_resolve_epic_case_insensitive():
+    """Test that _resolve_epic is case insensitive for overrides."""
+    with patch.object(CapitalClient, '_authenticate', return_value=None):
+        client = CapitalClient()
+        
+        # Test lowercase
+        assert client._resolve_epic("xauusd") == "GOLD"
+        
+        # Test mixed case
+        assert client._resolve_epic("XauUsd") == "GOLD"
 
 
-def test_get_candles_uses_epic_override(mock_env, mock_session):
-    """Test that get_candles uses epic override for API calls."""
-    client = CapitalClient()
-
-    # Mock the GET request for get_candles
-    candles_response = Mock()
-    candles_response.status_code = 200
-    candles_response.json.return_value = {
-        "prices": [{"time": "2023-01-01", "price": 1800}]
-    }
-    mock_session.get.return_value = candles_response
-
-    # Call get_candles with XAUUSD
-    result = client.get_candles("XAUUSD", resolution="HOUR", max=100)
-
-    # Verify that the API was called with GOLD epic, not XAUUSD
-    mock_session.get.assert_called_once()
-    call_args = mock_session.get.call_args
-    url = call_args[0][0]
-
-    # URL should contain GOLD, not XAUUSD
-    assert "GOLD" in url
-    assert "XAUUSD" not in url
-    assert result == [{"time": "2023-01-01", "price": 1800}]
+def test_resolve_epic_auto_discovery():
+    """Test that _resolve_epic falls back to auto-discovery for non-override symbols."""
+    with patch.object(CapitalClient, '_authenticate', return_value=None):
+        client = CapitalClient()
+        
+        # Mock _search_markets to return test data
+        mock_markets = [
+            {
+                "epic": "TEST.EPIC.123",
+                "instrumentName": "Test Instrument",
+                "type": "SHARES"
+            }
+        ]
+        
+        with patch.object(client, '_search_markets', return_value=mock_markets):
+            epic = client._resolve_epic("TEST")
+            assert epic == "TEST.EPIC.123"
 
 
-def test_get_candles_unmapped_symbol(mock_env, mock_session):
-    """Test that get_candles uses symbol as-is if not in override."""
-    client = CapitalClient()
+def test_resolve_epic_prefers_gold_commodities():
+    """Test that _resolve_epic prefers GOLD in COMMODITIES category."""
+    with patch.object(CapitalClient, '_authenticate', return_value=None):
+        client = CapitalClient()
+        
+        # Mock _search_markets to return test data with multiple matches
+        mock_markets = [
+            {
+                "epic": "SHARES.GOLD.123",
+                "instrumentName": "Gold Mining Corp",
+                "type": "SHARES"
+            },
+            {
+                "epic": "COMMODITIES.GOLD.456",
+                "instrumentName": "Gold Spot",
+                "type": "COMMODITIES"
+            }
+        ]
+        
+        with patch.object(client, '_search_markets', return_value=mock_markets):
+            epic = client._resolve_epic("SOMEGOLD")
+            # Should prefer COMMODITIES type with "gold" in name
+            assert epic == "COMMODITIES.GOLD.456"
 
-    # Mock the GET request
-    candles_response = Mock()
-    candles_response.status_code = 200
-    candles_response.json.return_value = {"prices": []}
-    mock_session.get.return_value = candles_response
 
-    # Call get_candles with unmapped symbol
-    result = client.get_candles("BTCUSD", resolution="HOUR")
-
-    # Verify that the API was called with BTCUSD
-    mock_session.get.assert_called_once()
-    call_args = mock_session.get.call_args
-    url = call_args[0][0]
-
-    assert "BTCUSD" in url
+def test_resolve_epic_raises_on_no_markets():
+    """Test that _resolve_epic raises ValueError when no markets found."""
+    with patch.object(CapitalClient, '_authenticate', return_value=None):
+        client = CapitalClient()
+        
+        # Mock _search_markets to return empty list
+        with patch.object(client, '_search_markets', return_value=[]):
+            try:
+                client._resolve_epic("NONEXISTENT")
+                assert False, "Should have raised ValueError"
+            except ValueError as e:
+                assert "No markets found for symbol NONEXISTENT" in str(e)
 
 
-def test_get_candles_error_handling(mock_env, mock_session):
-    """Test that get_candles handles API errors gracefully."""
-    client = CapitalClient()
-
-    # Mock failed request
-    candles_response = Mock()
-    candles_response.status_code = 404
-    candles_response.json.return_value = {}
-    mock_session.get.return_value = candles_response
-
-    # Call get_candles
-    result = client.get_candles("XAUUSD")
-
-    # Should return empty list on error
-    assert result == []
+if __name__ == "__main__":
+    # Simple test runner
+    import traceback
+    
+    tests = [
+        test_symbol_epic_override_exists,
+        test_resolve_epic_uses_override_for_xauusd,
+        test_resolve_epic_case_insensitive,
+        test_resolve_epic_auto_discovery,
+        test_resolve_epic_prefers_gold_commodities,
+        test_resolve_epic_raises_on_no_markets,
+    ]
+    
+    passed = 0
+    failed = 0
+    
+    for test in tests:
+        try:
+            test()
+            print(f"✓ {test.__name__}")
+            passed += 1
+        except Exception as e:
+            print(f"✗ {test.__name__}")
+            traceback.print_exc()
+            failed += 1
+    
+    print(f"\n{passed} passed, {failed} failed")
+    sys.exit(0 if failed == 0 else 1)

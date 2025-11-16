@@ -2,15 +2,11 @@ import os
 import json
 import logging
 import requests
-from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
+from loguru import logger
 
-logger = logging.getLogger(__name__)
-
-
-from tools.capital_constants import SYMBOL_EPIC_OVERRIDE
-
-logger = logging.getLogger(__name__)
-
+SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
+    "XAUUSD": "GOLD",  # Käytä aina GOLD-epiciä kun symboli on XAUUSD
+}
 
 class CapitalClient:
     def __init__(self):
@@ -37,25 +33,49 @@ class CapitalClient:
             raise Exception(f"Capital.com auth missing tokens: {r.text}")
         self.session.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
 
+    def _search_markets(self, symbol: str) -> list:
+        """Search for markets matching the given symbol."""
+        url = f"{self.base}/api/v1/markets"
+        params = {"searchTerm": symbol}
+        r = self.session.get(url, params=params)
+        if r.status_code != 200:
+            logger.warning(f"Market search failed for {symbol}: {r.status_code}")
+            return []
+        return r.json().get("markets", [])
+
     def _resolve_epic(self, symbol: str) -> str:
-        """
-        Resolve the epic for a given trading symbol.
+        """Resolve Capital.com epic for given symbol.
         
-        If the symbol has an override mapping, use the override epic.
-        Otherwise, return the symbol as-is (assumes symbol == epic).
-        
-        Args:
-            symbol: The trading symbol (e.g., "XAUUSD")
-            
-        Returns:
-            The epic to use for API calls (e.g., "GOLD")
+        This applies hard-coded overrides first (e.g. XAUUSD -> GOLD),
+        then falls back to market search auto-discovery.
         """
         symbol_u = symbol.upper()
+
+        # 1) Hard override for known symbols
         if symbol_u in SYMBOL_EPIC_OVERRIDE:
             epic = SYMBOL_EPIC_OVERRIDE[symbol_u]
-            logger.info("Using epic override for symbol %s -> %s", symbol_u, epic)
+            logger.info(f"Using epic override for symbol {symbol_u} -> {epic}")
             return epic
-        return symbol
+
+        # 2) Auto-discovery via /api/v1/markets search
+        markets = self._search_markets(symbol_u)
+        if not markets:
+            logger.warning(f"No markets found for symbol {symbol_u}")
+            raise ValueError(f"No markets found for symbol {symbol_u}")
+
+        # Prefer GOLD in COMMODITIES, otherwise first match
+        gold_commodities = [
+            m for m in markets
+            if m.get("type", "").upper() == "COMMODITIES"
+            and "gold" in m.get("instrumentName", "").lower()
+        ]
+        if gold_commodities:
+            epic = gold_commodities[0].get("epic")
+        else:
+            epic = markets[0].get("epic")
+
+        logger.info(f"Resolved epic for symbol {symbol_u} -> {epic} (auto-discovery)")
+        return epic
 
     def get_candles(self, epic, resolution="HOUR", max=200, from_ts=None, to_ts=None):
         # Resolve epic override (e.g., XAUUSD -> GOLD)
