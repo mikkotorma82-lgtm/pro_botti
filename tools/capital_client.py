@@ -13,7 +13,11 @@ SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
 # Module-level session cache for reuse across CapitalClient instances
 _SHARED_SESSION = None
 _SESSION_LAST_LOGIN = 0.0
-_SESSION_TTL = int(os.getenv("CAPITAL_LOGIN_TTL", "540"))  # 9 minutes default (token is ~10 min)
+# Default TTL is 9 minutes (540 seconds) - tokens expire after ~10 minutes
+try:
+    _SESSION_TTL = int(os.getenv("CAPITAL_LOGIN_TTL", "540"))
+except (ValueError, TypeError):
+    _SESSION_TTL = 540  # Fallback to default if env var is invalid
 _SESSION_LOCK = threading.Lock()  # Thread safety for session creation
 
 class CapitalClient:
