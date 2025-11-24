@@ -1,12 +1,18 @@
 import os
 import json
 import logging
+import time
 import requests
 from loguru import logger
 
 SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
     "XAUUSD": "GOLD",  # Käytä aina GOLD-epiciä kun symboli on XAUUSD
 }
+
+# Module-level session cache for reuse across CapitalClient instances
+_SHARED_SESSION = None
+_SESSION_LAST_LOGIN = 0.0
+_SESSION_TTL = int(os.getenv("CAPITAL_LOGIN_TTL", "540"))  # 9 minutes default (token is ~10 min)
 
 class CapitalClient:
     def __init__(self):
@@ -16,14 +22,36 @@ class CapitalClient:
         self.api_key = os.getenv("CAPITAL_API_KEY")
         self.username = os.getenv("CAPITAL_USERNAME")
         self.password = os.getenv("CAPITAL_PASSWORD")
-        self.session = requests.Session()
-        self._authenticate()
+        
+        # Reuse existing session if available and not expired
+        self.session = self._get_or_create_session()
 
-    def _authenticate(self):
+    def _get_or_create_session(self):
+        """Get existing session or create new one if needed."""
+        global _SHARED_SESSION, _SESSION_LAST_LOGIN
+        
+        now = time.time()
+        # Reuse session if it exists and hasn't expired
+        if _SHARED_SESSION is not None and (now - _SESSION_LAST_LOGIN) < _SESSION_TTL:
+            logger.info(f"Reusing existing Capital.com session (age: {now - _SESSION_LAST_LOGIN:.1f}s)")
+            return _SHARED_SESSION
+        
+        # Create new session and authenticate
+        logger.info("Creating new Capital.com session")
+        session = requests.Session()
+        self._authenticate(session)
+        
+        # Cache the session for reuse
+        _SHARED_SESSION = session
+        _SESSION_LAST_LOGIN = now
+        
+        return session
+
+    def _authenticate(self, session):
         url = f"{self.base}/api/v1/session"
         headers = {"X-CAP-API-KEY": self.api_key, "Content-Type": "application/json"}
         payload = {"identifier": self.username, "password": self.password}
-        r = self.session.post(url, headers=headers, data=json.dumps(payload))
+        r = session.post(url, headers=headers, data=json.dumps(payload))
         if r.status_code != 200:
             raise Exception(f"Capital.com auth failed: {r.text}")
         data = r.json()
@@ -31,7 +59,8 @@ class CapitalClient:
         sec = data.get("securityToken") or r.headers.get("X-SECURITY-TOKEN")
         if not cst or not sec:
             raise Exception(f"Capital.com auth missing tokens: {r.text}")
-        self.session.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
+        session.headers.update({"CST": cst, "X-SECURITY-TOKEN": sec})
+        logger.info("Successfully authenticated to Capital.com API")
 
     def _search_markets(self, symbol: str) -> list:
         """Search for markets matching the given symbol."""

@@ -22,7 +22,8 @@ def test_symbol_epic_override_exists():
 def test_resolve_epic_uses_override_for_xauusd():
     """Test that _resolve_epic uses the override for XAUUSD symbol."""
     # Mock the authentication to avoid actual API calls
-    with patch.object(CapitalClient, '_authenticate', return_value=None):
+    with patch.object(CapitalClient, '_get_or_create_session') as mock_session:
+        mock_session.return_value = MagicMock()
         # Create client instance with mocked auth
         client = CapitalClient()
         
@@ -33,7 +34,8 @@ def test_resolve_epic_uses_override_for_xauusd():
 
 def test_resolve_epic_case_insensitive():
     """Test that _resolve_epic is case insensitive for overrides."""
-    with patch.object(CapitalClient, '_authenticate', return_value=None):
+    with patch.object(CapitalClient, '_get_or_create_session') as mock_session:
+        mock_session.return_value = MagicMock()
         client = CapitalClient()
         
         # Test lowercase
@@ -45,7 +47,8 @@ def test_resolve_epic_case_insensitive():
 
 def test_resolve_epic_auto_discovery():
     """Test that _resolve_epic falls back to auto-discovery for non-override symbols."""
-    with patch.object(CapitalClient, '_authenticate', return_value=None):
+    with patch.object(CapitalClient, '_get_or_create_session') as mock_session:
+        mock_session.return_value = MagicMock()
         client = CapitalClient()
         
         # Mock _search_markets to return test data
@@ -64,7 +67,8 @@ def test_resolve_epic_auto_discovery():
 
 def test_resolve_epic_prefers_gold_commodities():
     """Test that _resolve_epic prefers GOLD in COMMODITIES category."""
-    with patch.object(CapitalClient, '_authenticate', return_value=None):
+    with patch.object(CapitalClient, '_get_or_create_session') as mock_session:
+        mock_session.return_value = MagicMock()
         client = CapitalClient()
         
         # Mock _search_markets to return test data with multiple matches
@@ -89,7 +93,8 @@ def test_resolve_epic_prefers_gold_commodities():
 
 def test_resolve_epic_raises_on_no_markets():
     """Test that _resolve_epic raises ValueError when no markets found."""
-    with patch.object(CapitalClient, '_authenticate', return_value=None):
+    with patch.object(CapitalClient, '_get_or_create_session') as mock_session:
+        mock_session.return_value = MagicMock()
         client = CapitalClient()
         
         # Mock _search_markets to return empty list
@@ -99,6 +104,86 @@ def test_resolve_epic_raises_on_no_markets():
                 assert False, "Should have raised ValueError"
             except ValueError as e:
                 assert "No markets found for symbol NONEXISTENT" in str(e)
+
+
+def test_session_reuse_across_instances():
+    """Test that multiple CapitalClient instances reuse the same session."""
+    import tools.capital_client as cc_module
+    
+    # Reset module-level session cache
+    cc_module._SHARED_SESSION = None
+    cc_module._SESSION_LAST_LOGIN = 0.0
+    
+    # Mock the authentication
+    with patch('requests.Session') as mock_session_class:
+        mock_session_instance = MagicMock()
+        mock_session_class.return_value = mock_session_instance
+        
+        # Mock successful authentication response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"CST": "test-cst", "securityToken": "test-token"}
+        mock_response.headers.get.side_effect = lambda x: {"CST": "test-cst", "X-SECURITY-TOKEN": "test-token"}.get(x)
+        mock_session_instance.post.return_value = mock_response
+        
+        # Create first client - should authenticate
+        client1 = CapitalClient()
+        assert mock_session_class.call_count == 1
+        assert mock_session_instance.post.call_count == 1
+        
+        # Create second client - should reuse session
+        client2 = CapitalClient()
+        # Session should still be created only once
+        assert mock_session_class.call_count == 1
+        # Post (authentication) should still be called only once
+        assert mock_session_instance.post.call_count == 1
+        
+        # Both clients should have the same session
+        assert client1.session is client2.session
+
+
+def test_session_refresh_after_ttl():
+    """Test that session is refreshed after TTL expires."""
+    import tools.capital_client as cc_module
+    import time
+    
+    # Set a very short TTL for testing
+    original_ttl = cc_module._SESSION_TTL
+    cc_module._SESSION_TTL = 1  # 1 second
+    
+    try:
+        # Reset module-level session cache
+        cc_module._SHARED_SESSION = None
+        cc_module._SESSION_LAST_LOGIN = 0.0
+        
+        # Mock the authentication
+        with patch('requests.Session') as mock_session_class:
+            mock_session_instance = MagicMock()
+            mock_session_class.return_value = mock_session_instance
+            
+            # Mock successful authentication response
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"CST": "test-cst", "securityToken": "test-token"}
+            mock_response.headers.get.side_effect = lambda x: {"CST": "test-cst", "X-SECURITY-TOKEN": "test-token"}.get(x)
+            mock_session_instance.post.return_value = mock_response
+            
+            # Create first client
+            client1 = CapitalClient()
+            assert mock_session_class.call_count == 1
+            
+            # Wait for TTL to expire
+            time.sleep(1.5)
+            
+            # Create second client - should create new session
+            client2 = CapitalClient()
+            assert mock_session_class.call_count == 2
+            
+    finally:
+        # Restore original TTL
+        cc_module._SESSION_TTL = original_ttl
+        cc_module._SHARED_SESSION = None
+        cc_module._SESSION_LAST_LOGIN = 0.0
 
 
 if __name__ == "__main__":
@@ -112,6 +197,8 @@ if __name__ == "__main__":
         test_resolve_epic_auto_discovery,
         test_resolve_epic_prefers_gold_commodities,
         test_resolve_epic_raises_on_no_markets,
+        test_session_reuse_across_instances,
+        test_session_refresh_after_ttl,
     ]
     
     passed = 0
