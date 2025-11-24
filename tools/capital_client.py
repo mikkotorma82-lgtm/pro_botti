@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import time
+import threading
 import requests
 from loguru import logger
 
@@ -13,6 +14,7 @@ SYMBOL_EPIC_OVERRIDE: dict[str, str] = {
 _SHARED_SESSION = None
 _SESSION_LAST_LOGIN = 0.0
 _SESSION_TTL = int(os.getenv("CAPITAL_LOGIN_TTL", "540"))  # 9 minutes default (token is ~10 min)
+_SESSION_LOCK = threading.Lock()  # Thread safety for session creation
 
 class CapitalClient:
     def __init__(self):
@@ -30,22 +32,30 @@ class CapitalClient:
         """Get existing session or create new one if needed."""
         global _SHARED_SESSION, _SESSION_LAST_LOGIN
         
-        now = time.time()
-        # Reuse session if it exists and hasn't expired
-        if _SHARED_SESSION is not None and (now - _SESSION_LAST_LOGIN) < _SESSION_TTL:
-            logger.info(f"Reusing existing Capital.com session (age: {now - _SESSION_LAST_LOGIN:.1f}s)")
-            return _SHARED_SESSION
-        
-        # Create new session and authenticate
-        logger.info("Creating new Capital.com session")
-        session = requests.Session()
-        self._authenticate(session)
-        
-        # Cache the session for reuse
-        _SHARED_SESSION = session
-        _SESSION_LAST_LOGIN = now
-        
-        return session
+        # Thread-safe session access
+        with _SESSION_LOCK:
+            now = time.time()
+            # Reuse session if it exists and hasn't expired
+            if _SHARED_SESSION is not None and (now - _SESSION_LAST_LOGIN) < _SESSION_TTL:
+                logger.info(f"Reusing existing Capital.com session (age: {now - _SESSION_LAST_LOGIN:.1f}s)")
+                return _SHARED_SESSION
+            
+            # Create new session and authenticate
+            logger.info("Creating new Capital.com session")
+            session = requests.Session()
+            
+            try:
+                self._authenticate(session)
+                # Cache the session for reuse only on successful authentication
+                _SHARED_SESSION = session
+                _SESSION_LAST_LOGIN = now
+            except Exception as e:
+                # Clear cached session on authentication failure
+                _SHARED_SESSION = None
+                _SESSION_LAST_LOGIN = 0.0
+                raise
+            
+            return session
 
     def _authenticate(self, session):
         url = f"{self.base}/api/v1/session"
