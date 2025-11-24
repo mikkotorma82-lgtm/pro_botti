@@ -1,11 +1,12 @@
 from typing import Dict
 
-# Käyttäjän defaultit:
-# 15m = 730 päivää, 1h = 1460 päivää, 4h = 3650 päivää
+# Training history configuration:
+# Changed from 10 years to 3 years to reduce API load and prevent 429 errors
+# 15m = 1095 days (3 years), 1h = 1095 days (3 years), 4h = 1095 days (3 years)
 DEFAULT_TARGET_DAYS: Dict[str, int] = {
-    "15m": 730,
-    "1h": 1460,
-    "4h": 3650,
+    "15m": 1095,   # 3 years
+    "1h": 1095,    # 3 years
+    "4h": 1095,    # 3 years
 }
 
 def tf_to_seconds(tf: str) -> int:
